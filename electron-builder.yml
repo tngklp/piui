@@ -1,0 +1,34 @@
+appId: dev.piui.app
+productName: PiUI
+copyright: Copyright © 2026 tngklp
+
+directories:
+  output: release
+  buildResources: build
+
+asar: true
+
+# The pi SDK loads WASM and dynamic assets at runtime, so keep it on disk
+# instead of inside app.asar.
+asarUnpack:
+  - '**/node_modules/@earendil-works/**'
+  - '**/node_modules/quickjs-wasi/**'
+  - '**/node_modules/@silvia-odwyer/**'
+
+win:
+  target:
+    - nsis
+  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  synopsis: Desktop GUI for the Pi coding agent
+  artifactName: ${productName}-${version}-${arch}.${ext}

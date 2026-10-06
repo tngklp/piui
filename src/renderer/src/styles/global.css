@@ -1,0 +1,119 @@
+:root {
+  --piui-bg: #0f0f13;
+  --piui-bg-raised: #17171e;
+  --piui-border: #26262f;
+  --piui-text: #e7e7ea;
+  --piui-text-muted: #9a9aa6;
+  --piui-accent: #7c6cff;
+  --piui-error: #ff6b6b;
+
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--piui-bg);
+  color: var(--piui-text);
+  font-family:
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    Roboto,
+    Ubuntu,
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.shell__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--piui-border);
+  background: var(--piui-bg-raised);
+}
+
+.shell__logo {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--piui-accent), #4aa8ff);
+  color: #fff;
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.shell__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.shell__subtitle {
+  margin: 0;
+  color: var(--piui-text-muted);
+  font-size: 12px;
+}
+
+.shell__main {
+  flex: 1;
+  padding: 24px;
+  overflow: auto;
+}
+
+.shell__muted {
+  color: var(--piui-text-muted);
+}
+
+.shell__error {
+  color: var(--piui-error);
+}
+
+.facts {
+  max-width: 360px;
+  margin: 0;
+  border: 1px solid var(--piui-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.facts__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--piui-border);
+}
+
+.facts__row:last-child {
+  border-bottom: none;
+}
+
+.facts dt {
+  color: var(--piui-text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
