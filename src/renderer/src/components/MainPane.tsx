@@ -1,7 +1,7 @@
 import type { ChatItemDto } from '@shared/ipc'
 import { usePiUi } from '../store'
 import { ChatView } from './ChatView'
-import { EditorView } from './EditorView'
+import { EditorView } from './editor/EditorView'
 
 /** Collapse a prompt into a short single-line session title. */
 function titleFrom(text: string): string {

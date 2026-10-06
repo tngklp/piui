@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { usePiUi } from '../store'
 
 /**
- * Renders extension-UI dialogs (including PiUI's own approval prompts) and
- * sends the answer back to the main process.
+ * Renders extension-UI dialogs and sends the answer back to the main process.
+ *
+ * Approvals are deliberately excluded: they are answered inside the transcript
+ * instead, so the user keeps the context of what the agent is doing.
  */
 export function DialogHost() {
   const dialog = usePiUi((state) => state.dialog)
@@ -18,7 +20,7 @@ export function DialogHost() {
     }
   }, [dialog])
 
-  if (!dialog) return null
+  if (!dialog || dialog.method === 'approval') return null
 
   const cancel = (): void => void respond({ id: dialog.id, cancelled: true })
 

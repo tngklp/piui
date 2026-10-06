@@ -1910,6 +1910,7 @@ select.pick {
   left: 0;
   z-index: 30;
   min-width: 100%;
+  max-width: min(340px, calc(100vw - 40px));
   max-height: 280px;
   overflow: auto;
   padding: 4px;
@@ -2102,6 +2103,7 @@ select.pick {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  background: var(--term);
 }
 
 .editor__tabs {
@@ -2119,38 +2121,102 @@ select.pick {
   align-items: center;
   flex: none;
   border-radius: 8px;
-  background: var(--raise);
+  border: 1px solid transparent;
 }
 
 .ftab.on {
-  background: var(--lilac-soft);
+  background: var(--term);
+  border-color: var(--line);
+  box-shadow: inset 0 2px 0 var(--lilac-strong);
 }
 
 .ftab__name {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 4px 4px 10px;
+  padding: 5px 4px 5px 9px;
   font-size: 12.5px;
+  color: var(--dim);
   white-space: nowrap;
 }
 
-.ftab__dot {
+.ftab.on .ftab__name {
+  color: var(--text);
+}
+
+.ftab__icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+.ftab__modified {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--lilac-strong);
+  background: var(--text);
+  flex: none;
+  margin-left: 2px;
 }
 
 .ftab__close {
-  padding: 4px 8px 4px 4px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-right: 4px;
+  border-radius: 5px;
+  color: var(--dim);
   font-size: 14px;
   line-height: 1;
-  color: var(--dim);
+  flex: none;
 }
 
 .ftab__close:hover {
-  color: var(--del);
+  background: var(--raise);
+  color: var(--text);
+}
+
+/* VS Code swaps the unsaved dot for a close button on hover. */
+.ftab__close.dirty .ftab__close-x {
+  display: none;
+}
+
+.ftab__close.dirty:hover .ftab__close-x {
+  display: block;
+}
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: 2px;
+  padding: 4px 14px;
+  font-size: 12px;
+  color: var(--dim);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.crumbs__part {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.crumbs__sep {
+  opacity: 0.6;
+}
+
+.crumbs__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.crumbs__part:last-child .crumbs__text {
+  color: var(--text);
 }
 
 .editor__host {
@@ -2165,6 +2231,37 @@ select.pick {
 
 .editor__host .cm-editor.cm-focused {
   outline: none;
+}
+
+.editor__watermark {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 13px;
+}
+
+.editor__watermark .hint {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.editor__status {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex: none;
+  padding: 3px 12px;
+  font-size: 11.5px;
+  color: var(--dim);
+  border-top: 1px solid var(--line);
+}
+
+.ibtn.on {
+  background: var(--lilac-soft);
+  color: var(--lilac-strong);
 }
 
 /* ---------- motion ---------- */
@@ -2280,6 +2377,43 @@ select.pick {
   overflow: auto;
 }
 
+/* ---------- inline approval ---------- */
+
+.appro {
+  border-color: var(--lilac-strong);
+  box-shadow: 0 0 0 3px var(--lilac-soft);
+}
+
+.appro__title {
+  font-size: 13px;
+}
+
+.appro__wait {
+  color: var(--dim);
+}
+
+.appro .cmd__full {
+  margin: 10px 12px;
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--bg);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.appro__acts {
+  display: flex;
+  gap: 8px;
+  padding: 0 12px 12px;
+}
+
+.appro__acts .b {
+  padding: 7px 16px;
+}
+
 /* ---------- select palette swatch ---------- */
 
 .select__swatch {
@@ -2306,12 +2440,14 @@ select.pick {
 /* ---------- settings ---------- */
 
 .settings.modal__panel {
-  width: min(880px, 100%);
+  width: min(1040px, 100%);
+  /* Fixed height so switching tabs never resizes the window. */
+  height: min(660px, 88vh);
   padding: 0;
   gap: 0;
   overflow: hidden;
   display: grid;
-  grid-template-columns: 208px minmax(0, 1fr);
+  grid-template-columns: 216px minmax(0, 1fr);
 }
 
 .settings__nav {
@@ -2363,9 +2499,15 @@ select.pick {
 
 .settings__body {
   padding: 18px;
-  overflow: auto;
+  overflow: hidden auto;
   min-height: 0;
-  max-height: min(640px, 78vh);
+}
+
+/* Keep the theme dropdowns inside the panel instead of opening a horizontal
+   scrollbar on the scrolling body. */
+.settings__body,
+.settings__nav {
+  overscroll-behavior: contain;
 }
 
 /* ---------- model catalogue ---------- */
@@ -2403,6 +2545,11 @@ select.pick {
   color: var(--dim);
 }
 
+.models {
+  display: grid;
+  gap: 0;
+}
+
 .mrow {
   display: grid;
   grid-template-columns: 1.05fr 1.05fr 82px 82px auto auto 28px;
@@ -2410,6 +2557,20 @@ select.pick {
   align-items: center;
   padding-top: 6px;
   border-top: 1px solid var(--line);
+}
+
+.mrow--head {
+  border-top: 0;
+  padding: 2px 0 4px;
+  gap: 6px;
+}
+
+.mrow--head span {
+  font-size: 11.5px;
+  color: var(--dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .inp {

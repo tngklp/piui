@@ -154,7 +154,7 @@ export function ModelsSettings() {
               <input
                 className="inp mono"
                 value={provider.baseUrl}
-                placeholder="http://127.0.0.1:8080/v1"
+                aria-label="Base URL"
                 onChange={(event) => updateProvider(providerIndex, { baseUrl: event.target.value })}
               />
             </label>
@@ -163,7 +163,7 @@ export function ModelsSettings() {
               <input
                 className="inp mono"
                 value={provider.apiKey}
-                placeholder="local"
+                aria-label="API key"
                 onChange={(event) => updateProvider(providerIndex, { apiKey: event.target.value })}
               />
             </label>
@@ -179,88 +179,102 @@ export function ModelsSettings() {
             </label>
           </div>
 
-          {provider.models.map((model, modelIndex) => (
-            <div className="mrow" key={modelIndex}>
-              <input
-                className="inp mono"
-                value={model.id}
-                aria-label="Model id"
-                placeholder="model id"
-                onChange={(event) =>
-                  updateModel(providerIndex, modelIndex, { id: event.target.value })
-                }
-              />
-              <input
-                className="inp"
-                value={model.name}
-                aria-label="Model name"
-                placeholder="display name"
-                onChange={(event) =>
-                  updateModel(providerIndex, modelIndex, { name: event.target.value })
-                }
-              />
-              <input
-                className="inp num"
-                type="number"
-                min={0}
-                value={model.contextWindow}
-                aria-label="Context window"
-                title="Context window (tokens)"
-                onChange={(event) =>
-                  updateModel(providerIndex, modelIndex, {
-                    contextWindow: Number(event.target.value) || 0
-                  })
-                }
-              />
-              <input
-                className="inp num"
-                type="number"
-                min={0}
-                value={model.maxTokens}
-                aria-label="Max output tokens"
-                title="Max output tokens"
-                onChange={(event) =>
-                  updateModel(providerIndex, modelIndex, {
-                    maxTokens: Number(event.target.value) || 0
-                  })
-                }
-              />
-              <label className="chk" title="The model supports reasoning effort">
+          <div className="models">
+            {provider.models.length > 0 ? (
+              <div className="mrow mrow--head" aria-hidden="true">
+                <span>Model id</span>
+                <span>Display name</span>
+                <span>Context size</span>
+                <span>Max output</span>
+                <span />
+                <span />
+                <span />
+              </div>
+            ) : null}
+
+            {provider.models.map((model, modelIndex) => (
+              <div className="mrow" key={modelIndex}>
                 <input
-                  type="checkbox"
-                  checked={model.reasoning}
+                  className="inp mono"
+                  value={model.id}
+                  aria-label="Model id"
+                  placeholder="model id"
                   onChange={(event) =>
-                    updateModel(providerIndex, modelIndex, { reasoning: event.target.checked })
+                    updateModel(providerIndex, modelIndex, { id: event.target.value })
                   }
                 />
-                think
-              </label>
-              <label className="chk" title="The model accepts images">
                 <input
-                  type="checkbox"
-                  checked={model.input.includes('image')}
+                  className="inp"
+                  value={model.name}
+                  aria-label="Model display name"
+                  placeholder="display name"
+                  onChange={(event) =>
+                    updateModel(providerIndex, modelIndex, { name: event.target.value })
+                  }
+                />
+                <input
+                  className="inp num"
+                  type="number"
+                  min={0}
+                  value={model.contextWindow}
+                  aria-label="Context size in tokens"
+                  title="Context size in tokens"
                   onChange={(event) =>
                     updateModel(providerIndex, modelIndex, {
-                      input: event.target.checked ? ['text', 'image'] : ['text']
+                      contextWindow: Number(event.target.value) || 0
                     })
                   }
                 />
-                images
-              </label>
-              <button
-                className="ibtn"
-                title="Remove model"
-                aria-label="Remove model"
-                onClick={() =>
-                  update((next) => {
-                    next.providers[providerIndex].models.splice(modelIndex, 1)
-                  })
-                }
-              >
-                ✕
-              </button>
-            </div>
-          ))}
+                <input
+                  className="inp num"
+                  type="number"
+                  min={0}
+                  value={model.maxTokens}
+                  aria-label="Max output size in tokens"
+                  title="Max output size in tokens"
+                  onChange={(event) =>
+                    updateModel(providerIndex, modelIndex, {
+                      maxTokens: Number(event.target.value) || 0
+                    })
+                  }
+                />
+                <label className="chk" title="The model supports reasoning effort">
+                  <input
+                    type="checkbox"
+                    checked={model.reasoning}
+                    onChange={(event) =>
+                      updateModel(providerIndex, modelIndex, { reasoning: event.target.checked })
+                    }
+                  />
+                  think
+                </label>
+                <label className="chk" title="The model accepts images">
+                  <input
+                    type="checkbox"
+                    checked={model.input.includes('image')}
+                    onChange={(event) =>
+                      updateModel(providerIndex, modelIndex, {
+                        input: event.target.checked ? ['text', 'image'] : ['text']
+                      })
+                    }
+                  />
+                  images
+                </label>
+                <button
+                  className="ibtn"
+                  title="Remove model"
+                  aria-label="Remove model"
+                  onClick={() =>
+                    update((next) => {
+                      next.providers[providerIndex].models.splice(modelIndex, 1)
+                    })
+                  }
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
 
           <button
             className="b sm"

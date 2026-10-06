@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactElement } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement } from 'react'
 
 export interface SelectOption<T extends string> {
   value: T
@@ -20,6 +20,29 @@ interface SelectProps<T extends string> {
   placeholder?: string
 }
 
+/** Horizontal breathing room kept between a menu and its clipping container. */
+const EDGE_GAP = 8
+
+/**
+ * Nearest ancestor that clips its children, which is what a dropdown can
+ * overflow. Falls back to the viewport.
+ */
+function clippingBounds(element: HTMLElement): { left: number; right: number } {
+  let left = EDGE_GAP
+  let right = window.innerWidth - EDGE_GAP
+
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    const style = getComputedStyle(node)
+    if (/(auto|scroll|hidden|clip)/.test(`${style.overflowX}${style.overflowY}`)) {
+      const rect = node.getBoundingClientRect()
+      left = Math.max(left, rect.left + EDGE_GAP)
+      right = Math.min(right, rect.right - EDGE_GAP)
+    }
+  }
+
+  return { left, right }
+}
+
 /** Themed dropdown that replaces the native `select`. */
 export function Select<T extends string>({
   value,
@@ -33,6 +56,7 @@ export function Select<T extends string>({
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -51,6 +75,28 @@ export function Select<T extends string>({
       window.removeEventListener('keydown', onKey)
     }
   }, [open])
+
+  /**
+   * Keep the menu inside the panel it belongs to. This runs before paint and
+   * writes the transform straight onto the node, so nothing flickers.
+   */
+  useLayoutEffect(() => {
+    const menu = menuRef.current
+    const root = rootRef.current
+    if (!open || !menu || !root) return
+
+    menu.style.transform = ''
+
+    const bounds = clippingBounds(root)
+    const trigger = root.getBoundingClientRect()
+    const width = menu.getBoundingClientRect().width
+
+    let shift = 0
+    if (trigger.left + width > bounds.right) shift = bounds.right - (trigger.left + width)
+    if (trigger.left + shift < bounds.left) shift = bounds.left - trigger.left
+
+    if (shift !== 0) menu.style.transform = `translateX(${shift}px)`
+  }, [open, options.length])
 
   const current = options.find((option) => option.value === value)
 
@@ -81,7 +127,7 @@ export function Select<T extends string>({
       </button>
 
       {open ? (
-        <div className={`select__menu ${direction}`} role="listbox">
+        <div className={`select__menu ${direction}`} role="listbox" ref={menuRef}>
           {options.map((option) => (
             <button
               type="button"

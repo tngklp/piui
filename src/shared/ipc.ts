@@ -207,12 +207,23 @@ export type UiRequestDto =
   | { id: string; method: 'confirm'; title: string; message: string; danger?: boolean }
   | { id: string; method: 'input'; title: string; placeholder?: string }
   | { id: string; method: 'editor'; title: string; prefill?: string }
+  | {
+      id: string
+      method: 'approval'
+      /** Name of the tool that wants to run. */
+      tool: string
+      /** Short headline, e.g. `Wants to run a command`. */
+      title: string
+      /** The command or path being approved. */
+      detail: string
+    }
 
 /** The renderer's answer to a {@link UiRequestDto}. */
 export type UiResponseDto =
   | { id: string; cancelled: true }
   | { id: string; value: string }
   | { id: string; confirmed: boolean }
+  | { id: string; decision: 'allow' | 'deny' }
 
 /** What PiUI does before running a tool. */
 export type ApprovalAction = 'allow' | 'ask' | 'deny'

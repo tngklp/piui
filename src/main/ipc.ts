@@ -68,7 +68,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     log: (message) => send(IpcEvent.Notice, { level: 'info', message })
   }
 
-  const approvals = new ApprovalManager(join(app.getPath('userData'), 'approval-rules.json'))
+  const approvals = new ApprovalManager(
+    join(app.getPath('userData'), 'approval-rules.json'),
+    (request) => transport.ask(request)
+  )
   let approvalsLoaded: Promise<void> | null = null
   const ensureApprovalsLoaded = async (): Promise<void> => {
     approvalsLoaded ??= approvals.load()

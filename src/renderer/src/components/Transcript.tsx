@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { ChatBlockDto, ChatItemDto } from '@shared/ipc'
+import type { ChatBlockDto, ChatItemDto, UiRequestDto } from '@shared/ipc'
 import { formatDuration, summarizeToolArguments } from '../lib/format'
 import { usePiUi } from '../store'
 import { Collapsible } from './Collapsible'
@@ -134,16 +134,49 @@ function TranscriptItem({ item }: { item: ChatItemDto }) {
   }
 }
 
+/** Inline approval prompt for a tool the agent wants to run. */
+function ApprovalCard({ request }: { request: Extract<UiRequestDto, { method: 'approval' }> }) {
+  const respond = usePiUi((state) => state.respondToDialog)
+
+  return (
+    <div className="card appro">
+      <div className="hd">
+        <span className="tag">{request.tool}</span>
+        <span className="appro__title">{request.title}</span>
+        <span className="hd__end">
+          <span className="appro__wait">waiting</span>
+        </span>
+      </div>
+
+      <pre className="cmd__full">{request.detail}</pre>
+
+      <div className="appro__acts">
+        <button
+          className="b pri"
+          autoFocus
+          onClick={() => void respond({ id: request.id, decision: 'allow' })}
+        >
+          Allow
+        </button>
+        <button className="b" onClick={() => void respond({ id: request.id, decision: 'deny' })}>
+          Deny
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /** Scrolling transcript with a live streaming bubble. */
 export function Transcript() {
   const items = usePiUi((state) => state.items)
   const streaming = usePiUi((state) => state.streaming)
   const runningTools = usePiUi((state) => state.runningTools)
+  const dialog = usePiUi((state) => state.dialog)
   const endRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
-  }, [items, streaming, runningTools])
+  }, [items, streaming, runningTools, dialog])
 
   const isEmpty = items.length === 0 && !streaming && runningTools.length === 0
 
@@ -186,6 +219,8 @@ export function Transcript() {
           <p className="stream" />
         </div>
       ) : null}
+
+      {dialog && dialog.method === 'approval' ? <ApprovalCard request={dialog} /> : null}
 
       <div ref={endRef} />
     </div>

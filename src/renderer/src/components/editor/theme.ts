@@ -1,0 +1,192 @@
+/**
+ * CodeMirror presentation for the editor pane.
+ *
+ * Chrome (backgrounds, gutters, selection) follows the active PiUI theme so the
+ * editor matches the rest of the app, while the token colours come from the VS
+ * Code Dark+ / Light+ palettes that most people recognise.
+ */
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { EditorView } from '@codemirror/view'
+import type { Extension } from '@codemirror/state'
+import { tags as t } from '@lezer/highlight'
+
+/** VS Code Dark+ token colours. */
+const DARK_TOKENS = {
+  comment: '#6A9955',
+  keyword: '#569CD6',
+  control: '#C586C0',
+  string: '#CE9178',
+  number: '#B5CEA8',
+  type: '#4EC9B0',
+  function: '#DCDCAA',
+  variable: '#9CDCFE',
+  constant: '#4FC1FF',
+  operator: '#D4D4D4',
+  tag: '#569CD6',
+  attribute: '#9CDCFE',
+  invalid: '#F44747',
+  punctuation: '#D4D4D4',
+  regexp: '#D16969'
+}
+
+/** VS Code Light+ token colours. */
+const LIGHT_TOKENS = {
+  comment: '#008000',
+  keyword: '#0000FF',
+  control: '#AF00DB',
+  string: '#A31515',
+  number: '#098658',
+  type: '#267F99',
+  function: '#795E26',
+  variable: '#001080',
+  constant: '#0070C1',
+  operator: '#000000',
+  tag: '#800000',
+  attribute: '#E50000',
+  invalid: '#CD3131',
+  punctuation: '#000000',
+  regexp: '#811F3F'
+}
+
+/** Editor chrome: everything that should track the app theme. */
+export function editorTheme(appearance: 'light' | 'dark', fontSize: number): Extension {
+  const dark = appearance === 'dark'
+
+  return [
+    EditorView.theme(
+      {
+        '&': {
+          height: '100%',
+          backgroundColor: 'var(--term)',
+          color: 'var(--text)',
+          fontSize: `${fontSize}px`
+        },
+        '.cm-scroller': {
+          fontFamily: 'var(--mono)',
+          lineHeight: '1.55'
+        },
+        '.cm-content': {
+          caretColor: 'var(--lilac-strong)',
+          padding: '8px 0'
+        },
+        '.cm-line': { padding: '0 12px 0 8px' },
+        '.cm-cursor, .cm-dropCursor': {
+          borderLeft: '2px solid var(--lilac-strong)'
+        },
+        '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
+          backgroundColor: 'var(--lilac-soft)'
+        },
+        '.cm-selectionMatch': { backgroundColor: 'var(--lilac-soft)' },
+        '.cm-gutters': {
+          backgroundColor: 'var(--term)',
+          color: 'var(--dim)',
+          border: 'none',
+          borderRight: '1px solid var(--line)',
+          fontSize: `${Math.max(9, fontSize - 1)}px`
+        },
+        '.cm-gutterElement': { padding: '0 8px 0 12px' },
+        '.cm-lineNumbers .cm-gutterElement': { minWidth: '34px' },
+        '.cm-activeLineGutter': {
+          backgroundColor: 'transparent',
+          color: 'var(--text)'
+        },
+        '.cm-activeLine': { backgroundColor: 'var(--raise)' },
+        '.cm-foldGutter .cm-gutterElement': { padding: '0 4px', cursor: 'pointer' },
+        '.cm-foldPlaceholder': {
+          backgroundColor: 'var(--raise)',
+          border: '1px solid var(--line)',
+          color: 'var(--dim)',
+          padding: '0 6px',
+          borderRadius: '4px'
+        },
+        '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
+          backgroundColor: 'var(--lilac-soft)',
+          outline: '1px solid var(--lilac-strong)'
+        },
+        '.cm-nonmatchingBracket': { color: 'var(--del)' },
+        '.cm-tooltip': {
+          backgroundColor: 'var(--panel)',
+          border: '1px solid var(--line)',
+          borderRadius: '8px',
+          color: 'var(--text)',
+          boxShadow: '0 10px 26px rgba(0, 0, 0, 0.3)'
+        },
+        '.cm-tooltip-autocomplete ul li[aria-selected]': {
+          backgroundColor: 'var(--lilac-soft)',
+          color: 'var(--text)'
+        },
+        '.cm-tooltip-autocomplete ul li': { padding: '3px 8px' },
+        '.cm-completionIcon': { opacity: 0.75 },
+        '.cm-completionMatchedText': {
+          color: 'var(--lilac-strong)',
+          textDecoration: 'none',
+          fontWeight: '600'
+        },
+        '.cm-panels': {
+          backgroundColor: 'var(--panel)',
+          color: 'var(--text)',
+          borderTop: '1px solid var(--line)'
+        },
+        '.cm-panels.cm-panels-top': { borderBottom: '1px solid var(--line)' },
+        '.cm-panel.cm-search': { padding: '6px 10px', fontSize: '12.5px' },
+        '.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': {
+          fontFamily: 'inherit',
+          fontSize: '12.5px'
+        },
+        '.cm-panel.cm-search input[type=text]': {
+          backgroundColor: 'var(--bg)',
+          color: 'var(--text)',
+          border: '1px solid var(--line)',
+          borderRadius: '7px',
+          padding: '4px 8px',
+          outline: 'none'
+        },
+        '.cm-panel.cm-search button': {
+          backgroundColor: 'var(--raise)',
+          color: 'var(--text)',
+          border: '1px solid var(--line)',
+          borderRadius: '7px',
+          padding: '3px 9px',
+          cursor: 'pointer'
+        },
+        '.cm-panel.cm-search button:hover': { borderColor: 'var(--lilac-strong)' },
+        '.cm-searchMatch': {
+          backgroundColor: 'var(--lilac-soft)',
+          outline: '1px solid var(--lilac-strong)'
+        },
+        '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--lilac)' }
+      },
+      { dark }
+    )
+  ]
+}
+
+/** Token colours for the editor. */
+export function editorHighlight(appearance: 'light' | 'dark'): Extension {
+  const c = appearance === 'dark' ? DARK_TOKENS : LIGHT_TOKENS
+
+  return syntaxHighlighting(
+    HighlightStyle.define([
+      { tag: t.comment, color: c.comment, fontStyle: 'italic' },
+      { tag: [t.keyword, t.moduleKeyword, t.definitionKeyword], color: c.keyword },
+      { tag: [t.controlKeyword, t.operatorKeyword], color: c.control },
+      { tag: [t.string, t.special(t.string), t.character], color: c.string },
+      { tag: [t.number, t.bool, t.null, t.atom], color: c.number },
+      { tag: [t.typeName, t.className, t.namespace, t.self], color: c.type },
+      { tag: [t.function(t.variableName), t.function(t.propertyName)], color: c.function },
+      { tag: [t.definition(t.variableName), t.definition(t.propertyName)], color: c.variable },
+      { tag: [t.propertyName, t.attributeName], color: c.variable },
+      { tag: [t.variableName, t.local(t.variableName)], color: c.variable },
+      { tag: [t.constant(t.variableName), t.standard(t.variableName)], color: c.constant },
+      { tag: t.operator, color: c.operator },
+      { tag: [t.punctuation, t.bracket, t.separator], color: c.punctuation },
+      { tag: [t.tagName, t.typeName], color: c.tag },
+      { tag: [t.attributeValue, t.string], color: c.string },
+      { tag: t.regexp, color: c.regexp },
+      { tag: [t.heading, t.strong], fontWeight: '600' },
+      { tag: t.emphasis, fontStyle: 'italic' },
+      { tag: t.link, color: c.constant, textDecoration: 'underline' },
+      { tag: t.invalid, color: c.invalid }
+    ])
+  )
+}

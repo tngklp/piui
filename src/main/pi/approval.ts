@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import type {
@@ -5,7 +6,7 @@ import type {
   ExtensionFactory,
   InlineExtension
 } from '@earendil-works/pi-coding-agent'
-import type { ApprovalAction, ApprovalConfig } from '@shared/ipc'
+import type { ApprovalAction, ApprovalConfig, UiRequestDto, UiResponseDto } from '@shared/ipc'
 
 /** Default policy: mutating tools ask first, read-only tools run. */
 export const DEFAULT_APPROVAL_CONFIG: ApprovalConfig = {
@@ -75,9 +76,21 @@ function clip(value: string, max = 600): string {
   return value.length > max ? `${value.slice(0, max)}…` : value
 }
 
+/** Headline shown above the subject in the inline approval card. */
+function headlineFor(tool: string): string {
+  if (tool === 'bash' || tool === 'powershell') return 'Wants to run a command'
+  if (tool === 'edit') return 'Wants to edit a file'
+  if (tool === 'write') return 'Wants to write a file'
+  if (tool === 'read') return 'Wants to read a file'
+  return `Wants to use the ${tool} tool`
+}
+
+/** How the user answers an approval prompt. */
+export type ApprovalPrompter = (request: UiRequestDto) => Promise<UiResponseDto>
+
 /**
- * Owns the approval policy: the persisted per-tool actions, session-scoped
- * "allow" decisions, and the inline extension that enforces them.
+ * Owns the approval policy: the persisted per-tool actions and the inline
+ * extension that enforces them.
  */
 export class ApprovalManager {
   private config: ApprovalConfig = {
@@ -85,11 +98,12 @@ export class ApprovalManager {
     tools: { ...DEFAULT_APPROVAL_CONFIG.tools }
   }
 
-  private readonly sessionAllow = new Set<string>()
   private readonly filePath: string
+  private readonly prompt: ApprovalPrompter
 
-  constructor(filePath: string) {
+  constructor(filePath: string, prompt: ApprovalPrompter) {
     this.filePath = filePath
+    this.prompt = prompt
   }
 
   async load(): Promise<void> {
@@ -110,9 +124,8 @@ export class ApprovalManager {
     await writeFile(this.filePath, `${JSON.stringify(this.config, null, 2)}\n`, 'utf8')
   }
 
-  /** Resolve the policy for a call, honouring session-scoped allowances. */
+  /** Resolve the configured policy for a tool. */
   decide(tool: string): ApprovalAction {
-    if (this.sessionAllow.has(tool)) return 'allow'
     return evaluateApproval(this.config, tool)
   }
 
@@ -129,19 +142,20 @@ export class ApprovalManager {
           return { block: true, reason: `Blocked by a PiUI approval setting for "${tool}".` }
         }
 
+        // The approval happens in the transcript, not in a modal, so the user
+        // keeps the context of what the agent is doing.
         const input = (event.input ?? {}) as unknown as Record<string, unknown>
-        const choice = await ctx.ui.select(
-          `${tool} wants to run:\n\n${clip(subjectFor(tool, input))}`,
-          ['Allow once', 'Allow for this session', 'Deny']
-        )
+        const response = await this.prompt({
+          id: randomUUID(),
+          method: 'approval',
+          tool,
+          title: headlineFor(tool),
+          detail: clip(subjectFor(tool, input))
+        })
 
-        if (choice === 'Allow once') return undefined
+        if ('decision' in response && response.decision === 'allow') return undefined
 
-        if (choice === 'Allow for this session') {
-          this.sessionAllow.add(tool)
-          return undefined
-        }
-
+        ctx.ui.notify(`Denied ${tool}.`, 'warning')
         return { block: true, reason: 'Denied by the user in PiUI.' }
       })
     }
