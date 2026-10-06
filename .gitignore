@@ -16,6 +16,10 @@ release-linux/
 *.log
 npm-debug.log*
 
+# Scratch files (throwaway commit-message bodies, one-off build scripts).
+.tmp-*
+.tmp_*
+
 # Editor / OS
 .DS_Store
 Thumbs.db

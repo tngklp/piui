@@ -1,8 +1,0 @@
-chore(release): start releases by hand again
-
-A push is not a decision to publish, so the release workflow no longer listens
-for changes to package.json. It only runs when dispatched from the Actions tab.
-The guard job and the force input stay: a plain dispatch of an already published
-version stops before packaging, and force rebuilds one that is already out.
-
-The README drops the explanatory note under the download links.
