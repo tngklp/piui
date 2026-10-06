@@ -45,7 +45,12 @@ export const IpcChannel = {
   MonitorGet: 'piui:monitor:get',
   /** Read or replace the provider/model definitions in `models.json`. */
   ModelsGet: 'piui:models:get',
-  ModelsSet: 'piui:models:set'
+  ModelsSet: 'piui:models:set',
+  /** Real terminal sessions backed by a pseudo-terminal. */
+  TerminalCreate: 'piui:terminal:create',
+  TerminalWrite: 'piui:terminal:write',
+  TerminalResize: 'piui:terminal:resize',
+  TerminalDispose: 'piui:terminal:dispose'
 } as const
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -55,10 +60,45 @@ export const IpcEvent = {
   AgentEvent: 'piui:agent:event',
   Notice: 'piui:notice',
   /** A dialog an extension (or PiUI itself) is waiting on. */
-  UiRequest: 'piui:ui:request'
+  UiRequest: 'piui:ui:request',
+  /** Output from a terminal session. */
+  TerminalData: 'piui:terminal:data',
+  /** A terminal session ended. */
+  TerminalExit: 'piui:terminal:exit'
 } as const
 
 export type IpcEvent = (typeof IpcEvent)[keyof typeof IpcEvent]
+
+/** Options for starting a terminal session. */
+export interface TerminalCreateInput {
+  /** Caller-chosen id; reusing an id re-attaches to the running shell. */
+  id: string
+  cwd: string
+  cols: number
+  rows: number
+}
+
+/** A live terminal session, including the output produced so far. */
+export interface TerminalSessionDto {
+  id: string
+  cwd: string
+  /** Command line of the shell that was started. */
+  shell: string
+  /** Bounded replay of everything the shell has written. */
+  buffer: string
+}
+
+/** One chunk of terminal output. */
+export interface TerminalDataDto {
+  id: string
+  data: string
+}
+
+/** A terminal session ended. */
+export interface TerminalExitDto {
+  id: string
+  exitCode: number
+}
 
 /** Static information about the running PiUI application. */
 export interface AppInfo {
@@ -444,4 +484,16 @@ export interface PiUiApi {
   getModelsConfig(): Promise<ModelsConfigDto>
   /** Replace the provider and model definitions and reload the agent catalogue. */
   setModelsConfig(config: ModelsConfigDto): Promise<ModelsUpdateResultDto>
+  /** Start (or re-attach to) a terminal session. */
+  terminalCreate(input: TerminalCreateInput): Promise<TerminalSessionDto>
+  /** Send keystrokes to a terminal session. */
+  terminalWrite(id: string, data: string): Promise<void>
+  /** Tell the shell it has a new viewport size. */
+  terminalResize(id: string, cols: number, rows: number): Promise<void>
+  /** Kill a terminal session. */
+  terminalDispose(id: string): Promise<void>
+  /** Subscribe to terminal output. Returns an unsubscribe function. */
+  onTerminalData(listener: (payload: TerminalDataDto) => void): () => void
+  /** Subscribe to terminal exit events. Returns an unsubscribe function. */
+  onTerminalExit(listener: (payload: TerminalExitDto) => void): () => void
 }

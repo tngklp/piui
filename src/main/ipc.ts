@@ -10,6 +10,7 @@ import {
   type ModelsConfigDto,
   type ModelsUpdateResultDto,
   type PromptInput,
+  type TerminalCreateInput,
   type ThinkingLevelDto,
   type UiRequestDto,
   type UiResponseDto,
@@ -24,6 +25,7 @@ import type { UiTransport } from './pi/ui-context'
 import { WorkspaceStore } from './pi/workspace-store'
 import { listDirectory, readFileText, writeFileText } from './fs-list'
 import { readMonitor } from './monitor'
+import { TerminalManager } from './terminal'
 
 export interface IpcContext {
   /** Current main window, used to push agent events to the renderer. */
@@ -67,6 +69,11 @@ export function registerIpcHandlers(context: IpcContext): void {
     setEditorText: (text) => send(IpcEvent.AgentEvent, { type: 'piui_editor_text', text }),
     log: (message) => send(IpcEvent.Notice, { level: 'info', message })
   }
+
+  const terminals = new TerminalManager(
+    (payload) => send(IpcEvent.TerminalData, payload),
+    (payload) => send(IpcEvent.TerminalExit, payload)
+  )
 
   const approvals = new ApprovalManager(
     join(app.getPath('userData'), 'approval-rules.json'),
@@ -220,6 +227,25 @@ export function registerIpcHandlers(context: IpcContext): void {
       return { config: written, models }
     }
   )
+
+  ipcMain.handle(IpcChannel.TerminalCreate, async (_event, input: TerminalCreateInput) => {
+    const cwd = (await host()).getWorkspace().cwd
+    return terminals.create(input, cwd)
+  })
+
+  ipcMain.handle(IpcChannel.TerminalWrite, (_event, id: string, data: string) => {
+    terminals.write(id, data)
+  })
+
+  ipcMain.handle(IpcChannel.TerminalResize, (_event, id: string, cols: number, rows: number) => {
+    terminals.resize(id, cols, rows)
+  })
+
+  ipcMain.handle(IpcChannel.TerminalDispose, (_event, id: string) => {
+    terminals.dispose(id)
+  })
+
+  app.on('before-quit', () => terminals.disposeAll())
 
   ipcMain.handle(IpcChannel.ApprovalGetConfig, async () => {
     await ensureApprovalsLoaded()

@@ -8,6 +8,9 @@ import {
   type NoticeDto,
   type PiUiApi,
   type PromptInput,
+  type TerminalCreateInput,
+  type TerminalDataDto,
+  type TerminalExitDto,
   type ThinkingLevelDto,
   type UiRequestDto,
   type UiResponseDto
@@ -64,7 +67,16 @@ const api: PiUiApi = {
   deleteSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsDelete, path),
   getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet),
   getModelsConfig: () => ipcRenderer.invoke(IpcChannel.ModelsGet),
-  setModelsConfig: (config: ModelsConfigDto) => ipcRenderer.invoke(IpcChannel.ModelsSet, config)
+  setModelsConfig: (config: ModelsConfigDto) => ipcRenderer.invoke(IpcChannel.ModelsSet, config),
+  terminalCreate: (input: TerminalCreateInput) =>
+    ipcRenderer.invoke(IpcChannel.TerminalCreate, input),
+  terminalWrite: (id: string, data: string) =>
+    ipcRenderer.invoke(IpcChannel.TerminalWrite, id, data),
+  terminalResize: (id: string, cols: number, rows: number) =>
+    ipcRenderer.invoke(IpcChannel.TerminalResize, id, cols, rows),
+  terminalDispose: (id: string) => ipcRenderer.invoke(IpcChannel.TerminalDispose, id),
+  onTerminalData: (listener) => subscribe<TerminalDataDto>(IpcEvent.TerminalData, listener),
+  onTerminalExit: (listener) => subscribe<TerminalExitDto>(IpcEvent.TerminalExit, listener)
 }
 
 if (process.contextIsolated) {
