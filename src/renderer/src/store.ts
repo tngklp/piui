@@ -3,6 +3,7 @@ import type {
   AgentEventDto,
   ApprovalConfig,
   ChatItemDto,
+  CommandDto,
   ModelDto,
   ModelsConfigDto,
   MonitorSnapshotDto,
@@ -82,6 +83,8 @@ interface PiUiState {
   runtime: RuntimeInfoDto | null
   status: SessionStatusDto | null
   models: ModelDto[]
+  /** Slash commands discovered from skills and prompt templates. */
+  commands: CommandDto[]
   items: ChatItemDto[]
   streaming: StreamingState | null
   runningTools: RunningTool[]
@@ -137,6 +140,7 @@ interface PiUiState {
   loadModelsConfig: () => Promise<void>
   saveModelsConfig: (config: ModelsConfigDto) => Promise<void>
   loadSessions: () => Promise<void>
+  loadCommands: () => Promise<void>
   switchSession: (path: string) => Promise<void>
   renameSession: (name: string) => Promise<void>
   forkSession: () => Promise<void>
@@ -184,6 +188,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   runtime: null,
   status: null,
   models: [],
+  commands: [],
   items: [],
   streaming: null,
   runningTools: [],
@@ -223,7 +228,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     set({ initialized: true })
 
     try {
-      const [runtime, status, messages, models, approvalConfig, workspace, sessions] =
+      const [runtime, status, messages, models, approvalConfig, workspace, sessions, commands] =
         await Promise.all([
           window.piui.getRuntimeInfo(),
           window.piui.getStatus(),
@@ -231,7 +236,8 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
           window.piui.getModels(),
           window.piui.getApprovalConfig(),
           window.piui.getWorkspace(),
-          window.piui.listSessions()
+          window.piui.listSessions(),
+          window.piui.getCommands()
         ])
       set({
         runtime,
@@ -241,6 +247,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
         approvalConfig,
         workspace,
         sessions,
+        commands,
         error: null
       })
       void get().loadAllSessions()
@@ -367,7 +374,6 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
         void get().refresh()
         void get().loadSessions()
         break
-
       case 'queue_update':
         set((state) => ({
           status: state.status
@@ -446,6 +452,14 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     }
   },
 
+  loadCommands: async () => {
+    try {
+      set({ commands: await window.piui.getCommands() })
+    } catch {
+      // Command discovery is advisory; the built-ins still work.
+    }
+  },
+
   switchSession: async (path) => {
     if (get().status?.sessionFile === path) return
     set({ busy: true, streaming: null, runningTools: [], items: [] })
@@ -497,6 +511,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
       await get().refresh()
       await get().loadSessions()
       await get().loadAllSessions()
+      await get().loadCommands()
     } catch (cause) {
       set({ error: describeError(cause) })
     } finally {
@@ -622,6 +637,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
       await window.piui.newSession()
       await get().refresh()
       await get().loadSessions()
+      await get().loadCommands()
     } catch (cause) {
       set({ error: describeError(cause) })
     } finally {

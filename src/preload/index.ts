@@ -33,6 +33,7 @@ const api: PiUiApi = {
   getMessages: () => ipcRenderer.invoke(IpcChannel.AgentGetMessages),
   getModels: () => ipcRenderer.invoke(IpcChannel.AgentGetModels),
   getStats: () => ipcRenderer.invoke(IpcChannel.AgentGetStats),
+  getCommands: () => ipcRenderer.invoke(IpcChannel.AgentGetCommands),
   prompt: (input: PromptInput) => ipcRenderer.invoke(IpcChannel.AgentPrompt, input),
   steer: (text: string) => ipcRenderer.invoke(IpcChannel.AgentSteer, text),
   followUp: (text: string) => ipcRenderer.invoke(IpcChannel.AgentFollowUp, text),

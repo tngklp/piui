@@ -1,12 +1,12 @@
-import { useMemo, useState, type KeyboardEvent } from 'react'
-import type { ThinkingLevelDto } from '@shared/ipc'
+import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import type { CommandDto, ThinkingLevelDto } from '@shared/ipc'
 import { usePiUi } from '../store'
 import { Select, type SelectOption } from './Select'
 
-interface Command {
-  name: string
-  description: string
-  run: () => void
+/** A row in the slash menu. */
+interface Command extends CommandDto {
+  /** Omitted for discovered commands, which are sent as prompts. */
+  run?: () => void
 }
 
 /** Prompt input with a slash-command menu, model picker, and send/stop. */
@@ -16,6 +16,7 @@ export function Composer() {
 
   const status = usePiUi((state) => state.status)
   const models = usePiUi((state) => state.models)
+  const discovered = usePiUi((state) => state.commands)
   const busy = usePiUi((state) => state.busy)
   const send = usePiUi((state) => state.send)
   const abort = usePiUi((state) => state.abort)
@@ -25,15 +26,35 @@ export function Composer() {
   const selectModel = usePiUi((state) => state.selectModel)
   const selectThinking = usePiUi((state) => state.selectThinking)
 
+  const inputRef = useRef<HTMLTextAreaElement | null>(null)
+
   const streaming = status?.isStreaming ?? false
 
+  // PiUI's own commands run locally; skills and prompt templates are sent as a
+  // normal message, which Pi expands before calling the model.
   const commands = useMemo<Command[]>(
     () => [
-      { name: '/compact', description: 'Summarize earlier turns', run: () => void compact() },
-      { name: '/fork', description: 'Duplicate this session', run: () => void forkSession() },
-      { name: '/new', description: 'Start a new session', run: () => void newSession() }
+      {
+        name: '/compact',
+        description: 'Summarize earlier turns',
+        kind: 'builtin',
+        run: () => void compact()
+      },
+      {
+        name: '/fork',
+        description: 'Duplicate this session',
+        kind: 'builtin',
+        run: () => void forkSession()
+      },
+      {
+        name: '/new',
+        description: 'Start a new session',
+        kind: 'builtin',
+        run: () => void newSession()
+      },
+      ...discovered.map<Command>((command) => ({ ...command }))
     ],
-    [compact, forkSession, newSession]
+    [compact, forkSession, newSession, discovered]
   )
 
   const slashOpen = text.startsWith('/') && !/\s/.test(text)
@@ -59,8 +80,27 @@ export function Composer() {
   }
 
   const runCommand = (command: Command): void => {
+    if (command.run) {
+      setText('')
+      command.run()
+      return
+    }
+
+    // A discovered command with no arguments can go straight to the agent;
+    // otherwise leave the caret after the name so the user can add them.
+    const needsArgs = (command.argumentHint ?? '').trim().length > 0
+    const next = needsArgs ? `${command.name} ` : command.name
+    setText(next)
+
+    if (needsArgs) {
+      requestAnimationFrame(() => {
+        inputRef.current?.focus()
+        inputRef.current?.setSelectionRange(next.length, next.length)
+      })
+      return
+    }
+    void send(next, streaming ? 'steer' : 'prompt')
     setText('')
-    command.run()
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -112,7 +152,8 @@ export function Composer() {
         <div className="slash">
           {matches.length === 0 ? (
             <div className="none">
-              No matching command. Skill and template commands from Pi are sent as prompts.
+              No matching command. Type / to see PiUI's commands, plus any skills and prompt
+              templates installed for this workspace.
             </div>
           ) : (
             matches.map((command, index) => (
@@ -124,6 +165,7 @@ export function Composer() {
               >
                 <b className="mono">{command.name}</b>
                 <em>{command.description}</em>
+                <span className={`kind ${command.kind}`}>{command.kind}</span>
               </button>
             ))
           )}
@@ -132,6 +174,7 @@ export function Composer() {
 
       <div className="box">
         <textarea
+          ref={inputRef}
           value={text}
           rows={2}
           spellCheck={false}

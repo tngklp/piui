@@ -129,6 +129,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.AgentGetStatus, async () => (await host()).getStatus())
   ipcMain.handle(IpcChannel.AgentGetMessages, async () => (await host()).getMessages())
   ipcMain.handle(IpcChannel.AgentGetModels, async () => (await host()).getModels())
+  ipcMain.handle(IpcChannel.AgentGetCommands, async () => (await host()).getCommands())
   ipcMain.handle(IpcChannel.AgentGetStats, async () => (await host()).getStats())
 
   ipcMain.handle(IpcChannel.AgentPrompt, async (_event, input: PromptInput) => {

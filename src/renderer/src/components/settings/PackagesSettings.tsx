@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CatalogPackageDto, InstalledPackageDto } from '@shared/ipc'
+import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
 
 /** Catalogue type filters. */
@@ -107,6 +108,8 @@ export function PackagesSettings() {
     try {
       setInstalled(await window.piui.installPackage(source))
       setStatus(`${source} installed.`)
+      // New skills and commands become available straight away.
+      await usePiUi.getState().loadCommands()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
       setStatus(null)
@@ -121,6 +124,7 @@ export function PackagesSettings() {
     try {
       setInstalled(await window.piui.removePackage(source))
       setStatus(`${source} removed.`)
+      await usePiUi.getState().loadCommands()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {

@@ -25,6 +25,8 @@ export const IpcChannel = {
   AgentSetModel: 'piui:agent:set-model',
   AgentCycleModel: 'piui:agent:cycle-model',
   AgentSetThinking: 'piui:agent:set-thinking',
+  /** Slash commands discovered from skills and prompt templates. */
+  AgentGetCommands: 'piui:agent:get-commands',
   /** Resolve a pending extension-UI dialog opened by the main process. */
   UiRespond: 'piui:ui:respond',
   /** Read or replace the tool-approval rules. */
@@ -141,6 +143,17 @@ export interface TerminalDataDto {
 export interface TerminalExitDto {
   id: string
   exitCode: number
+}
+
+/** A slash command the composer can offer. */
+export interface CommandDto {
+  /** What the user types, including the leading slash. */
+  name: string
+  description: string
+  /** Where the command comes from. */
+  kind: 'builtin' | 'template' | 'skill'
+  /** Placeholder for the arguments, when the command takes any. */
+  argumentHint?: string
 }
 
 /** Static information about the running PiUI application. */
@@ -494,6 +507,8 @@ export interface PiUiApi {
   getMessages(): Promise<ChatItemDto[]>
   getModels(): Promise<ModelDto[]>
   getStats(): Promise<SessionStatsDto>
+  /** List slash commands from skills, prompt templates, and PiUI itself. */
+  getCommands(): Promise<CommandDto[]>
   prompt(input: PromptInput): Promise<void>
   steer(text: string): Promise<void>
   followUp(text: string): Promise<void>

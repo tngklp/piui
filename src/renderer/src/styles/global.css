@@ -907,6 +907,10 @@ select.pick {
   align-items: baseline;
 }
 
+.slash button .mono {
+  flex: none;
+}
+
 .slash button.sel {
   background: var(--lilac-soft);
 }
@@ -919,6 +923,20 @@ select.pick {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.slash .kind {
+  flex: none;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: var(--raise);
+  color: var(--dim);
+  font-size: 10.5px;
+}
+
+.slash .kind.skill {
+  background: var(--lilac-soft);
+  color: var(--lilac-strong);
 }
 
 .slash .none {

@@ -11,6 +11,7 @@ import {
 import type {
   ChatBlockDto,
   ChatItemDto,
+  CommandDto,
   ModelDto,
   MonitorRequestDto,
   PromptInput,
@@ -404,6 +405,40 @@ export class AgentHost {
 
   getMessages(): ChatItemDto[] {
     return toChatItems(this.session.messages)
+  }
+
+  /**
+   * Slash commands the composer can offer.
+   *
+   * Only skills and prompt templates are reported here — PiUI's own commands
+   * (`/compact`, `/fork`, `/new`) are handled in the renderer. Skills are
+   * addressed as `/skill:<name>`; prompt templates as `/<name>`. Both are
+   * expanded by `session.prompt()` when the message is sent.
+   */
+  getCommands(): CommandDto[] {
+    if (!this.resourceLoader) return []
+
+    const commands: CommandDto[] = []
+
+    for (const prompt of this.resourceLoader.getPrompts().prompts) {
+      const command: CommandDto = {
+        name: `/${prompt.name}`,
+        description: prompt.description || 'Prompt template',
+        kind: 'template'
+      }
+      if (prompt.argumentHint) command.argumentHint = prompt.argumentHint
+      commands.push(command)
+    }
+
+    for (const skill of this.resourceLoader.getSkills().skills) {
+      commands.push({
+        name: `/skill:${skill.name}`,
+        description: skill.description || 'Skill',
+        kind: 'skill'
+      })
+    }
+
+    return commands.sort((a, b) => a.name.localeCompare(b.name))
   }
 
   async getStats(): Promise<SessionStatsDto> {
