@@ -8,6 +8,12 @@ directories:
 
 asar: true
 
+# node-pty ships N-API prebuilds (its own install script prefers them and only
+# falls back to node-gyp), and N-API is ABI-stable across Electron versions, so
+# there is nothing to rebuild. Letting electron-builder try would invoke MSBuild
+# and fail on machines without the Spectre-mitigated VC++ libraries.
+npmRebuild: false
+
 # The pi SDK loads WASM and dynamic assets at runtime, so keep it on disk
 # instead of inside app.asar.
 asarUnpack:

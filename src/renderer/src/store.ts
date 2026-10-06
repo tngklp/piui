@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type {
   AgentEventDto,
+  AppInfo,
   ApprovalConfig,
   ChatItemDto,
   CommandDto,
@@ -83,6 +84,8 @@ interface PiUiState {
   initialized: boolean
   error: string | null
   runtime: RuntimeInfoDto | null
+  /** Static application information, including the version. */
+  appInfo: AppInfo | null
   status: SessionStatusDto | null
   models: ModelDto[]
   /** Slash commands discovered from skills and prompt templates. */
@@ -208,6 +211,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   initialized: false,
   error: null,
   runtime: null,
+  appInfo: null,
   status: null,
   models: [],
   commands: [],
@@ -255,18 +259,29 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     set({ initialized: true })
 
     try {
-      const [runtime, status, messages, models, approvalConfig, workspace, sessions, commands] =
-        await Promise.all([
-          window.piui.getRuntimeInfo(),
-          window.piui.getStatus(),
-          window.piui.getMessages(),
-          window.piui.getModels(),
-          window.piui.getApprovalConfig(),
-          window.piui.getWorkspace(),
-          window.piui.listSessions(),
-          window.piui.getCommands()
-        ])
+      const [
+        appInfo,
+        runtime,
+        status,
+        messages,
+        models,
+        approvalConfig,
+        workspace,
+        sessions,
+        commands
+      ] = await Promise.all([
+        window.piui.getAppInfo(),
+        window.piui.getRuntimeInfo(),
+        window.piui.getStatus(),
+        window.piui.getMessages(),
+        window.piui.getModels(),
+        window.piui.getApprovalConfig(),
+        window.piui.getWorkspace(),
+        window.piui.listSessions(),
+        window.piui.getCommands()
+      ])
       set({
+        appInfo,
         runtime,
         status,
         items: messages,

@@ -211,8 +211,23 @@ export function ModelsSettings() {
       current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]
     )
 
-  const openPicker = (index: number): void => {
-    setPicker(index)
+  /**
+   * "Add model" for a custom provider: there is no catalogue to choose from, so
+   * it appends a blank row and leaves the user to fill it in. Hosted APIs do
+   * publish one, so they get the picker instead.
+   */
+  const addModel = (providerIndex: number): void => {
+    const provider = draft?.providers[providerIndex]
+    if (!provider) return
+
+    if (!isHostedProviderId(provider.id)) {
+      update((next) => {
+        next.providers[providerIndex].models.push(emptyModel())
+      })
+      return
+    }
+
+    setPicker(providerIndex)
     setQuery('')
   }
 
@@ -506,7 +521,7 @@ export function ModelsSettings() {
                 </button>
               </div>
             ) : (
-              <button className="b sm" onClick={() => openPicker(providerIndex)}>
+              <button className="b sm" onClick={() => addModel(providerIndex)}>
                 ＋ Add model
               </button>
             )}

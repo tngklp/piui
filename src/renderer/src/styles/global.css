@@ -1534,6 +1534,19 @@ select.pick {
   white-space: nowrap;
 }
 
+/* Build versions, pinned to the right end of the footer. */
+.stat.versions {
+  gap: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat.versions i {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--line);
+}
+
 /* ---------- overlays ---------- */
 
 .banner {

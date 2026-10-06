@@ -1,12 +1,21 @@
 import { formatCost, formatPercent, formatTokens } from '../lib/format'
 import { usePiUi } from '../store'
 
-/** Bottom status strip: context usage, cost, tokens, and agent state. */
+/** Bottom status strip: context usage, cost, tokens, agent state, versions. */
 export function StatusFooter() {
   const status = usePiUi((state) => state.status)
+  const appInfo = usePiUi((state) => state.appInfo)
+  const runtime = usePiUi((state) => state.runtime)
 
   const percent = status?.contextUsage?.percent ?? null
   const contextWindow = status?.contextUsage?.contextWindow ?? 0
+
+  // The SDK is loaded from the installed pi release, so its version is the one
+  // that actually runs the agent. The CLI version is shown as a tooltip.
+  const piVersion = runtime?.sdkVersion ?? null
+  const runtimeNote = appInfo
+    ? `Electron ${appInfo.versions.electron} · Chromium ${appInfo.versions.chrome} · Node ${appInfo.versions.node}`
+    : undefined
 
   return (
     <footer className="foot">
@@ -28,6 +37,12 @@ export function StatusFooter() {
       {status && status.pendingMessageCount > 0 ? (
         <span className="stat">{status.pendingMessageCount} queued</span>
       ) : null}
+
+      <span className="stat versions" title={runtimeNote}>
+        PiUI {appInfo?.version ?? '—'}
+        <i />
+        Pi {piVersion ?? '—'}
+      </span>
     </footer>
   )
 }
