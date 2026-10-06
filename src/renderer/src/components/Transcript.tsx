@@ -30,7 +30,8 @@ function Thinking({ text, live }: { text: string; live?: boolean }) {
 
 /** Tool call and its result in a single card. */
 function ToolCard({ item }: { item: Extract<ChatItemDto, { kind: 'tool' }> }) {
-  const [showCommand, setShowCommand] = useState(false)
+  const expandToolOutput = usePiUi((state) => state.prefs.expandToolOutput)
+  const [showCommand, setShowCommand] = useState(expandToolOutput)
 
   const args = (item.arguments ?? {}) as Record<string, unknown>
   const command = typeof args.command === 'string' ? args.command : null

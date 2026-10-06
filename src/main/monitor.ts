@@ -12,12 +12,13 @@
  *   `/slots` supplies per-request progress where the build exposes it.
  */
 import { execFile } from 'node:child_process'
+import os from 'node:os'
 import { promisify } from 'node:util'
 import type {
   MonitorGpuDto,
-  MonitorRequestDto,
   MonitorSnapshotDto,
-  MonitorStatusDto
+  MonitorStatusDto,
+  MonitorSystemDto
 } from '@shared/ipc'
 
 const execFileAsync = promisify(execFile)
@@ -48,8 +49,6 @@ export interface MonitorSource {
     contextWindow: number | null
     maxTokens: number | null
   }
-  /** Recently completed model requests from the session transcript. */
-  recentRequests(limit: number): MonitorRequestDto[]
 }
 
 /** llama.cpp exposes metrics and slot state at the server root, not under `/v1`. */
@@ -164,6 +163,40 @@ async function readSlots(
   }
 }
 
+/** Cumulative CPU time across all cores, for the usage delta. */
+function cpuTimes(): { idle: number; total: number } {
+  let idle = 0
+  let total = 0
+  for (const cpu of os.cpus()) {
+    for (const value of Object.values(cpu.times)) total += value
+    idle += cpu.times.idle
+  }
+  return { idle, total }
+}
+
+// Seeded at load so the first snapshot already has a delta to compare against.
+let previousCpu = cpuTimes()
+
+/** Host CPU and memory. This is where a local engine's work actually happens. */
+function readSystem(): MonitorSystemDto {
+  const current = cpuTimes()
+  const idleDelta = current.idle - previousCpu.idle
+  const totalDelta = current.total - previousCpu.total
+  previousCpu = current
+
+  const mib = 1024 * 1024
+  const cpus = os.cpus()
+
+  return {
+    cpuModel: (cpus[0]?.model ?? 'CPU').trim(),
+    cpuCores: cpus.length,
+    cpuPercent:
+      totalDelta > 0 ? Math.min(100, Math.max(0, (1 - idleDelta / totalDelta) * 100)) : null,
+    memoryUsed: (os.totalmem() - os.freemem()) / mib,
+    memoryTotal: os.totalmem() / mib
+  }
+}
+
 /** Build GPU cards from the engine's `hardware` block, when it has one. */
 function gpusFromHardware(hardware: Record<string, unknown>, name: string): MonitorGpuDto[] {
   const totalBytes = num(hardware.gpu_mem_total)
@@ -226,7 +259,6 @@ function skeleton(
   baseUrl: string | null,
   contextWindow: number | null,
   maxTokens: number | null,
-  recent: MonitorRequestDto[],
   gpus: MonitorGpuDto[]
 ): MonitorSnapshotDto {
   return {
@@ -240,7 +272,7 @@ function skeleton(
     kvCache: { usageRatio: null, tokens: null },
     requests: { processing: 0, deferred: 0 },
     gpus,
-    recent,
+    system: readSystem(),
     status: {
       source: 'none',
       phase: 'idle',
@@ -330,24 +362,6 @@ function applyEngineJson(
 
   const hardwareGpus = gpusFromHardware(hardware, snapshot.gpus[0]?.name ?? 'GPU')
   if (hardwareGpus.length > 0) snapshot.gpus = hardwareGpus
-
-  if (requests.length > 0) {
-    snapshot.recent = requests.slice(0, 6).map((raw): MonitorRequestDto => {
-      const request = asRecord(raw)
-      const seconds = num(request.time)
-      const promptMs = num(request.prompt_ms)
-      const decodeMs = num(request.decode_ms)
-      return {
-        at: seconds === null ? new Date().toISOString() : new Date(seconds * 1000).toISOString(),
-        model: typeof engine.model === 'string' ? engine.model : '',
-        promptTokens: num(request.prompt_total) ?? num(request.prompt_tokens) ?? 0,
-        answerTokens: num(request.output_tokens) ?? 0,
-        durationMs:
-          promptMs !== null || decodeMs !== null ? (promptMs ?? 0) + (decodeMs ?? 0) : null,
-        tokensPerSecond: num(request.decode_tok_s)
-      }
-    })
-  }
 }
 
 /** Apply Prometheus text, falling back to `/slots` for request progress. */
@@ -456,14 +470,7 @@ export async function readMonitor(source: MonitorSource): Promise<MonitorSnapsho
 async function collect(source: MonitorSource): Promise<MonitorSnapshotDto> {
   const { baseUrl, model, contextWindow, maxTokens } = source.endpoint()
 
-  const snapshot = skeleton(
-    model,
-    baseUrl,
-    contextWindow,
-    maxTokens,
-    source.recentRequests(6),
-    await readGpus()
-  )
+  const snapshot = skeleton(model, baseUrl, contextWindow, maxTokens, await readGpus())
 
   if (!baseUrl) {
     snapshot.engine.error = 'No inference endpoint is configured for the active model.'

@@ -18,10 +18,12 @@ function terminalTheme(): Record<string, string> {
   const accent = token('--lilac-strong', '#c9b2f5')
 
   return {
-    background: token('--term', '#0e0e10'),
+    // The shell paints on the app's own background so the panel does not look
+    // like an embedded terminal widget.
+    background: token('--bg', '#131315'),
     foreground: text,
     cursor: accent,
-    cursorAccent: token('--term', '#0e0e10'),
+    cursorAccent: token('--bg', '#131315'),
     selectionBackground: token('--lilac-soft', 'rgba(190,164,240,.25)'),
     black: dim,
     red: token('--del', '#f08aa3'),
@@ -46,6 +48,8 @@ function terminalTheme(): Record<string, string> {
 export function TerminalPanel() {
   const workspace = usePiUi((state) => state.workspace)
   const themeId = usePiUi((state) => state.themeId)
+  const shellPreference = usePiUi((state) => state.prefs.terminalShell)
+  const scrollback = usePiUi((state) => state.prefs.terminalScrollback)
 
   const hostRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -57,6 +61,9 @@ export function TerminalPanel() {
   const [exited, setExited] = useState<number | null>(null)
 
   const workspaceCwd = workspace?.cwd ?? ''
+  /** What the live session was started for; re-attach unless either changes. */
+  const sessionKey = `${workspaceCwd}\u0000${shellPreference}`
+  const startedKey = useRef<string | null>(null)
 
   // Create the emulator once, then attach it to the main-process session.
   useEffect(() => {
@@ -68,7 +75,7 @@ export function TerminalPanel() {
       fontSize: 12.5,
       lineHeight: 1.35,
       cursorBlink: true,
-      scrollback: 5000,
+      scrollback,
       allowProposedApi: true,
       theme: terminalTheme()
     })
@@ -82,11 +89,20 @@ export function TerminalPanel() {
 
     const start = async (): Promise<void> => {
       fit.fit()
+
+      // The main process keeps sessions alive across tab switches, so a re-mount
+      // just re-attaches. A different workspace or shell needs a fresh one.
+      if (startedKey.current !== null && startedKey.current !== sessionKey) {
+        await window.piui.terminalDispose(SESSION_ID)
+      }
+      startedKey.current = sessionKey
+
       const session = await window.piui.terminalCreate({
         id: SESSION_ID,
         cwd: workspaceCwd,
         cols: term.cols,
-        rows: term.rows
+        rows: term.rows,
+        shell: shellPreference
       })
       if (disposed) return
 
@@ -140,7 +156,7 @@ export function TerminalPanel() {
       fitRef.current = null
       readyRef.current = false
     }
-  }, [workspaceCwd])
+  }, [workspaceCwd, shellPreference])
 
   // Repaint the palette when the app theme changes.
   useEffect(() => {
@@ -150,6 +166,7 @@ export function TerminalPanel() {
 
   const restart = async (): Promise<void> => {
     await window.piui.terminalDispose(SESSION_ID)
+    startedKey.current = null
     const term = termRef.current
     if (!term) return
     term.reset()
@@ -157,7 +174,8 @@ export function TerminalPanel() {
       id: SESSION_ID,
       cwd: workspaceCwd,
       cols: term.cols,
-      rows: term.rows
+      rows: term.rows,
+      shell: shellPreference
     })
     readyRef.current = true
     setShell(session.shell)

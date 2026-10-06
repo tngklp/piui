@@ -57,7 +57,9 @@ export function editorTheme(appearance: 'light' | 'dark', fontSize: number): Ext
       {
         '&': {
           height: '100%',
-          backgroundColor: 'var(--term)',
+          // The editor is a document surface, not a widget: it shares the app's
+          // background so the pane reads as part of the window.
+          backgroundColor: 'var(--bg)',
           color: 'var(--text)',
           fontSize: `${fontSize}px`
         },
@@ -80,7 +82,7 @@ export function editorTheme(appearance: 'light' | 'dark', fontSize: number): Ext
         },
         '.cm-selectionMatch': { backgroundColor: 'var(--lilac-soft)' },
         '.cm-gutters': {
-          backgroundColor: 'var(--term)',
+          backgroundColor: 'var(--bg)',
           color: 'var(--dim)',
           border: 'none',
           borderRight: '1px solid var(--line)',

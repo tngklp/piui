@@ -28,11 +28,9 @@ function sparkPaths(values: number[]): { line: string; area: string } | null {
   return { line: `M${points.join('L')}`, area: `M0,64L${points.join('L')}L300,64Z` }
 }
 
-function timeOf(iso: string): string {
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime())
-    ? '—'
-    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+/** GiB with one decimal, for memory figures given in MiB. */
+function gib(mib: number): string {
+  return `${(mib / 1024).toFixed(1)} GB`
 }
 
 /** What the model is doing, as one line of text plus a completion ratio. */
@@ -69,15 +67,6 @@ function describeStatus(status: MonitorSnapshotDto['status']): {
   }
 
   return { text: 'Idle', percent: null }
-}
-
-/** Short duration for the request table. */
-function duration(ms: number | null): string {
-  if (ms === null || !Number.isFinite(ms)) return '—'
-  if (ms < 1000) return `${Math.round(ms)} ms`
-  const seconds = ms / 1000
-  if (seconds < 60) return `${seconds.toFixed(1)} s`
-  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`
 }
 
 /** Live inference metrics from the model endpoint and GPU telemetry. */
@@ -126,6 +115,10 @@ export function MonitorPanel() {
   const spark = sparkPaths(monitor.speed.history)
   const kvPercent = monitor.kvCache.usageRatio
   const statusView = describeStatus(monitor.status)
+  const memoryPercent =
+    monitor.system.memoryTotal > 0
+      ? (monitor.system.memoryUsed / monitor.system.memoryTotal) * 100
+      : 0
 
   return (
     <div className="pad mon">
@@ -209,9 +202,39 @@ export function MonitorPanel() {
         </small>
       </div>
 
+      <div className="mc">
+        <h3>System</h3>
+
+        <div className="gh">
+          <b style={{ fontWeight: 500 }}>CPU</b>
+          <small>
+            {monitor.system.cpuPercent === null
+              ? '—'
+              : `${ratio(monitor.system.cpuPercent / 100)}%`}
+          </small>
+        </div>
+        <div className="bar">
+          <i style={{ width: `${Math.min(100, monitor.system.cpuPercent ?? 0)}%` }} />
+        </div>
+        <small>
+          {monitor.system.cpuModel} · {monitor.system.cpuCores} cores
+        </small>
+
+        <div className="gh" style={{ marginTop: 12 }}>
+          <b style={{ fontWeight: 500 }}>Memory</b>
+          <small>{ratio(memoryPercent / 100)}%</small>
+        </div>
+        <div className="bar">
+          <i style={{ width: `${Math.min(100, memoryPercent)}%`, opacity: 0.55 }} />
+        </div>
+        <small>
+          {gib(monitor.system.memoryUsed)} of {gib(monitor.system.memoryTotal)} in use
+        </small>
+      </div>
+
       {monitor.gpus.length > 0 ? (
         <div className="mc">
-          <h3>GPUs</h3>
+          <h3>GPU</h3>
           {monitor.gpus.map((gpu) => (
             <div className="gpu" key={gpu.name}>
               <div className="gh">
@@ -242,38 +265,10 @@ export function MonitorPanel() {
         </div>
       ) : (
         <div className="mc">
-          <h3>GPUs</h3>
+          <h3>GPU</h3>
           <small>nvidia-smi reported no GPU. Ignore this if you run the model elsewhere.</small>
         </div>
       )}
-
-      <div className="mc">
-        <h3>Recent requests</h3>
-        {monitor.recent.length === 0 ? (
-          <small>No completed requests in this session yet.</small>
-        ) : (
-          <table className="rq">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Prompt</th>
-                <th>Answer</th>
-                <th>Took</th>
-              </tr>
-            </thead>
-            <tbody>
-              {monitor.recent.map((request, index) => (
-                <tr key={`${request.at}-${index}`}>
-                  <td>{timeOf(request.at)}</td>
-                  <td>{request.promptTokens.toLocaleString('en-US')}</td>
-                  <td>{request.answerTokens.toLocaleString('en-US')}</td>
-                  <td>{duration(request.durationMs)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
     </div>
   )
 }

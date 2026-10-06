@@ -25,6 +25,7 @@ export function Composer() {
   const forkSession = usePiUi((state) => state.forkSession)
   const selectModel = usePiUi((state) => state.selectModel)
   const selectThinking = usePiUi((state) => state.selectThinking)
+  const sendOnEnter = usePiUi((state) => state.prefs.sendOnEnter)
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
 
@@ -136,10 +137,16 @@ export function Composer() {
       return
     }
 
-    if (event.key !== 'Enter' || event.shiftKey) return
+    if (event.key !== 'Enter') return
+
+    // Enter sends unless the user asked for newlines, in which case Ctrl/Cmd
+    // does. Anything else is a line break, so leave it to the textarea.
+    const modifier = event.ctrlKey || event.metaKey
+    const sends = sendOnEnter ? !event.shiftKey : modifier
+    if (!sends || event.shiftKey) return
     event.preventDefault()
 
-    if (event.ctrlKey || event.metaKey) {
+    if (modifier) {
       void submit(streaming ? 'followUp' : 'prompt')
       return
     }
@@ -180,7 +187,7 @@ export function Composer() {
           spellCheck={false}
           placeholder={
             streaming
-              ? 'Steer Pi — Enter steers, Ctrl+Enter queues a follow-up'
+              ? `Steer Pi — ${sendOnEnter ? 'Enter steers' : 'Ctrl+Enter steers'}, Ctrl+Enter queues a follow-up`
               : 'Message Pi. Type / for commands'
           }
           onChange={(event) => {
@@ -236,7 +243,7 @@ export function Composer() {
               onClick={() => void submit('prompt')}
               disabled={busy || text.trim().length === 0}
               aria-label="Send"
-              title="Send (Enter)"
+              title={sendOnEnter ? 'Send (Enter)' : 'Send (Ctrl+Enter)'}
             >
               <svg
                 width="16"

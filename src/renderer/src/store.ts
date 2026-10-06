@@ -26,7 +26,7 @@ export type RightTab = 'files' | 'term' | 'mon'
 /** Main column views. */
 export type MainTab = 'chat' | 'editor'
 /** Settings sections. */
-export type SettingsTab = 'customization' | 'models' | 'packages' | 'tools'
+export type SettingsTab = 'general' | 'customization' | 'models' | 'packages' | 'tools'
 /** Sidebar session filters. */
 export type SessionFilter = 'all' | 'running' | 'starred'
 
@@ -215,7 +215,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   dialog: null,
   approvalConfig: null,
   settingsOpen: false,
-  settingsTab: 'models',
+  settingsTab: 'general',
   modelsConfig: null,
   modelsError: null,
   update: null,

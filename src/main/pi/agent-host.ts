@@ -11,7 +11,6 @@ import type {
   CommandDto,
   ModelDefDto,
   ModelDto,
-  MonitorRequestDto,
   PromptInput,
   SessionStatsDto,
   SessionStatusDto,
@@ -647,33 +646,6 @@ export class AgentHost {
         }
       }
     })
-  }
-
-  /** Recently completed turns, newest first, for the monitor's request table. */
-  getRecentRequests(limit: number): MonitorRequestDto[] {
-    const requests: MonitorRequestDto[] = []
-
-    for (const raw of this.session.messages) {
-      const message = raw as {
-        role?: string
-        model?: string
-        timestamp?: number
-        usage?: { input?: number; output?: number }
-      }
-      if (message.role !== 'assistant' || !message.usage) continue
-
-      requests.push({
-        at: new Date(message.timestamp ?? Date.now()).toISOString(),
-        model: message.model ?? '',
-        promptTokens: message.usage.input ?? 0,
-        answerTokens: message.usage.output ?? 0,
-        // The transcript records totals, not timing.
-        durationMs: null,
-        tokensPerSecond: null
-      })
-    }
-
-    return requests.slice(-limit).reverse()
   }
 
   /** Delete a saved session file, starting a fresh session if it was active. */

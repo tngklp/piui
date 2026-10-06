@@ -221,8 +221,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.MonitorGet, async () => {
     const agent = await host()
     return readMonitor({
-      endpoint: () => agent.getModelEndpoint(),
-      recentRequests: (limit) => agent.getRecentRequests(limit)
+      endpoint: () => agent.getModelEndpoint()
     })
   })
 

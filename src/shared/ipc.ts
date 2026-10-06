@@ -136,6 +136,8 @@ export interface TerminalCreateInput {
   cwd: string
   cols: number
   rows: number
+  /** Absolute path to the shell to run; empty picks a sensible default. */
+  shell?: string
 }
 
 /** A live terminal session, including the output produced so far. */
@@ -465,16 +467,18 @@ export interface MonitorGpuDto {
   temperatureC: number | null
 }
 
-/** One finished model request, from the engine or the session transcript. */
-export interface MonitorRequestDto {
-  at: string
-  model: string
-  promptTokens: number
-  answerTokens: number
-  /** Wall-clock duration of the request, when the engine reports it. */
-  durationMs: number | null
-  /** Decode throughput in tokens per second, when the engine reports it. */
-  tokensPerSecond: number | null
+/** Host CPU and memory, which is where a local engine's work actually happens. */
+export interface MonitorSystemDto {
+  /** CPU model, as reported by the operating system. */
+  cpuModel: string
+  /** Logical core count. */
+  cpuCores: number
+  /** Busy percentage across every core, or null on the first sample. */
+  cpuPercent: number | null
+  /** MiB. */
+  memoryUsed: number
+  /** MiB. */
+  memoryTotal: number
 }
 
 /** What the model is doing right now, as far as the endpoint will say. */
@@ -521,7 +525,8 @@ export interface MonitorSnapshotDto {
     deferred: number
   }
   gpus: MonitorGpuDto[]
-  recent: MonitorRequestDto[]
+  /** CPU and memory of the machine running the app. */
+  system: MonitorSystemDto
   /** Current request state, for the Monitor's Status section. */
   status: MonitorStatusDto
 }

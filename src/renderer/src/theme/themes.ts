@@ -395,24 +395,28 @@ export const THEMES: Theme[] = FAMILIES.flatMap((family): Theme[] => [
 export const DEFAULT_THEME_ID = 'wisteria-dark'
 
 /**
- * Ids from earlier releases, where a family had only a dark and a light
- * palette. The old `<family>-dark` is today's plain variant for the tinted
- * families, and the old Lilac was the neutral one that is now Wisteria Dark.
+ * Ids from earlier releases, where each family had only a dark and a light
+ * palette and Lilac was the neutral one. Old `<family>-dark` ids still exist as
+ * ids today, but they now mean the *dark* variant rather than the family's own
+ * palette, so only the Lilac ids need translating.
  */
 const LEGACY_THEME_IDS: Record<string, string> = {
   'lilac-dark': 'wisteria-dark',
-  'lilac-light': 'wisteria-light',
-  'ocean-dark': 'ocean',
-  'ember-dark': 'ember',
-  'rose-dark': 'rose'
-}
-
-/** Translate a stored theme id to a current one. */
-export function migrateThemeId(id: string): string {
-  return LEGACY_THEME_IDS[id] ?? id
+  'lilac-light': 'wisteria-light'
 }
 
 const THEMES_BY_ID = new Map(THEMES.map((theme) => [theme.id, theme]))
+
+/**
+ * Translate a stored theme id to a current one. Anything that is already a
+ * current id is returned untouched — the legacy map must never shadow a live id,
+ * or picking `Ocean Dark` would resolve back to plain `Ocean`.
+ */
+export function migrateThemeId(id: string): string {
+  if (THEMES_BY_ID.has(id)) return id
+  return LEGACY_THEME_IDS[id] ?? id
+}
+
 const FALLBACK_THEME = THEMES_BY_ID.get(DEFAULT_THEME_ID) ?? (THEMES[0] as Theme)
 
 export function findTheme(id: string): Theme {

@@ -1,7 +1,6 @@
 import { usePiUi } from '../../store'
-import { ICON_PACKS } from '../../lib/icon-packs'
+import { ICON_PACKS, fileIconUrl, folderIconUrl } from '../../lib/icon-packs'
 import { THEMES, type ThemeVariant } from '../../theme/themes'
-import { Select, type SelectOption } from '../Select'
 
 /** Small caption under each family name in the theme grid. */
 const VARIANT_LABELS: Record<ThemeVariant, string> = {
@@ -10,59 +9,27 @@ const VARIANT_LABELS: Record<ThemeVariant, string> = {
   light: 'Light'
 }
 
-/** A labelled checkbox row. */
-function Toggle({
-  label,
-  hint,
-  checked,
-  onChange
-}: {
-  label: string
-  hint: string
-  checked: boolean
-  onChange: (value: boolean) => void
-}) {
-  return (
-    <label className="set-toggle">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-      />
-      <span className="tx">
-        <b>{label}</b>
-        <small>{hint}</small>
-      </span>
-    </label>
-  )
-}
+/** Files previewed in each icon-pack button: the ones every project has. */
+const SAMPLES = ['index.ts', 'main.py', 'package.json', 'README.md']
 
 /**
- * Appearance and interface behaviour.
+ * Appearance: the theme grid and the icon-pack grid.
  *
  * `THEMES` is ordered three variants per family, so the grid lays itself out
- * three to a row: a family's normal, dark, and light palettes side by side.
+ * three to a row: a family's normal, dark, and light palettes side by side. The
+ * icon packs follow the same idea, each button previewing the icons a project
+ * actually shows in the explorer.
  */
 export function CustomizationSettings() {
   const themeId = usePiUi((state) => state.themeId)
   const setTheme = usePiUi((state) => state.setTheme)
-  const expandThinking = usePiUi((state) => state.prefs.expandThinking)
   const iconPack = usePiUi((state) => state.prefs.iconPack)
   const setPrefs = usePiUi((state) => state.setPrefs)
-
-  const iconPackOptions: SelectOption<string>[] = ICON_PACKS.map((pack) => ({
-    value: pack.id,
-    label: pack.name
-  }))
 
   return (
     <>
       <section className="set-section">
         <h3>Theme</h3>
-        <p className="set-note">
-          Every theme comes in three variants: the themed palette, the same accent on a neutral dark
-          background, and a light version. The choice is remembered for your next launch.
-        </p>
 
         <div className="themes" role="radiogroup" aria-label="Theme">
           {THEMES.map((theme) => (
@@ -91,27 +58,30 @@ export function CustomizationSettings() {
       </section>
 
       <section className="set-section">
-        <h3>Interface</h3>
+        <h3>Icon pack</h3>
 
-        <div className="set-row">
-          <span className="set-row__label">Icon pack</span>
-          <Select
-            value={iconPack}
-            options={iconPackOptions}
-            title="Icon pack"
-            onChange={(pack) => setPrefs({ iconPack: pack })}
-          />
-          <small className="set-note">
-            Icons used by the file explorer, the editor tabs, and quick open.
-          </small>
+        <div className="packs" role="radiogroup" aria-label="Icon pack">
+          {ICON_PACKS.map((pack) => (
+            <button
+              key={pack.id}
+              type="button"
+              role="radio"
+              aria-checked={pack.id === iconPack}
+              className={`pack${pack.id === iconPack ? ' on' : ''}`}
+              title={pack.name}
+              onClick={() => setPrefs({ iconPack: pack.id })}
+            >
+              <span className="pack__row">
+                <img src={folderIconUrl(pack.id, 'src', false)} alt="" />
+                <img src={folderIconUrl(pack.id, 'src', true)} alt="" />
+                {SAMPLES.map((file) => (
+                  <img key={file} src={fileIconUrl(pack.id, file)} alt="" />
+                ))}
+              </span>
+              <span className="pack__name">{pack.name}</span>
+            </button>
+          ))}
         </div>
-
-        <Toggle
-          label="Expand reasoning by default"
-          hint="Show the model's thinking blocks opened rather than collapsed"
-          checked={expandThinking}
-          onChange={(expandThinking) => setPrefs({ expandThinking })}
-        />
       </section>
     </>
   )
