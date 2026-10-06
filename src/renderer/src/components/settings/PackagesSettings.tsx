@@ -108,7 +108,8 @@ export function PackagesSettings() {
     try {
       setInstalled(await window.piui.installPackage(source))
       setStatus(`${source} installed.`)
-      // New skills and commands become available straight away.
+      // The agent session was rebuilt; resync the transcript and commands.
+      await usePiUi.getState().refresh()
       await usePiUi.getState().loadCommands()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
@@ -124,6 +125,7 @@ export function PackagesSettings() {
     try {
       setInstalled(await window.piui.removePackage(source))
       setStatus(`${source} removed.`)
+      await usePiUi.getState().refresh()
       await usePiUi.getState().loadCommands()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))

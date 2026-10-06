@@ -20,6 +20,9 @@ interface EngineSample {
 
 let previousSample: EngineSample | null = null
 let gpuCache: { at: number; gpus: MonitorGpuDto[] } | null = null
+/** Read currently in flight, so polls never overlap. */
+let inFlight: Promise<MonitorSnapshotDto> | null = null
+let lastSnapshot: MonitorSnapshotDto | null = null
 
 const HISTORY_LENGTH = 40
 const answerHistory: number[] = []
@@ -174,8 +177,27 @@ async function readGpus(): Promise<MonitorGpuDto[]> {
   return gpus
 }
 
-/** Probe the inference endpoint and assemble one monitor snapshot. */
+/**
+ * Probe the inference endpoint and assemble one monitor snapshot.
+ *
+ * Reads are serialized: the token counters are cumulative, so two overlapping
+ * reads would each compare against the other's sample and the derived rates
+ * would stop tracking the server. While a read is running the previous snapshot
+ * is handed back instead of starting another.
+ */
 export async function readMonitor(source: MonitorSource): Promise<MonitorSnapshotDto> {
+  if (inFlight) return lastSnapshot ?? inFlight
+
+  inFlight = collect(source)
+  try {
+    lastSnapshot = await inFlight
+    return lastSnapshot
+  } finally {
+    inFlight = null
+  }
+}
+
+async function collect(source: MonitorSource): Promise<MonitorSnapshotDto> {
   const { baseUrl, model, contextWindow, maxTokens } = source.endpoint()
 
   const snapshot: MonitorSnapshotDto = {
@@ -287,17 +309,15 @@ export async function readMonitor(source: MonitorSource): Promise<MonitorSnapsho
     snapshot.requests.processing = pick(values, ['llamacpp:requests_processing']) ?? 0
     snapshot.requests.deferred = pick(values, ['llamacpp:requests_deferred']) ?? 0
 
-    // `/slots` gives real per-request progress; metrics only say whether the
-    // server is busy, so that is the fallback.
-    const slots = await readSlots(baseUrl, maxTokens)
-    snapshot.status =
-      slots.source === 'slots'
-        ? slots
-        : {
-            ...snapshot.status,
-            source: 'metrics',
-            phase: snapshot.requests.processing > 0 ? 'generate' : 'idle'
-          }
+    // `/slots` gives real per-request progress, but only while a request is
+    // actually running. Metrics alone say whether the server is busy.
+    if (snapshot.requests.processing > 0) {
+      const slots = await readSlots(baseUrl, maxTokens)
+      snapshot.status =
+        slots.source === 'slots'
+          ? slots
+          : { ...snapshot.status, source: 'metrics', phase: 'generate' }
+    }
   } catch (cause) {
     snapshot.engine.error =
       cause instanceof Error && cause.name === 'TimeoutError'

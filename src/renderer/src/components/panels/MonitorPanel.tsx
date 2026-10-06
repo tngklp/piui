@@ -35,38 +35,35 @@ function timeOf(iso: string): string {
     : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
-/** Human-readable lines describing the request currently in flight. */
-function statusLines(status: MonitorSnapshotDto['status']): { label: string; text: string }[] {
-  if (status.phase === 'idle') {
-    return [{ label: 'Status', text: 'Idle — waiting for a request.' }]
-  }
-
+/** What the model is doing, as one line of text plus a completion ratio. */
+function describeStatus(status: MonitorSnapshotDto['status']): {
+  text: string
+  percent: number | null
+} {
   if (status.phase === 'prompt') {
     const processed = status.promptProcessed
     const total = status.promptTotal
-    return [
-      {
-        label: 'Reading the prompt',
-        text:
-          processed === null || total === null
-            ? 'reading the prompt'
-            : `${number(processed)} of ${number(total)} tokens`
-      }
-    ]
+    if (processed === null || total === null) return { text: 'Reading the prompt…', percent: null }
+    return {
+      text: `${number(processed)} of ${number(total)} tokens`,
+      percent: total > 0 ? Math.min(100, (processed / total) * 100) : null
+    }
   }
 
-  const generated = status.generated
-  return [
-    {
-      label: 'Thinking',
+  if (status.phase === 'generate') {
+    const generated = status.generated
+    if (generated === null) return { text: 'Generating…', percent: null }
+    const max = status.maxOutput
+    return {
       text:
-        generated === null
-          ? 'generating'
-          : status.maxOutput === null
-            ? `${number(generated)} tokens`
-            : `${number(generated)} of max ${number(status.maxOutput)} tokens`
+        max === null || max <= 0
+          ? `${number(generated)} tokens`
+          : `${number(generated)} of max ${number(max)} tokens`,
+      percent: max !== null && max > 0 ? Math.min(100, (generated / max) * 100) : null
     }
-  ]
+  }
+
+  return { text: 'Idle', percent: null }
 }
 
 /** Live inference metrics from the model endpoint and GPU telemetry. */
@@ -80,13 +77,19 @@ export function MonitorPanel() {
 
   useEffect(() => {
     let cancelled = false
+    let running = false
 
     const tick = async (): Promise<void> => {
+      // Never stack polls: the endpoint's counters are cumulative.
+      if (running) return
+      running = true
       try {
         const snapshot = await window.piui.getMonitor()
         if (!cancelled) setMonitor(snapshot)
       } catch {
         // Leave the last snapshot in place; the next tick retries.
+      } finally {
+        running = false
       }
     }
 
@@ -108,6 +111,7 @@ export function MonitorPanel() {
 
   const spark = sparkPaths(monitor.speed.history)
   const kvPercent = monitor.kvCache.usageRatio
+  const statusView = describeStatus(monitor.status)
 
   return (
     <div className="pad mon">
@@ -130,12 +134,13 @@ export function MonitorPanel() {
 
       <div className="mc">
         <h3>Status</h3>
-        {statusLines(monitor.status).map((line) => (
-          <div className="stat" key={line.label}>
-            <span className="stat__label">{line.label}:</span>
-            <span className="stat__value">{line.text}</span>
-          </div>
-        ))}
+        <div className="gh">
+          <b style={{ fontWeight: 500 }}>{statusView.text}</b>
+          <small>{statusView.percent === null ? '—' : `${Math.round(statusView.percent)}%`}</small>
+        </div>
+        <div className="bar">
+          <i style={{ width: `${statusView.percent ?? 0}%` }} />
+        </div>
         {monitor.status.source === 'metrics' ? (
           <small>
             Per-request token progress needs the endpoint’s /slots route; showing server activity

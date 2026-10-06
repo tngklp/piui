@@ -328,13 +328,17 @@ export class AgentHost {
   }
 
   /**
-   * Re-read skills, commands, and extensions from disk and rebind them.
-   * Used after installing or removing a package.
+   * Rebuild the session in place, keeping the current conversation.
+   *
+   * Used after installing or removing a package: extension factories are only
+   * run when a session is created, so re-binding the existing session is not
+   * enough to pick new packages up.
    */
-  async reloadResources(): Promise<void> {
-    if (!this.resourceLoader) return
-    await this.resourceLoader.reload()
-    await this.session.bindExtensions({ uiContext: this.uiHost, mode: 'rpc' })
+  async restartSession(): Promise<void> {
+    const sessionFile = this.session.sessionFile
+    await this.replaceSession(
+      sessionFile ? SessionManager.open(sessionFile) : SessionManager.create(this.cwd)
+    )
   }
 
   private applySession(session: AgentSession): void {

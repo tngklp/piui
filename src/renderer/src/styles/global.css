@@ -2691,22 +2691,6 @@ select.pick {
 
 /* ---------- package catalogue ---------- */
 
-.stat {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-  font-size: 12.5px;
-}
-
-.stat__label {
-  color: var(--dim);
-}
-
-.stat__value {
-  font-family: var(--mono);
-  font-size: 12px;
-}
-
 .pkg-installed {
   border: 1px solid var(--line);
   border-radius: 12px;

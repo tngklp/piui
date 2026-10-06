@@ -264,8 +264,9 @@ export function registerIpcHandlers(context: IpcContext): void {
     await installPackage(cwd, source, (message) =>
       send(IpcEvent.PackagesProgress, { source, message })
     )
-    // Pick the new skills, commands, and extensions up without a restart.
-    await agent.reloadResources()
+    // Extensions are only instantiated when a session is created, so the
+    // session is rebuilt to make the new package live immediately.
+    await agent.restartSession()
     return listInstalledPackages(cwd)
   })
 
@@ -273,7 +274,7 @@ export function registerIpcHandlers(context: IpcContext): void {
     const agent = await host()
     const cwd = agent.getWorkspace().cwd
     await removePackage(cwd, source)
-    await agent.reloadResources()
+    await agent.restartSession()
     return listInstalledPackages(cwd)
   })
 
