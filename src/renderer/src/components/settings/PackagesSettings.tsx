@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CatalogPackageDto, InstalledPackageDto, PackageProgressDto } from '@shared/ipc'
 import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
+import { SettingsHeader } from './rows'
 
 /** Catalogue type filters. */
 type TypeFilter = '' | 'skill' | 'extension' | 'prompt' | 'theme'
@@ -171,7 +172,10 @@ export function PackagesSettings() {
 
   return (
     <section className="set-section">
-      <h3>Packages</h3>
+      <SettingsHeader
+        title="Packages"
+        subtitle="Skills, extensions, prompts and themes published to npm."
+      />
 
       {installed.length > 0 ? (
         <div className="pkg-installed">

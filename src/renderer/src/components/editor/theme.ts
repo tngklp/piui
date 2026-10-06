@@ -49,7 +49,11 @@ const LIGHT_TOKENS = {
 }
 
 /** Editor chrome: everything that should track the app theme. */
-export function editorTheme(appearance: 'light' | 'dark', fontSize: number): Extension {
+export function editorTheme(
+  appearance: 'light' | 'dark',
+  fontSize: number,
+  fontFamily: string
+): Extension {
   const dark = appearance === 'dark'
 
   return [
@@ -64,7 +68,7 @@ export function editorTheme(appearance: 'light' | 'dark', fontSize: number): Ext
           fontSize: `${fontSize}px`
         },
         '.cm-scroller': {
-          fontFamily: 'var(--mono)',
+          fontFamily,
           lineHeight: '1.55'
         },
         '.cm-content': {

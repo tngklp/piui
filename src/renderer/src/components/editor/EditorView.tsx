@@ -35,7 +35,7 @@ import {
 } from '@codemirror/autocomplete'
 import { gotoLine, highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import { usePiUi } from '../../store'
-import { EDITOR_FONT_MAX, EDITOR_FONT_MIN } from '../../lib/ui-prefs'
+import { DEFAULT_EDITOR_FONT, EDITOR_FONT_MAX, EDITOR_FONT_MIN } from '../../lib/ui-prefs'
 import { fileIconUrl } from '../../lib/icon-packs'
 import { baseName, extensionOf, languageFor } from './languages'
 import { indentGuides } from './indentGuides'
@@ -94,6 +94,9 @@ export function EditorView() {
   // Editor typography lives in the store so the settings dialog can drive it.
   const editorWrap = usePiUi((state) => state.prefs.editorWrap)
   const editorFontSize = usePiUi((state) => state.prefs.editorFontSize)
+  const editorFontFamily = usePiUi((state) => state.prefs.editorFontFamily)
+  const editorTabSize = usePiUi((state) => state.prefs.editorTabSize)
+  const editorIndentGuides = usePiUi((state) => state.prefs.editorIndentGuides)
   const iconPack = usePiUi((state) => state.prefs.iconPack)
   const setPrefs = usePiUi((state) => state.setPrefs)
 
@@ -122,14 +125,54 @@ export function EditorView() {
   const save = useCallback(async () => {
     const path = usePiUi.getState().activeFile
     if (!path) return
-    const text = viewRef.current?.state.doc.toString() ?? contents.get(path) ?? ''
-    contents.set(path, text)
-    await window.piui.writeFile(path, text)
+    const view = viewRef.current
+    const cached = contents.get(path) ?? ''
+    const text = view?.state.doc.toString() ?? cached
+
+    // Format on save runs in the main process: Prettier is a runtime
+    // dependency there, not something the renderer can import.
+    let outgoing = text
+    if (usePiUi.getState().prefs.editorFormatOnSave) {
+      const result = await window.piui.formatFile(path, text)
+      if (result.error) setError(`${path}: ${result.error}`)
+      if (result.text !== null) outgoing = result.text
+
+      // Put the formatted text back in the buffer, so what is on screen is
+      // what was written. Guarded by a comparison because a no-op dispatch
+      // would otherwise reset the selection.
+      if (outgoing !== text && view) {
+        view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: outgoing } })
+      }
+    }
+
+    contents.set(path, outgoing)
+    await window.piui.writeFile(path, outgoing)
     dirtyFiles.delete(path)
     setDirty((current) => ({ ...current, [path]: false }))
   }, [])
 
   saveRef.current = () => void save()
+
+  /**
+   * Auto save: wait for a pause in typing, then write. Re-armed on every
+   * keystroke, so a long edit produces one write rather than one per character.
+   */
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleAutoSave = (): void => {
+    if (!usePiUi.getState().prefs.editorAutoSave) return
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    autoSaveTimer.current = setTimeout(() => {
+      autoSaveTimer.current = null
+      void saveRef.current()
+    }, usePiUi.getState().prefs.editorAutoSaveDelayMs)
+  }
+
+  useEffect(
+    () => () => {
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
+    },
+    []
+  )
 
   const setWrapping = useCallback((next: boolean) => setPrefs({ editorWrap: next }), [setPrefs])
 
@@ -145,6 +188,8 @@ export function EditorView() {
       const language = languageFor(path)
       const indent = language.indent
       const settings = usePiUi.getState().prefs
+      const tabSize = settings.editorTabSize > 0 ? settings.editorTabSize : indent
+      const fontFamily = settings.editorFontFamily.trim() || DEFAULT_EDITOR_FONT
 
       return [
         lineNumbers(),
@@ -163,18 +208,18 @@ export function EditorView() {
         closeBrackets(),
         autocompletion(),
         highlightSelectionMatches(),
-        indentGuides(indent),
         search({ top: true }),
         CONTENT_ATTRIBUTES,
         themeCompartment.of([
-          editorTheme(appearance(), settings.editorFontSize),
+          editorTheme(appearance(), settings.editorFontSize, fontFamily),
           editorHighlight(appearance())
         ]),
         languageCompartment.of(language.extension),
         layoutCompartment.of([
           settings.editorWrap ? CodeMirror.lineWrapping : [],
-          indentUnit.of(' '.repeat(indent)),
-          EditorState.tabSize.of(indent)
+          indentUnit.of(' '.repeat(tabSize)),
+          EditorState.tabSize.of(tabSize),
+          settings.editorIndentGuides ? indentGuides(tabSize) : []
         ]),
         keymap.of([
           { key: 'Mod-s', preventDefault: true, run: () => (saveRef.current(), true) },
@@ -206,6 +251,7 @@ export function EditorView() {
               dirtyFiles.add(path)
               setDirty((current) => ({ ...current, [path]: true }))
             }
+            scheduleAutoSave()
           }
           if (update.docChanged || update.selectionSet) {
             const range = update.state.selection.main
@@ -263,21 +309,34 @@ export function EditorView() {
     if (!view || !activeFile) return
 
     const indent = languageFor(activeFile).indent
+    const tabSize = editorTabSize > 0 ? editorTabSize : indent
+    const fontFamily = editorFontFamily.trim() || DEFAULT_EDITOR_FONT
     view.dispatch({
       effects: [
         themeCompartment.reconfigure([
-          editorTheme(appearance(), editorFontSize),
+          editorTheme(appearance(), editorFontSize, fontFamily),
           editorHighlight(appearance())
         ]),
         layoutCompartment.reconfigure([
           editorWrap ? CodeMirror.lineWrapping : [],
-          indentUnit.of(' '.repeat(indent)),
-          EditorState.tabSize.of(indent)
+          indentUnit.of(' '.repeat(tabSize)),
+          EditorState.tabSize.of(tabSize),
+          editorIndentGuides ? indentGuides(tabSize) : []
         ])
       ]
     })
     states.set(activeFile, view.state)
-  }, [themeId, editorWrap, editorFontSize, activeFile, themeCompartment, layoutCompartment])
+  }, [
+    themeId,
+    editorWrap,
+    editorFontSize,
+    editorFontFamily,
+    editorTabSize,
+    editorIndentGuides,
+    activeFile,
+    themeCompartment,
+    layoutCompartment
+  ])
 
   /** Ctrl+scroll zooms the editor, matching VS Code. */
   const onWheel = (event: WheelEvent<HTMLDivElement>): void => {

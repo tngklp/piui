@@ -394,33 +394,16 @@ export const THEMES: Theme[] = FAMILIES.flatMap((family): Theme[] => [
 /** Palette used on first run. */
 export const DEFAULT_THEME_ID = 'wisteria-dark'
 
-/**
- * Ids from earlier releases, where each family had only a dark and a light
- * palette and Lilac was the neutral one. Old `<family>-dark` ids still exist as
- * ids today, but they now mean the *dark* variant rather than the family's own
- * palette, so only the Lilac ids need translating.
- */
-const LEGACY_THEME_IDS: Record<string, string> = {
-  'lilac-dark': 'wisteria-dark',
-  'lilac-light': 'wisteria-light'
-}
-
 const THEMES_BY_ID = new Map(THEMES.map((theme) => [theme.id, theme]))
-
-/**
- * Translate a stored theme id to a current one. Anything that is already a
- * current id is returned untouched — the legacy map must never shadow a live id,
- * or picking `Ocean Dark` would resolve back to plain `Ocean`.
- */
-export function migrateThemeId(id: string): string {
-  if (THEMES_BY_ID.has(id)) return id
-  return LEGACY_THEME_IDS[id] ?? id
-}
-
 const FALLBACK_THEME = THEMES_BY_ID.get(DEFAULT_THEME_ID) ?? (THEMES[0] as Theme)
 
+/**
+ * Look up a theme. An id that no longer exists — an older release's palette, or
+ * a hand-edited preference — falls back to the default rather than leaving the
+ * app unstyled, which is all a migration table would have bought us.
+ */
 export function findTheme(id: string): Theme {
-  return THEMES_BY_ID.get(migrateThemeId(id)) ?? FALLBACK_THEME
+  return THEMES_BY_ID.get(id) ?? FALLBACK_THEME
 }
 
 /** Resolve a stored preference to a concrete theme. */

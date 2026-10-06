@@ -26,7 +26,7 @@ export type RightTab = 'files' | 'term' | 'mon'
 /** Main column views. */
 export type MainTab = 'chat' | 'editor'
 /** Settings sections. */
-export type SettingsTab = 'general' | 'customization' | 'models' | 'packages' | 'tools'
+export type SettingsTab = 'general' | 'customization' | 'models' | 'packages' | 'tools' | 'editor'
 /** Sidebar session filters. */
 export type SessionFilter = 'all' | 'running' | 'starred'
 
@@ -181,7 +181,11 @@ interface PiUiState {
   closeFile: (path: string) => void
   setActiveFile: (path: string) => void
   deleteSession: (path: string) => Promise<void>
-  send: (text: string, mode?: 'prompt' | 'steer' | 'followUp') => Promise<void>
+  send: (
+    text: string,
+    mode?: 'prompt' | 'steer' | 'followUp',
+    images?: { type: 'image'; data: string; mimeType: string }[]
+  ) => Promise<void>
   abort: () => Promise<void>
   newSession: () => Promise<void>
   compact: () => Promise<void>
@@ -663,15 +667,16 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     }
   },
 
-  send: async (text, mode = 'prompt') => {
+  send: async (text, mode = 'prompt', images) => {
     const trimmed = text.trim()
-    if (trimmed.length === 0) return
+    // An image on its own is a valid message; empty text with nothing attached is not.
+    if (trimmed.length === 0 && (images ?? []).length === 0) return
     set({ busy: true, error: null })
 
     try {
       if (mode === 'steer') await window.piui.steer(trimmed)
       else if (mode === 'followUp') await window.piui.followUp(trimmed)
-      else await window.piui.prompt({ text: trimmed })
+      else await window.piui.prompt({ text: trimmed, images })
       await get().refresh()
     } catch (cause) {
       set({ error: describeError(cause), busy: false })

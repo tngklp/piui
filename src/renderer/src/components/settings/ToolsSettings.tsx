@@ -1,6 +1,7 @@
 import { APPROVAL_TOOLS, type ApprovalAction } from '@shared/ipc'
 import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
+import { Row, SettingsHeader } from './rows'
 
 const ACTION_OPTIONS: SelectOption<ApprovalAction>[] = [
   { value: 'allow', label: 'Allow' },
@@ -39,29 +40,24 @@ export function ToolsSettings() {
 
   return (
     <section className="set-section">
-      <header className="set-head">
-        <h2>Tools</h2>
-        <p>Decide what PiUI does before the agent runs a tool.</p>
-      </header>
+      <SettingsHeader
+        title="Tools"
+        subtitle="Decide what PiUI does before the agent runs a tool."
+      />
 
       <h3>Everything else</h3>
       <div className="gcard">
-        <div className="grow">
-          <div className="grow__text">
-            <b>Default policy</b>
-            <small>
-              Applied to any tool without its own rule below. {ACTION_HINTS[defaultPolicy]}
-            </small>
-          </div>
-          <div className="grow__ctl">
-            <Select
-              value={defaultPolicy}
-              options={ACTION_OPTIONS}
-              title="Default approval for unlisted tools"
-              onChange={setDefault}
-            />
-          </div>
-        </div>
+        <Row
+          title="Default policy"
+          hint={`Applied to any tool without its own rule below. ${ACTION_HINTS[defaultPolicy]}`}
+        >
+          <Select
+            value={defaultPolicy}
+            options={ACTION_OPTIONS}
+            title="Default approval for unlisted tools"
+            onChange={setDefault}
+          />
+        </Row>
       </div>
 
       <h3>Per tool</h3>
@@ -69,20 +65,14 @@ export function ToolsSettings() {
         {tools.map((tool) => {
           const policy = policyOf(tool)
           return (
-            <div className="grow" key={tool}>
-              <div className="grow__text">
-                <b className="mono">{tool}</b>
-                <small>{ACTION_HINTS[policy]}</small>
-              </div>
-              <div className="grow__ctl">
-                <Select
-                  value={policy}
-                  options={ACTION_OPTIONS}
-                  title={`${tool} approval`}
-                  onChange={(action) => setTool(tool, action)}
-                />
-              </div>
-            </div>
+            <Row key={tool} title={tool} hint={ACTION_HINTS[policy]}>
+              <Select
+                value={policy}
+                options={ACTION_OPTIONS}
+                title={`${tool} approval`}
+                onChange={(action) => setTool(tool, action)}
+              />
+            </Row>
           )
         })}
       </div>

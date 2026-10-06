@@ -43,6 +43,8 @@ export const IpcChannel = {
   FsList: 'piui:fs:list',
   FsRead: 'piui:fs:read',
   FsWrite: 'piui:fs:write',
+  /** Format a buffer with Prettier before it is written. */
+  FsFormat: 'piui:fs:format',
   /** Recursive workspace file index for quick open. */
   FsIndex: 'piui:fs:index',
   SessionsDelete: 'piui:sessions:delete',
@@ -387,6 +389,14 @@ export interface ProviderConfigDto {
   models: ModelDefDto[]
 }
 
+/** Result of a format-on-save request. */
+export interface FormatResultDto {
+  /** Formatted text, or null when the file was left untouched. */
+  text: string | null
+  /** Why nothing was formatted, when that is worth reporting. */
+  error: string | null
+}
+
 /** The provider/model catalogue PiUI edits, persisted as `<agentDir>/models.json`. */
 export interface ModelsConfigDto {
   /** Absolute path of the file the catalogue is read from. */
@@ -616,6 +626,8 @@ export interface PiUiApi {
   readFile(path: string): Promise<FsFileDto>
   /** Write file contents back to disk. */
   writeFile(path: string, content: string): Promise<void>
+  /** Format a buffer the way the file's language wants it. */
+  formatFile(path: string, content: string): Promise<FormatResultDto>
   /** Workspace-relative paths of every indexable file, sorted. */
   listWorkspaceFiles(): Promise<string[]>
   /** Delete a saved session file. */

@@ -1,6 +1,7 @@
 import { usePiUi } from '../../store'
 import { ICON_PACKS, fileIconUrl, folderIconUrl } from '../../lib/icon-packs'
 import { THEMES, type ThemeVariant } from '../../theme/themes'
+import { SettingsHeader } from './rows'
 
 /** Small caption under each family name in the theme grid. */
 const VARIANT_LABELS: Record<ThemeVariant, string> = {
@@ -29,6 +30,8 @@ export function CustomizationSettings() {
   return (
     <>
       <section className="set-section">
+        <SettingsHeader title="Customization" subtitle="Theme and iconography." />
+
         <h3>Theme</h3>
 
         <div className="themes" role="radiogroup" aria-label="Theme">

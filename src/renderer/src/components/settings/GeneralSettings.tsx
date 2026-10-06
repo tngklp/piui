@@ -1,43 +1,6 @@
-import type { ReactNode } from 'react'
 import { usePiUi } from '../../store'
 import { SCROLLBACK_MAX, SCROLLBACK_MIN, clampScrollback } from '../../lib/ui-prefs'
-
-/** Pill switch used for the boolean rows. */
-function Switch({
-  label,
-  checked,
-  onChange
-}: {
-  label: string
-  checked: boolean
-  onChange: (value: boolean) => void
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      className={`sw${checked ? ' on' : ''}`}
-      onClick={() => onChange(!checked)}
-    >
-      <span />
-    </button>
-  )
-}
-
-/** One settings row: what it does on the left, its control on the right. */
-function Row({ title, hint, children }: { title: string; hint: string; children: ReactNode }) {
-  return (
-    <div className="grow">
-      <div className="grow__text">
-        <b>{title}</b>
-        <small>{hint}</small>
-      </div>
-      <div className="grow__ctl">{children}</div>
-    </div>
-  )
-}
+import { Row, SettingsHeader, Switch } from './rows'
 
 /** Default shell placeholder, for whichever platform is running. */
 const SHELL_PLACEHOLDER = navigator.userAgent.includes('Windows') ? 'powershell.exe' : '/bin/zsh'
@@ -49,10 +12,7 @@ export function GeneralSettings() {
 
   return (
     <section className="set-section">
-      <header className="set-head">
-        <h2>General</h2>
-        <p>App and runtime defaults.</p>
-      </header>
+      <SettingsHeader title="General" subtitle="App and runtime defaults." />
 
       <h3>Agent</h3>
       <div className="gcard">

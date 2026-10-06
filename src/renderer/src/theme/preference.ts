@@ -1,4 +1,4 @@
-import { DEFAULT_THEME_ID, applyTheme, migrateThemeId, resolveTheme } from './themes'
+import { DEFAULT_THEME_ID, applyTheme, findTheme, resolveTheme } from './themes'
 
 const STORAGE_KEY = 'piui.theme'
 
@@ -6,11 +6,7 @@ const STORAGE_KEY = 'piui.theme'
 export function loadThemeId(): string {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === null) return DEFAULT_THEME_ID
-    // Themes were regrouped into families; older ids map onto the new ones.
-    const id = migrateThemeId(stored)
-    if (id !== stored) localStorage.setItem(STORAGE_KEY, id)
-    return id
+    return stored === null ? DEFAULT_THEME_ID : findTheme(stored).id
   } catch {
     return DEFAULT_THEME_ID
   }

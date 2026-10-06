@@ -25,6 +25,7 @@ import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
 import { WorkspaceStore } from './pi/workspace-store'
 import { listDirectory, readFileText, writeFileText } from './fs-list'
+import { formatDocument } from './format'
 import { invalidateWorkspaceFiles, listWorkspaceFiles } from './fs-index'
 import { readMonitor } from './monitor'
 import { TerminalManager } from './terminal'
@@ -208,6 +209,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     // The quick-open index now has a stale entry for this file.
     invalidateWorkspaceFiles()
   })
+
+  ipcMain.handle(IpcChannel.FsFormat, async (_event, target: string, content: string) =>
+    formatDocument(target, content)
+  )
 
   ipcMain.handle(IpcChannel.FsIndex, async () => {
     const root = (await host()).getWorkspace().cwd

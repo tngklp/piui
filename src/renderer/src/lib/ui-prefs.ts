@@ -11,6 +11,18 @@ export interface UiPreferences {
   editorFontSize: number
   /** Wrap long lines in the editor. */
   editorWrap: boolean
+  /** Editor font stack; blank falls back to the bundled monospace face. */
+  editorFontFamily: string
+  /** Spaces per indent level, or 0 to use the language's own convention. */
+  editorTabSize: number
+  /** Draw a guide at each indent level. */
+  editorIndentGuides: boolean
+  /** Run Prettier over the buffer before writing the file. */
+  editorFormatOnSave: boolean
+  /** Save on a pause in typing, without waiting for Mod-s. */
+  editorAutoSave: boolean
+  /** How long the pause has to last. */
+  editorAutoSaveDelayMs: number
   /** Expand reasoning blocks in the transcript by default. */
   expandThinking: boolean
   /** Show what a tool ran with, instead of keeping it collapsed. */
@@ -33,9 +45,24 @@ export const EDITOR_FONT_MAX = 24
 export const SCROLLBACK_MIN = 100
 export const SCROLLBACK_MAX = 100000
 
+/** Indent widths offered in Settings; 0 means "follow the language". */
+export const TAB_SIZE_OPTIONS = [0, 2, 4, 8]
+
+export const AUTOSAVE_MIN_MS = 500
+export const AUTOSAVE_MAX_MS = 10000
+
+/** Bundled monospace stack, used when no family is set. */
+export const DEFAULT_EDITOR_FONT = 'JetBrains Mono, ui-monospace, monospace'
+
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   editorFontSize: 13,
   editorWrap: false,
+  editorFontFamily: '',
+  editorTabSize: 0,
+  editorIndentGuides: true,
+  editorFormatOnSave: false,
+  editorAutoSave: false,
+  editorAutoSaveDelayMs: 1200,
   expandThinking: false,
   expandToolOutput: false,
   sendOnEnter: true,
@@ -57,18 +84,36 @@ export function clampScrollback(value: unknown): number {
   return Math.min(SCROLLBACK_MAX, Math.max(SCROLLBACK_MIN, Math.round(parsed)))
 }
 
+/** Indent width, or 0 for the language default. */
+export function clampTabSize(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  return TAB_SIZE_OPTIONS.includes(parsed) ? parsed : 0
+}
+
+export function clampAutoSaveDelay(value: unknown): number {
+  const parsed = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(parsed)) return DEFAULT_UI_PREFERENCES.editorAutoSaveDelayMs
+  return Math.min(AUTOSAVE_MAX_MS, Math.max(AUTOSAVE_MIN_MS, Math.round(parsed)))
+}
+
 /** Coerce anything stored into a complete, valid preference set. */
 function normalize(value: unknown): UiPreferences {
   const raw = value !== null && typeof value === 'object' ? (value as Record<string, unknown>) : {}
+  const bool = (key: keyof UiPreferences, fallback: boolean): boolean =>
+    typeof raw[key] === 'boolean' ? (raw[key] as boolean) : fallback
+
   return {
     editorFontSize: clampFontSize(raw.editorFontSize),
-    editorWrap: typeof raw.editorWrap === 'boolean' ? raw.editorWrap : false,
-    expandThinking: typeof raw.expandThinking === 'boolean' ? raw.expandThinking : false,
-    expandToolOutput:
-      typeof raw.expandToolOutput === 'boolean'
-        ? raw.expandToolOutput
-        : DEFAULT_UI_PREFERENCES.expandToolOutput,
-    sendOnEnter: typeof raw.sendOnEnter === 'boolean' ? raw.sendOnEnter : true,
+    editorWrap: bool('editorWrap', false),
+    editorFontFamily: typeof raw.editorFontFamily === 'string' ? raw.editorFontFamily : '',
+    editorTabSize: clampTabSize(raw.editorTabSize),
+    editorIndentGuides: bool('editorIndentGuides', true),
+    editorFormatOnSave: bool('editorFormatOnSave', false),
+    editorAutoSave: bool('editorAutoSave', false),
+    editorAutoSaveDelayMs: clampAutoSaveDelay(raw.editorAutoSaveDelayMs),
+    expandThinking: bool('expandThinking', false),
+    expandToolOutput: bool('expandToolOutput', false),
+    sendOnEnter: bool('sendOnEnter', true),
     iconPack: findIconPack(typeof raw.iconPack === 'string' ? raw.iconPack : '').id,
     terminalShell: typeof raw.terminalShell === 'string' ? raw.terminalShell : '',
     terminalScrollback: clampScrollback(raw.terminalScrollback)

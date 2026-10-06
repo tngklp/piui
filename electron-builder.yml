@@ -16,6 +16,9 @@ asarUnpack:
   - '**/node_modules/@silvia-odwyer/**'
   # node-pty ships a native addon plus ConPTY binaries that must stay on disk.
   - '**/node_modules/node-pty/**'
+  # Format-on-save loads Prettier's parsers dynamically; they have to be real
+  # files, not entries inside app.asar.
+  - '**/node_modules/prettier/**'
 
 # Publishing to GitHub is what makes the in-app updater work: the releases feed
 # is where a new version is discovered, and electron-builder uploads the

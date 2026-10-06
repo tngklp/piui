@@ -3,6 +3,7 @@ import type { ModelDefDto, ModelsConfigDto, ProviderConfigDto } from '@shared/ip
 import { HOSTED_PROVIDERS, isHostedProviderId, type HostedProvider } from '@shared/providers'
 import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
+import { SettingsHeader } from './rows'
 
 /** Provider APIs the agent understands. */
 const API_OPTIONS: SelectOption<string>[] = [
@@ -217,7 +218,7 @@ export function ModelsSettings() {
 
   return (
     <section className="set-section">
-      <h3>Models</h3>
+      <SettingsHeader title="Models" subtitle="Providers, credentials and model definitions." />
 
       {modelsError ? (
         <p className="hint bad">
