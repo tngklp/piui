@@ -13,11 +13,12 @@ export function ChatView() {
     <>
       {runtime && !runtime.versionMatch ? (
         <div className="banner warn">
-          PiUI embeds pi <b>{runtime.sdkVersion}</b>
+          Running on pi <b>{runtime.sdkVersion}</b>
           {runtime.cliVersion
             ? `, but the installed CLI is ${runtime.cliVersion}`
-            : ' and no installed CLI was detected'}
-          . Keep both on the same version so sessions and settings stay compatible.
+            : ', and no installed CLI was detected'}
+          . PiUI loads the SDK from your pi installation when it can, so reinstall pi or update PiUI
+          to align them — sessions and settings are only compatible within a version.
         </div>
       ) : null}
 

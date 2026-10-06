@@ -43,7 +43,12 @@ function describeStatus(status: MonitorSnapshotDto['status']): {
   if (status.phase === 'prompt') {
     const processed = status.promptProcessed
     const total = status.promptTotal
-    if (processed === null || total === null) return { text: 'Reading the prompt…', percent: null }
+    if (processed === null || total === null) {
+      return {
+        text: total === null ? 'Reading the prompt…' : `Reading ${number(total)} tokens…`,
+        percent: null
+      }
+    }
     return {
       text: `${number(processed)} of ${number(total)} tokens`,
       percent: total > 0 ? Math.min(100, (processed / total) * 100) : null
@@ -64,6 +69,15 @@ function describeStatus(status: MonitorSnapshotDto['status']): {
   }
 
   return { text: 'Idle', percent: null }
+}
+
+/** Short duration for the request table. */
+function duration(ms: number | null): string {
+  if (ms === null || !Number.isFinite(ms)) return '—'
+  if (ms < 1000) return `${Math.round(ms)} ms`
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toFixed(1)} s`
+  return `${Math.floor(seconds / 60)}m ${Math.round(seconds % 60)}s`
 }
 
 /** Live inference metrics from the model endpoint and GPU telemetry. */
@@ -141,12 +155,9 @@ export function MonitorPanel() {
         <div className="bar">
           <i style={{ width: `${statusView.percent ?? 0}%` }} />
         </div>
-        {monitor.status.source === 'metrics' ? (
-          <small>
-            Per-request token progress needs the endpoint’s /slots route; showing server activity
-            instead.
-          </small>
-        ) : null}
+        {monitor.status.elapsedSeconds === null ? null : (
+          <small>{monitor.status.elapsedSeconds.toFixed(1)} s elapsed</small>
+        )}
       </div>
 
       <div className="mc">
@@ -207,6 +218,7 @@ export function MonitorPanel() {
                 <b>{gpu.name}</b>
                 <small>
                   {Math.round(gpu.utilization)}% load
+                  {gpu.temperatureC === null ? '' : ` · ${Math.round(gpu.temperatureC)} °C`}
                   {gpu.powerWatts === null ? '' : ` · ${Math.round(gpu.powerWatts)} W`}
                 </small>
               </div>
@@ -246,7 +258,8 @@ export function MonitorPanel() {
                 <th>Time</th>
                 <th>Prompt</th>
                 <th>Answer</th>
-                <th>Model</th>
+                <th>Took</th>
+                <th>tok/s</th>
               </tr>
             </thead>
             <tbody>
@@ -255,7 +268,10 @@ export function MonitorPanel() {
                   <td>{timeOf(request.at)}</td>
                   <td>{request.promptTokens.toLocaleString('en-US')}</td>
                   <td>{request.answerTokens.toLocaleString('en-US')}</td>
-                  <td>{request.model || '—'}</td>
+                  <td>{duration(request.durationMs)}</td>
+                  <td>
+                    {request.tokensPerSecond === null ? '—' : request.tokensPerSecond.toFixed(1)}
+                  </td>
                 </tr>
               ))}
             </tbody>

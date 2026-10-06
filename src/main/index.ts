@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
+import { initSdk } from './pi/sdk'
 
 const preloadPath = fileURLToPath(new URL('../preload/index.mjs', import.meta.url))
 const rendererEntry = fileURLToPath(new URL('../renderer/index.html', import.meta.url))
@@ -64,10 +65,13 @@ function createWindow(): BrowserWindow {
 
 let mainWindow: BrowserWindow | null = null
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Removing the application menu also unbinds its accelerators, which lets the
   // renderer own shortcuts such as Ctrl+N and Ctrl+K.
   Menu.setApplicationMenu(null)
+
+  // Prefer the SDK from the installed pi release so both stay in step.
+  await initSdk()
 
   if (app.isPackaged) {
     app.on('web-contents-created', (_event, contents) => {

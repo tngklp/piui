@@ -9,12 +9,8 @@
  * Installation goes through the SDK's own package manager, which writes the
  * source into `settings.json` and installs into the agent directory.
  */
-import {
-  DefaultPackageManager,
-  SettingsManager,
-  getAgentDir
-} from '@earendil-works/pi-coding-agent'
 import type { CatalogPackageDto, CatalogPageDto, InstalledPackageDto } from '@shared/ipc'
+import { sdk, type PiSdk } from './sdk'
 
 const CATALOG_ORIGIN = 'https://pi.dev'
 /** Cards per catalogue page. */
@@ -91,8 +87,11 @@ export async function searchCatalog(
   return { items, page, pageSize: PAGE_SIZE, total }
 }
 
+type PackageManagerInstance = InstanceType<PiSdk['DefaultPackageManager']>
+
 /** Package manager bound to the current agent directory. */
-async function managerFor(cwd: string): Promise<DefaultPackageManager> {
+async function managerFor(cwd: string): Promise<PackageManagerInstance> {
+  const { DefaultPackageManager, SettingsManager, getAgentDir } = sdk()
   const agentDir = getAgentDir()
   const settingsManager = await SettingsManager.create(cwd, agentDir)
   return new DefaultPackageManager({ cwd, agentDir, settingsManager })

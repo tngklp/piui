@@ -242,6 +242,8 @@ export interface RuntimeInfoDto {
   versionMatch: boolean
   agentDir: string
   node: string
+  /** Path of the SDK copy in use, or null when PiUI's bundled copy is used. */
+  sdkPath: string | null
 }
 
 /** A renderable block inside an assistant turn. */
@@ -441,20 +443,26 @@ export interface MonitorGpuDto {
   /** MiB. */
   memoryTotal: number
   powerWatts: number | null
+  /** Core temperature in Celsius, when the source reports it. */
+  temperatureC: number | null
 }
 
-/** One finished model request, derived from the session transcript. */
+/** One finished model request, from the engine or the session transcript. */
 export interface MonitorRequestDto {
   at: string
   model: string
   promptTokens: number
   answerTokens: number
+  /** Wall-clock duration of the request, when the engine reports it. */
+  durationMs: number | null
+  /** Decode throughput in tokens per second, when the engine reports it. */
+  tokensPerSecond: number | null
 }
 
 /** What the model is doing right now, as far as the endpoint will say. */
 export interface MonitorStatusDto {
   /** Which source produced the numbers. */
-  source: 'slots' | 'metrics' | 'none'
+  source: 'engine' | 'slots' | 'none'
   phase: 'idle' | 'prompt' | 'generate'
   /** Prompt tokens processed so far, when reading the prompt. */
   promptProcessed: number | null
@@ -464,6 +472,8 @@ export interface MonitorStatusDto {
   generated: number | null
   /** Configured output ceiling for the active model. */
   maxOutput: number | null
+  /** Seconds elapsed on the current request. */
+  elapsedSeconds: number | null
 }
 
 /** Everything the Monitor tab renders. */

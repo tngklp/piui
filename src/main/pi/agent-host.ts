@@ -1,12 +1,9 @@
 import { rm } from 'node:fs/promises'
-import {
-  createAgentSession,
-  DefaultResourceLoader,
-  getAgentDir,
-  SessionManager,
-  type AgentSession,
-  type InlineExtension,
-  type PromptOptions
+import type {
+  AgentSession,
+  InlineExtension,
+  PromptOptions,
+  SessionManager
 } from '@earendil-works/pi-coding-agent'
 import type {
   ChatBlockDto,
@@ -22,6 +19,7 @@ import type {
   WorkspaceDto
 } from '@shared/ipc'
 import { listAllSessions, listSessions, workspaceName } from './session-store'
+import { sdk, type PiSdk } from './sdk'
 import { createUiHost, type UiTransport } from './ui-context'
 
 /** The model shape PiUI reads from the SDK. */
@@ -291,7 +289,7 @@ export class AgentHost {
   private unsubscribe: (() => void) | undefined
   private cwd: string
   /** Loader the current session was built from, kept so packages can be reloaded. */
-  private resourceLoader: DefaultResourceLoader | undefined
+  private resourceLoader: InstanceType<PiSdk['DefaultResourceLoader']> | undefined
   private readonly options: AgentHostOptions
   private readonly uiHost: ReturnType<typeof createUiHost>
 
@@ -309,6 +307,7 @@ export class AgentHost {
 
   /** Build a session for the current cwd, optionally restoring a session store. */
   private async openSession(sessionManager?: SessionManager): Promise<AgentSession> {
+    const { DefaultResourceLoader, createAgentSession, getAgentDir } = sdk()
     const agentDir = getAgentDir()
     const resourceLoader = new DefaultResourceLoader({
       cwd: this.cwd,
@@ -335,6 +334,7 @@ export class AgentHost {
    * enough to pick new packages up.
    */
   async restartSession(): Promise<void> {
+    const { SessionManager } = sdk()
     const sessionFile = this.session.sessionFile
     await this.replaceSession(
       sessionFile ? SessionManager.open(sessionFile) : SessionManager.create(this.cwd)
@@ -521,12 +521,12 @@ export class AgentHost {
 
   /** Replace the current session with a brand new one. */
   async newSession(): Promise<void> {
-    await this.replaceSession(SessionManager.create(this.cwd))
+    await this.replaceSession(sdk().SessionManager.create(this.cwd))
   }
 
   /** Open a saved session file. */
   async switchSession(sessionPath: string): Promise<void> {
-    await this.replaceSession(SessionManager.open(sessionPath))
+    await this.replaceSession(sdk().SessionManager.open(sessionPath))
   }
 
   /** Duplicate the active branch into a new session. */
@@ -536,7 +536,7 @@ export class AgentHost {
       await this.newSession()
       return
     }
-    const fork = SessionManager.forkFrom(source, this.cwd)
+    const fork = sdk().SessionManager.forkFrom(source, this.cwd)
     await this.replaceSession(fork)
   }
 
@@ -562,7 +562,7 @@ export class AgentHost {
   /** Point the agent at a different working directory and start a fresh session. */
   async setWorkspace(cwd: string): Promise<WorkspaceDto> {
     this.cwd = cwd
-    await this.replaceSession(SessionManager.create(cwd))
+    await this.replaceSession(sdk().SessionManager.create(cwd))
     return this.getWorkspace()
   }
 
@@ -599,7 +599,10 @@ export class AgentHost {
         at: new Date(message.timestamp ?? Date.now()).toISOString(),
         model: message.model ?? '',
         promptTokens: message.usage.input ?? 0,
-        answerTokens: message.usage.output ?? 0
+        answerTokens: message.usage.output ?? 0,
+        // The transcript records totals, not timing.
+        durationMs: null,
+        tokensPerSecond: null
       })
     }
 

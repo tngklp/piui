@@ -1,6 +1,5 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { getAgentDir } from '@earendil-works/pi-coding-agent'
 import { app, dialog, ipcMain, type BrowserWindow } from 'electron'
 import {
   IpcChannel,
@@ -20,6 +19,7 @@ import { AgentHost } from './pi/agent-host'
 import { ApprovalManager } from './pi/approval'
 import { readModelsConfig, writeModelsConfig } from './pi/models-store'
 import { installPackage, listInstalledPackages, removePackage, searchCatalog } from './pi/packages'
+import { sdk } from './pi/sdk'
 import { getRuntimeInfo } from './pi/runtime-info'
 import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
@@ -224,13 +224,13 @@ export function registerIpcHandlers(context: IpcContext): void {
   })
 
   ipcMain.handle(IpcChannel.ModelsGet, async (): Promise<ModelsConfigDto> => {
-    return readModelsConfig(getAgentDir())
+    return readModelsConfig(sdk().getAgentDir())
   })
 
   ipcMain.handle(
     IpcChannel.ModelsSet,
     async (_event, config: ModelsConfigDto): Promise<ModelsUpdateResultDto> => {
-      const written = await writeModelsConfig(getAgentDir(), config)
+      const written = await writeModelsConfig(sdk().getAgentDir(), config)
       // The session caches the catalogue; reload it so the change takes effect
       // without restarting the app.
       const models = await (await host()).refreshModels()

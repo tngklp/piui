@@ -198,11 +198,11 @@ export function EditorView() {
         closeBrackets(),
         autocompletion(),
         highlightSelectionMatches(),
-        indentGuides,
+        indentGuides(indent),
         search({ top: true }),
         CONTENT_ATTRIBUTES,
         themeCompartment.of([
-          editorTheme(appearance(), preferences.fontSize, indent),
+          editorTheme(appearance(), preferences.fontSize),
           editorHighlight(appearance())
         ]),
         languageCompartment.of(language.extension),
@@ -297,7 +297,7 @@ export function EditorView() {
     view.dispatch({
       effects: [
         themeCompartment.reconfigure([
-          editorTheme(appearance(), fontSize, indent),
+          editorTheme(appearance(), fontSize),
           editorHighlight(appearance())
         ]),
         layoutCompartment.reconfigure([

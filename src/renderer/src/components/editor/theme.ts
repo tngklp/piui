@@ -49,11 +49,7 @@ const LIGHT_TOKENS = {
 }
 
 /** Editor chrome: everything that should track the app theme. */
-export function editorTheme(
-  appearance: 'light' | 'dark',
-  fontSize: number,
-  indent: number
-): Extension {
+export function editorTheme(appearance: 'light' | 'dark', fontSize: number): Extension {
   const dark = appearance === 'dark'
 
   return [
@@ -76,9 +72,6 @@ export function editorTheme(
         // No left padding here: indentation guides are painted from the line's
         // own left edge, which has to be where the text begins.
         '.cm-line': { padding: '0 12px 0 0' },
-        '.cm-line.cm-indent': {
-          backgroundImage: `repeating-linear-gradient(to right, var(--line) 0 1px, transparent 1px ${indent}ch)`
-        },
         '.cm-cursor, .cm-dropCursor': {
           borderLeft: '2px solid var(--lilac-strong)'
         },

@@ -1,5 +1,5 @@
 import { basename } from 'node:path'
-import { SessionManager } from '@earendil-works/pi-coding-agent'
+import { sdk } from './sdk'
 import type { SessionSummaryDto } from '@shared/ipc'
 
 /** Shape of a `SessionInfo` as returned by the SDK. */
@@ -39,13 +39,13 @@ function newestFirst(summaries: SessionSummaryDto[]): SessionSummaryDto[] {
 
 /** Sessions recorded for one working directory. */
 export async function listSessions(cwd: string): Promise<SessionSummaryDto[]> {
-  const infos = (await SessionManager.list(cwd)) as unknown as SdkSessionInfo[]
+  const infos = (await sdk().SessionManager.list(cwd)) as unknown as SdkSessionInfo[]
   return newestFirst(infos.map(toSummary))
 }
 
 /** Sessions across every working directory Pi has recorded. */
 export async function listAllSessions(): Promise<SessionSummaryDto[]> {
-  const infos = (await SessionManager.listAll()) as unknown as SdkSessionInfo[]
+  const infos = (await sdk().SessionManager.listAll()) as unknown as SdkSessionInfo[]
   return newestFirst(infos.map(toSummary))
 }
 
