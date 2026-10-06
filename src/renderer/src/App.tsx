@@ -3,6 +3,7 @@ import type { ThinkingLevelDto } from '@shared/ipc'
 import { ApprovalSettings } from './components/ApprovalSettings'
 import { Composer } from './components/Composer'
 import { DialogHost } from './components/DialogHost'
+import { Sidebar } from './components/Sidebar'
 import { StatusBar } from './components/StatusBar'
 import { Transcript } from './components/Transcript'
 import { usePiUi } from './store'
@@ -35,91 +36,103 @@ export default function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
-        <div className="topbar__brand">
-          <span className="topbar__logo">π</span>
-          <span className="topbar__name">PiUI</span>
-        </div>
+      <Sidebar />
 
-        <div className="topbar__controls">
-          <select
-            className="control"
-            value={currentModelKey}
-            onChange={(event) => onModelChange(event.target.value)}
-            disabled={models.length === 0}
-            title="Model"
-          >
-            {currentModelKey === '' ? <option value="">No model selected</option> : null}
-            {models.map((model) => (
-              <option key={`${model.provider}/${model.id}`} value={`${model.provider}/${model.id}`}>
-                {model.name}
-              </option>
-            ))}
-          </select>
+      <div className="content">
+        <header className="topbar">
+          <div className="topbar__brand">
+            <span className="topbar__logo">π</span>
+            <span className="topbar__name">PiUI</span>
+          </div>
 
-          <select
-            className="control"
-            value={status?.thinkingLevel ?? 'off'}
-            onChange={(event) => void selectThinking(event.target.value as ThinkingLevelDto)}
-            disabled={!status?.supportsThinking}
-            title="Thinking level"
-          >
-            {(status?.availableThinkingLevels ?? ['off']).map((level) => (
-              <option key={level} value={level}>
-                {level}
-              </option>
-            ))}
-          </select>
-
-          <button className="button" onClick={() => void newSession()}>
-            New
-          </button>
-          <button className="button" onClick={() => void compact()} disabled={status?.isStreaming}>
-            Compact
-          </button>
-          <button className="button" onClick={openSettings}>
-            Rules
-          </button>
-        </div>
-      </header>
-
-      {runtime && !runtime.versionMatch ? (
-        <div className="banner banner--warning">
-          PiUI embeds pi <strong>{runtime.sdkVersion}</strong>
-          {runtime.cliVersion
-            ? `, but the installed CLI is ${runtime.cliVersion}`
-            : ' and no installed CLI was detected'}
-          . Keep both on the same version so sessions and settings stay compatible.
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="banner banner--error" role="alert">
-          {error}
-        </div>
-      ) : null}
-
-      {notices.length > 0 ? (
-        <div className="notices">
-          {notices.map((notice) => (
-            <button
-              key={notice.id}
-              className={`notice notice--${notice.level}`}
-              onClick={() => dismissNotice(notice.id)}
-              title="Dismiss"
+          <div className="topbar__controls">
+            <select
+              className="control"
+              value={currentModelKey}
+              onChange={(event) => onModelChange(event.target.value)}
+              disabled={models.length === 0}
+              title="Model"
             >
-              {notice.message}
+              {currentModelKey === '' ? <option value="">No model selected</option> : null}
+              {models.map((model) => (
+                <option
+                  key={`${model.provider}/${model.id}`}
+                  value={`${model.provider}/${model.id}`}
+                >
+                  {model.name}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="control"
+              value={status?.thinkingLevel ?? 'off'}
+              onChange={(event) => void selectThinking(event.target.value as ThinkingLevelDto)}
+              disabled={!status?.supportsThinking}
+              title="Thinking level"
+            >
+              {(status?.availableThinkingLevels ?? ['off']).map((level) => (
+                <option key={level} value={level}>
+                  {level}
+                </option>
+              ))}
+            </select>
+
+            <button className="button" onClick={() => void newSession()}>
+              New
             </button>
-          ))}
-        </div>
-      ) : null}
+            <button
+              className="button"
+              onClick={() => void compact()}
+              disabled={status?.isStreaming}
+            >
+              Compact
+            </button>
+            <button className="button" onClick={openSettings}>
+              Rules
+            </button>
+          </div>
+        </header>
 
-      <main className="main">
-        <Transcript />
-      </main>
+        {runtime && !runtime.versionMatch ? (
+          <div className="banner banner--warning">
+            PiUI embeds pi <strong>{runtime.sdkVersion}</strong>
+            {runtime.cliVersion
+              ? `, but the installed CLI is ${runtime.cliVersion}`
+              : ' and no installed CLI was detected'}
+            . Keep both on the same version so sessions and settings stay compatible.
+          </div>
+        ) : null}
 
-      <StatusBar />
-      <Composer />
+        {error ? (
+          <div className="banner banner--error" role="alert">
+            {error}
+          </div>
+        ) : null}
+
+        {notices.length > 0 ? (
+          <div className="notices">
+            {notices.map((notice) => (
+              <button
+                key={notice.id}
+                className={`notice notice--${notice.level}`}
+                onClick={() => dismissNotice(notice.id)}
+                title="Dismiss"
+              >
+                {notice.message}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <main className="main">
+          <Transcript />
+        </main>
+
+        <StatusBar />
+        <Composer />
+      </div>
+
       <DialogHost />
       <ApprovalSettings />
     </div>

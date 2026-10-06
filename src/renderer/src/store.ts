@@ -7,9 +7,11 @@ import type {
   NoticeDto,
   RuntimeInfoDto,
   SessionStatusDto,
+  SessionSummaryDto,
   ThinkingLevelDto,
   UiRequestDto,
-  UiResponseDto
+  UiResponseDto,
+  WorkspaceDto
 } from '@shared/ipc'
 
 /** Live assistant output accumulated from streaming deltas. */
@@ -53,6 +55,10 @@ interface PiUiState {
   approvalConfig: ApprovalConfig | null
   /** Whether the approval-rules panel is open. */
   settingsOpen: boolean
+  /** Saved sessions for the current workspace, newest first. */
+  sessions: SessionSummaryDto[]
+  /** The working directory the agent is operating on. */
+  workspace: WorkspaceDto | null
   initialize: () => Promise<void>
   refresh: () => Promise<void>
   ingest: (event: AgentEventDto) => void
@@ -61,6 +67,11 @@ interface PiUiState {
   openSettings: () => void
   closeSettings: () => void
   saveApprovalConfig: (config: ApprovalConfig) => Promise<void>
+  loadSessions: () => Promise<void>
+  switchSession: (path: string) => Promise<void>
+  renameSession: (name: string) => Promise<void>
+  forkSession: () => Promise<void>
+  changeWorkspace: () => Promise<void>
   send: (text: string, mode?: 'prompt' | 'steer' | 'followUp') => Promise<void>
   abort: () => Promise<void>
   newSession: () => Promise<void>
@@ -94,6 +105,8 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   dialog: null,
   approvalConfig: null,
   settingsOpen: false,
+  sessions: [],
+  workspace: null,
 
   initialize: async () => {
     if (get().initialized) return
@@ -106,14 +119,26 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     set({ initialized: true })
 
     try {
-      const [runtime, status, messages, models, approvalConfig] = await Promise.all([
-        window.piui.getRuntimeInfo(),
-        window.piui.getStatus(),
-        window.piui.getMessages(),
-        window.piui.getModels(),
-        window.piui.getApprovalConfig()
-      ])
-      set({ runtime, status, items: messages, models, approvalConfig, error: null })
+      const [runtime, status, messages, models, approvalConfig, workspace, sessions] =
+        await Promise.all([
+          window.piui.getRuntimeInfo(),
+          window.piui.getStatus(),
+          window.piui.getMessages(),
+          window.piui.getModels(),
+          window.piui.getApprovalConfig(),
+          window.piui.getWorkspace(),
+          window.piui.listSessions()
+        ])
+      set({
+        runtime,
+        status,
+        items: messages,
+        models,
+        approvalConfig,
+        workspace,
+        sessions,
+        error: null
+      })
     } catch (cause) {
       set({ error: describeError(cause) })
     }
@@ -220,6 +245,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
       case 'agent_settled':
         set({ streaming: null, runningTools: [], busy: false })
         void get().refresh()
+        void get().loadSessions()
         break
 
       case 'queue_update':
@@ -269,6 +295,67 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
 
   closeSettings: () => set({ settingsOpen: false }),
 
+  loadSessions: async () => {
+    try {
+      set({ sessions: await window.piui.listSessions() })
+    } catch {
+      // The session list is advisory; ignore failures.
+    }
+  },
+
+  switchSession: async (path) => {
+    if (get().status?.sessionFile === path) return
+    set({ busy: true, streaming: null, runningTools: [], items: [] })
+    try {
+      await window.piui.switchSession(path)
+      await get().refresh()
+      await get().loadSessions()
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  renameSession: async (name) => {
+    try {
+      await window.piui.renameSession(name)
+      await get().refresh()
+      await get().loadSessions()
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    }
+  },
+
+  forkSession: async () => {
+    set({ busy: true, streaming: null, runningTools: [], items: [] })
+    try {
+      await window.piui.forkSession()
+      await get().refresh()
+      await get().loadSessions()
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    } finally {
+      set({ busy: false })
+    }
+  },
+
+  changeWorkspace: async () => {
+    try {
+      const picked = await window.piui.pickWorkspace()
+      if (!picked) return
+      set({ busy: true, streaming: null, runningTools: [], items: [] })
+      const workspace = await window.piui.setWorkspace(picked)
+      set({ workspace })
+      await get().refresh()
+      await get().loadSessions()
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    } finally {
+      set({ busy: false })
+    }
+  },
+
   saveApprovalConfig: async (config) => {
     try {
       await window.piui.setApprovalConfig(config)
@@ -305,10 +392,11 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   },
 
   newSession: async () => {
-    set({ busy: true, streaming: null, runningTools: [] })
+    set({ busy: true, streaming: null, runningTools: [], items: [] })
     try {
       await window.piui.newSession()
       await get().refresh()
+      await get().loadSessions()
     } catch (cause) {
       set({ error: describeError(cause) })
     } finally {

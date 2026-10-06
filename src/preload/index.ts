@@ -47,7 +47,15 @@ const api: PiUiApi = {
   respondToUi: (response: UiResponseDto) => ipcRenderer.invoke(IpcChannel.UiRespond, response),
   getApprovalConfig: () => ipcRenderer.invoke(IpcChannel.ApprovalGetConfig),
   setApprovalConfig: (config: ApprovalConfig) =>
-    ipcRenderer.invoke(IpcChannel.ApprovalSetConfig, config)
+    ipcRenderer.invoke(IpcChannel.ApprovalSetConfig, config),
+  listSessions: () => ipcRenderer.invoke(IpcChannel.SessionsList),
+  listAllSessions: () => ipcRenderer.invoke(IpcChannel.SessionsListAll),
+  switchSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsSwitch, path),
+  renameSession: (name: string) => ipcRenderer.invoke(IpcChannel.SessionsRename, name),
+  forkSession: () => ipcRenderer.invoke(IpcChannel.SessionsFork),
+  getWorkspace: () => ipcRenderer.invoke(IpcChannel.WorkspaceGet),
+  pickWorkspace: () => ipcRenderer.invoke(IpcChannel.WorkspacePick),
+  setWorkspace: (path: string) => ipcRenderer.invoke(IpcChannel.WorkspaceSet, path)
 }
 
 if (process.contextIsolated) {

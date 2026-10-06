@@ -2,6 +2,7 @@ import {
   createAgentSession,
   DefaultResourceLoader,
   getAgentDir,
+  SessionManager,
   type AgentSession,
   type InlineExtension,
   type PromptOptions
@@ -13,8 +14,11 @@ import type {
   PromptInput,
   SessionStatsDto,
   SessionStatusDto,
-  ThinkingLevelDto
+  SessionSummaryDto,
+  ThinkingLevelDto,
+  WorkspaceDto
 } from '@shared/ipc'
+import { listAllSessions, listSessions, workspaceName } from './session-store'
 import { createUiHost, type UiTransport } from './ui-context'
 
 /** The model shape PiUI reads from the SDK. */
@@ -235,44 +239,66 @@ function sanitize(value: unknown): unknown {
  * IPC layer stays a thin pass-through.
  */
 export class AgentHost {
-  private session: AgentSession
+  private session!: AgentSession
   private unsubscribe: (() => void) | undefined
-  private readonly cwd: string
+  private cwd: string
   private readonly options: AgentHostOptions
   private readonly uiHost: ReturnType<typeof createUiHost>
 
-  private constructor(session: AgentSession, options: AgentHostOptions) {
-    this.session = session
+  private constructor(options: AgentHostOptions) {
     this.cwd = options.cwd
     this.options = options
     this.uiHost = createUiHost(options.transport)
   }
 
   static async create(options: AgentHostOptions): Promise<AgentHost> {
-    const session = await AgentHost.openSession(options)
-    const host = new AgentHost(session, options)
-    host.attach(session)
+    const host = new AgentHost(options)
+    host.applySession(await host.openSession())
     return host
   }
 
-  private static async openSession(options: AgentHostOptions): Promise<AgentSession> {
+  /** Build a session for the current cwd, optionally restoring a session store. */
+  private async openSession(sessionManager?: SessionManager): Promise<AgentSession> {
     const agentDir = getAgentDir()
     const resourceLoader = new DefaultResourceLoader({
-      cwd: options.cwd,
+      cwd: this.cwd,
       agentDir,
-      extensionFactories: [options.approvalExtension]
+      extensionFactories: [this.options.approvalExtension]
     })
     await resourceLoader.reload()
 
     const { session } = await createAgentSession({
-      cwd: options.cwd,
+      cwd: this.cwd,
       agentDir,
-      resourceLoader
+      resourceLoader,
+      ...(sessionManager ? { sessionManager } : {})
     })
     return session
   }
 
-  /** Subscribe to session events and bind extensions to the Gui host. */
+  private applySession(session: AgentSession): void {
+    this.session = session
+    this.attach(session)
+  }
+
+  /** Tear the current session down and start a new one. */
+  private async replaceSession(sessionManager?: SessionManager): Promise<void> {
+    const previous = this.session
+    this.unsubscribe?.()
+    this.unsubscribe = undefined
+
+    const session = await this.openSession(sessionManager)
+    this.applySession(session)
+
+    // Dispose after the replacement so a creation failure leaves the UI usable.
+    try {
+      previous.dispose()
+    } catch {
+      // The previous session may already be torn down.
+    }
+  }
+
+  /** Subscribe to session events and bind extensions to the GUI host. */
   private attach(session: AgentSession): void {
     this.unsubscribe = session.subscribe((event) => {
       this.options.emitEvent(sanitize(event))
@@ -390,13 +416,49 @@ export class AgentHost {
 
   /** Replace the current session with a brand new one. */
   async newSession(): Promise<void> {
-    this.unsubscribe?.()
-    this.unsubscribe = undefined
-    this.session.dispose()
+    await this.replaceSession(SessionManager.create(this.cwd))
+  }
 
-    const session = await AgentHost.openSession(this.options)
-    this.session = session
-    this.attach(session)
+  /** Open a saved session file. */
+  async switchSession(sessionPath: string): Promise<void> {
+    await this.replaceSession(SessionManager.open(sessionPath))
+  }
+
+  /** Duplicate the active branch into a new session. */
+  async forkSession(): Promise<void> {
+    const source = this.session.sessionFile
+    if (!source) {
+      await this.newSession()
+      return
+    }
+    const fork = SessionManager.forkFrom(source, this.cwd)
+    await this.replaceSession(fork)
+  }
+
+  /** Set the display name of the current session. */
+  renameSession(name: string): void {
+    this.session.setSessionName(name)
+  }
+
+  /** Sessions recorded for the current workspace. */
+  async listSessions(): Promise<SessionSummaryDto[]> {
+    return listSessions(this.cwd)
+  }
+
+  /** Sessions recorded across every workspace. */
+  async listAllSessions(): Promise<SessionSummaryDto[]> {
+    return listAllSessions()
+  }
+
+  getWorkspace(): WorkspaceDto {
+    return { cwd: this.cwd, name: workspaceName(this.cwd) }
+  }
+
+  /** Point the agent at a different working directory and start a fresh session. */
+  async setWorkspace(cwd: string): Promise<WorkspaceDto> {
+    this.cwd = cwd
+    await this.replaceSession(SessionManager.create(cwd))
+    return this.getWorkspace()
   }
 
   dispose(): void {

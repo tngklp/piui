@@ -1,5 +1,6 @@
+import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { app, ipcMain, type BrowserWindow } from 'electron'
+import { app, dialog, ipcMain, type BrowserWindow } from 'electron'
 import {
   IpcChannel,
   IpcEvent,
@@ -8,21 +9,27 @@ import {
   type PromptInput,
   type ThinkingLevelDto,
   type UiRequestDto,
-  type UiResponseDto
+  type UiResponseDto,
+  type WorkspaceDto
 } from '@shared/ipc'
 import { AgentHost } from './pi/agent-host'
 import { ApprovalManager } from './pi/approval'
 import { getRuntimeInfo } from './pi/runtime-info'
+import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
+import { WorkspaceStore } from './pi/workspace-store'
 
 export interface IpcContext {
   /** Current main window, used to push agent events to the renderer. */
   getWindow: () => BrowserWindow | null
 }
 
-/** Working directory the agent operates in. Overridable for development. */
+/**
+ * Default working directory on first run. Pointing at the user's home keeps the
+ * agent out of the app's own install directory; override with PIUI_CWD.
+ */
 function resolveCwd(): string {
-  return process.env.PIUI_CWD ?? process.cwd()
+  return process.env.PIUI_CWD ?? homedir()
 }
 
 export function registerIpcHandlers(context: IpcContext): void {
@@ -62,13 +69,24 @@ export function registerIpcHandlers(context: IpcContext): void {
     await approvalsLoaded
   }
 
+  const workspaceStore = new WorkspaceStore(
+    join(app.getPath('userData'), 'workspace.json'),
+    resolveCwd()
+  )
+  let workspaceLoaded: Promise<string> | null = null
+  const ensureWorkspaceLoaded = async (): Promise<string> => {
+    workspaceLoaded ??= workspaceStore.load()
+    return workspaceLoaded
+  }
+
   let hostPromise: Promise<AgentHost> | null = null
 
   const host = (): Promise<AgentHost> => {
     hostPromise ??= (async () => {
       await ensureApprovalsLoaded()
+      const cwd = await ensureWorkspaceLoaded()
       return AgentHost.create({
-        cwd: resolveCwd(),
+        cwd,
         emitEvent: (event) => send(IpcEvent.AgentEvent, event),
         transport,
         approvalExtension: approvals.extension()
@@ -123,6 +141,37 @@ export function registerIpcHandlers(context: IpcContext): void {
   })
   ipcMain.handle(IpcChannel.AgentSetThinking, async (_event, level: ThinkingLevelDto) => {
     ;(await host()).setThinkingLevel(level)
+  })
+
+  ipcMain.handle(IpcChannel.SessionsList, async () => (await host()).listSessions())
+  ipcMain.handle(IpcChannel.SessionsListAll, async () => (await host()).listAllSessions())
+  ipcMain.handle(IpcChannel.SessionsSwitch, async (_event, sessionPath: string) => {
+    await (await host()).switchSession(sessionPath)
+  })
+  ipcMain.handle(IpcChannel.SessionsRename, async (_event, name: string) => {
+    ;(await host()).renameSession(name)
+  })
+  ipcMain.handle(IpcChannel.SessionsFork, async () => {
+    await (await host()).forkSession()
+  })
+
+  ipcMain.handle(IpcChannel.WorkspaceGet, async (): Promise<WorkspaceDto> => {
+    const cwd = await ensureWorkspaceLoaded()
+    return { cwd, name: workspaceName(cwd) }
+  })
+
+  ipcMain.handle(IpcChannel.WorkspacePick, async (): Promise<string | null> => {
+    const window = context.getWindow()
+    const result = window
+      ? await dialog.showOpenDialog(window, { properties: ['openDirectory'] })
+      : await dialog.showOpenDialog({ properties: ['openDirectory'] })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0] ?? null
+  })
+
+  ipcMain.handle(IpcChannel.WorkspaceSet, async (_event, cwd: string): Promise<WorkspaceDto> => {
+    await workspaceStore.set(cwd)
+    return (await host()).setWorkspace(cwd)
   })
 
   ipcMain.handle(IpcChannel.ApprovalGetConfig, async () => {

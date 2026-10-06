@@ -29,7 +29,15 @@ export const IpcChannel = {
   UiRespond: 'piui:ui:respond',
   /** Read or replace the tool-approval rules. */
   ApprovalGetConfig: 'piui:approval:get-config',
-  ApprovalSetConfig: 'piui:approval:set-config'
+  ApprovalSetConfig: 'piui:approval:set-config',
+  SessionsList: 'piui:sessions:list',
+  SessionsListAll: 'piui:sessions:list-all',
+  SessionsSwitch: 'piui:sessions:switch',
+  SessionsRename: 'piui:sessions:rename',
+  SessionsFork: 'piui:sessions:fork',
+  WorkspaceGet: 'piui:workspace:get',
+  WorkspacePick: 'piui:workspace:pick',
+  WorkspaceSet: 'piui:workspace:set'
 } as const
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -214,6 +222,29 @@ export interface ApprovalConfig {
   rules: ApprovalRule[]
 }
 
+/** One saved session, flattened for the session browser. */
+export interface SessionSummaryDto {
+  path: string
+  id: string
+  cwd: string
+  name: string | null
+  /** ISO 8601 timestamp. */
+  created: string
+  /** ISO 8601 timestamp. */
+  modified: string
+  messageCount: number
+  /** First user message, used as a fallback title. */
+  firstMessage: string
+  parentSessionPath: string | null
+}
+
+/** The working directory the agent is currently operating on. */
+export interface WorkspaceDto {
+  cwd: string
+  /** Leaf folder name, for display. */
+  name: string
+}
+
 /**
  * The API surface PiUI exposes to the renderer as `window.piui`.
  * Every method is implemented in the preload script and backed by IPC.
@@ -247,4 +278,20 @@ export interface PiUiApi {
   getApprovalConfig(): Promise<ApprovalConfig>
   /** Replace the tool-approval rules. */
   setApprovalConfig(config: ApprovalConfig): Promise<void>
+  /** List saved sessions for the current workspace, newest first. */
+  listSessions(): Promise<SessionSummaryDto[]>
+  /** List saved sessions across every workspace, newest first. */
+  listAllSessions(): Promise<SessionSummaryDto[]>
+  /** Open an existing session file. */
+  switchSession(path: string): Promise<void>
+  /** Set the display name of the current session. */
+  renameSession(name: string): Promise<void>
+  /** Duplicate the current session into a new one. */
+  forkSession(): Promise<void>
+  /** Read the current workspace. */
+  getWorkspace(): Promise<WorkspaceDto>
+  /** Show a folder picker; resolves to null when the user cancels. */
+  pickWorkspace(): Promise<string | null>
+  /** Switch the agent to a different working directory. */
+  setWorkspace(path: string): Promise<WorkspaceDto>
 }
