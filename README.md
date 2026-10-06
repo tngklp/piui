@@ -104,6 +104,10 @@ Download the latest release from the
 | Linux    | `PiUI-<version>-x86_64.AppImage`  | Supports in-app updates.                                          |
 | Linux    | `PiUI-<version>-amd64.deb`        | Reinstall to update.                                              |
 
+The Windows builds are not code-signed yet, so the first launch may show **"Windows protected your
+PC"**. Choose **More info** and then **Run anyway**. That prompt is expected for any freshly
+downloaded unsigned build, and only goes away with a code-signing certificate.
+
 ## Getting started
 
 1. Launch PiUI. The first screen offers your recent workspaces; pick a folder to work in. Everything

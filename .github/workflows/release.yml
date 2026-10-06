@@ -95,3 +95,24 @@ jobs:
         run: npx electron-builder --linux --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Runs last, so the release it edits already exists. electron-builder creates the
+  # release and uploads the assets with a bare title and no body; this gives it a name
+  # and the changelog entry for the version being released.
+  notes:
+    name: Release notes
+    needs: [version, windows, linux]
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply the title and notes
+        run: |
+          node scripts/release-notes.mjs "$VERSION" --out "$RUNNER_TEMP/notes.md"
+          gh release edit "v$VERSION" \
+            --title "PiUI $VERSION" \
+            --latest \
+            --notes-file "$RUNNER_TEMP/notes.md"
