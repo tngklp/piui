@@ -80,6 +80,7 @@ function toModelDto(model: SdkModel | undefined): ModelDto | null {
     name: model.name ?? model.id,
     reasoning: model.reasoning ?? false,
     contextWindow: model.contextWindow ?? 0,
+    maxTokens: model.maxTokens ?? 0,
     input: [...(model.input ?? ['text'])],
     cost: {
       input: cost?.input ?? 0,
@@ -531,12 +532,14 @@ export class AgentHost {
     baseUrl: string | null
     model: string | null
     contextWindow: number | null
+    maxTokens: number | null
   } {
     const model = this.session.model as (SdkModel & { baseUrl?: string }) | undefined
     return {
       baseUrl: typeof model?.baseUrl === 'string' ? model.baseUrl : null,
       model: model ? `${model.provider}/${model.id}` : null,
-      contextWindow: model?.contextWindow ?? null
+      contextWindow: model?.contextWindow ?? null,
+      maxTokens: model?.maxTokens ?? null
     }
   }
 

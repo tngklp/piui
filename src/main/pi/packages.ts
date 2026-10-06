@@ -67,7 +67,8 @@ export async function searchCatalog(
   page: number
 ): Promise<CatalogPageDto> {
   const url = new URL('/packages', CATALOG_ORIGIN)
-  if (query.trim().length > 0) url.searchParams.set('q', query.trim())
+  // The site's own filter field is `name` (there is no `q` parameter).
+  if (query.trim().length > 0) url.searchParams.set('name', query.trim())
   if (type.length > 0) url.searchParams.set('type', type)
   if (page > 1) url.searchParams.set('page', String(page))
 

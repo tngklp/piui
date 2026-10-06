@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import type { MonitorSnapshotDto } from '@shared/ipc'
 import { usePiUi } from '../../store'
 
 const POLL_MS = 1500
@@ -32,6 +33,40 @@ function timeOf(iso: string): string {
   return Number.isNaN(date.getTime())
     ? '—'
     : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+/** Human-readable lines describing the request currently in flight. */
+function statusLines(status: MonitorSnapshotDto['status']): { label: string; text: string }[] {
+  if (status.phase === 'idle') {
+    return [{ label: 'Status', text: 'Idle — waiting for a request.' }]
+  }
+
+  if (status.phase === 'prompt') {
+    const processed = status.promptProcessed
+    const total = status.promptTotal
+    return [
+      {
+        label: 'Reading the prompt',
+        text:
+          processed === null || total === null
+            ? 'reading the prompt'
+            : `${number(processed)} of ${number(total)} tokens`
+      }
+    ]
+  }
+
+  const generated = status.generated
+  return [
+    {
+      label: 'Thinking',
+      text:
+        generated === null
+          ? 'generating'
+          : status.maxOutput === null
+            ? `${number(generated)} tokens`
+            : `${number(generated)} of max ${number(status.maxOutput)} tokens`
+    }
+  ]
 }
 
 /** Live inference metrics from the model endpoint and GPU telemetry. */
@@ -92,6 +127,22 @@ export function MonitorPanel() {
           <small>{monitor.engine.error}</small>
         </div>
       ) : null}
+
+      <div className="mc">
+        <h3>Status</h3>
+        {statusLines(monitor.status).map((line) => (
+          <div className="stat" key={line.label}>
+            <span className="stat__label">{line.label}:</span>
+            <span className="stat__value">{line.text}</span>
+          </div>
+        ))}
+        {monitor.status.source === 'metrics' ? (
+          <small>
+            Per-request token progress needs the endpoint’s /slots route; showing server activity
+            instead.
+          </small>
+        ) : null}
+      </div>
 
       <div className="mc">
         <div className="two">

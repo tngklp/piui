@@ -1,6 +1,11 @@
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
-import type { MonitorGpuDto, MonitorRequestDto, MonitorSnapshotDto } from '@shared/ipc'
+import type {
+  MonitorGpuDto,
+  MonitorRequestDto,
+  MonitorSnapshotDto,
+  MonitorStatusDto
+} from '@shared/ipc'
 
 const execFileAsync = promisify(execFile)
 
@@ -21,15 +26,27 @@ const answerHistory: number[] = []
 
 export interface MonitorSource {
   /** Inference endpoint details for the active model. */
-  endpoint(): { baseUrl: string | null; model: string | null; contextWindow: number | null }
+  endpoint(): {
+    baseUrl: string | null
+    model: string | null
+    contextWindow: number | null
+    maxTokens: number | null
+  }
   /** Recently completed model requests from the session transcript. */
   recentRequests(limit: number): MonitorRequestDto[]
 }
 
-/** llama.cpp exposes metrics at the server root, not under `/v1`. */
+/** llama.cpp exposes metrics and slot state at the server root, not under `/v1`. */
+function serverRoot(baseUrl: string): string {
+  return baseUrl.replace(/\/+$/, '').replace(/\/v1$/, '')
+}
+
 function metricsUrl(baseUrl: string): string {
-  const trimmed = baseUrl.replace(/\/+$/, '').replace(/\/v1$/, '')
-  return `${trimmed}/metrics`
+  return `${serverRoot(baseUrl)}/metrics`
+}
+
+function slotsUrl(baseUrl: string): string {
+  return `${serverRoot(baseUrl)}/slots`
 }
 
 /** Parse Prometheus exposition text into name -> value. */
@@ -53,6 +70,72 @@ function pick(values: Map<string, number>, names: string[]): number | null {
     if (typeof value === 'number') return value
   }
   return null
+}
+
+/** Read a number from a value that may be nested or absent. */
+function numeric(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+/**
+ * Ask `/slots` what the server is doing right now.
+ *
+ * llama.cpp reports `state` as 0 idle, 1 reading the prompt, 2 generating, and
+ * includes per-request token counters. Not every build enables the endpoint, so
+ * every field is optional.
+ */
+async function readSlots(baseUrl: string, maxTokens: number | null): Promise<MonitorStatusDto> {
+  const empty: MonitorStatusDto = {
+    source: 'none',
+    phase: 'idle',
+    promptProcessed: null,
+    promptTotal: null,
+    generated: null,
+    maxOutput: maxTokens
+  }
+
+  try {
+    const response = await fetch(slotsUrl(baseUrl), {
+      signal: AbortSignal.timeout(1200),
+      headers: { accept: 'application/json' }
+    })
+    if (!response.ok) return empty
+
+    const body: unknown = await response.json()
+    const slots = Array.isArray(body) ? body : [body]
+
+    // Pick the slot that is actually working.
+    let best: Record<string, unknown> | null = null
+    let bestState = 0
+    for (const entry of slots) {
+      if (typeof entry !== 'object' || entry === null) continue
+      const slot = entry as Record<string, unknown>
+      const state = numeric(slot.state) ?? (slot.is_processing ? 1 : 0)
+      if (state > bestState) {
+        best = slot
+        bestState = state
+      }
+    }
+
+    if (!best || bestState === 0) return { ...empty, source: 'slots' }
+
+    const progress = (best.prompt_progress ?? {}) as Record<string, unknown>
+    const promptProcessed = numeric(best.n_prompt_tokens_processed) ?? numeric(progress.processed)
+    const promptTotal = numeric(best.n_prompt_tokens) ?? numeric(progress.total)
+    const nextToken = (best.next_token ?? {}) as Record<string, unknown>
+    const generated = numeric(best.n_decoded) ?? numeric(nextToken.n_decoded)
+
+    return {
+      source: 'slots',
+      phase: bestState === 1 ? 'prompt' : 'generate',
+      promptProcessed,
+      promptTotal,
+      generated,
+      maxOutput: maxTokens
+    }
+  } catch {
+    return empty
+  }
 }
 
 async function readGpus(): Promise<MonitorGpuDto[]> {
@@ -93,7 +176,7 @@ async function readGpus(): Promise<MonitorGpuDto[]> {
 
 /** Probe the inference endpoint and assemble one monitor snapshot. */
 export async function readMonitor(source: MonitorSource): Promise<MonitorSnapshotDto> {
-  const { baseUrl, model, contextWindow } = source.endpoint()
+  const { baseUrl, model, contextWindow, maxTokens } = source.endpoint()
 
   const snapshot: MonitorSnapshotDto = {
     at: new Date().toISOString(),
@@ -106,7 +189,15 @@ export async function readMonitor(source: MonitorSource): Promise<MonitorSnapsho
     kvCache: { usageRatio: null, tokens: null },
     requests: { processing: 0, deferred: 0 },
     gpus: await readGpus(),
-    recent: source.recentRequests(6)
+    recent: source.recentRequests(6),
+    status: {
+      source: 'none',
+      phase: 'idle',
+      promptProcessed: null,
+      promptTotal: null,
+      generated: null,
+      maxOutput: maxTokens
+    }
   }
 
   if (!baseUrl) {
@@ -195,6 +286,18 @@ export async function readMonitor(source: MonitorSource): Promise<MonitorSnapsho
     snapshot.kvCache.tokens = pick(values, ['llamacpp:kv_cache_tokens'])
     snapshot.requests.processing = pick(values, ['llamacpp:requests_processing']) ?? 0
     snapshot.requests.deferred = pick(values, ['llamacpp:requests_deferred']) ?? 0
+
+    // `/slots` gives real per-request progress; metrics only say whether the
+    // server is busy, so that is the fallback.
+    const slots = await readSlots(baseUrl, maxTokens)
+    snapshot.status =
+      slots.source === 'slots'
+        ? slots
+        : {
+            ...snapshot.status,
+            source: 'metrics',
+            phase: snapshot.requests.processing > 0 ? 'generate' : 'idle'
+          }
   } catch (cause) {
     snapshot.engine.error =
       cause instanceof Error && cause.name === 'TimeoutError'

@@ -54,6 +54,8 @@ function saveStarred(paths: string[]): void {
 export interface StreamingState {
   text: string
   thinking: string
+  /** True while thinking deltas are still arriving. */
+  thinkingLive: boolean
   tools: { id: string; name: string; argsText: string }[]
 }
 
@@ -168,7 +170,7 @@ interface PiUiState {
 let noticeId = 0
 
 function emptyStreaming(): StreamingState {
-  return { text: '', thinking: '', tools: [] }
+  return { text: '', thinking: '', thinkingLive: false, tools: [] }
 }
 
 function describeError(cause: unknown): string {
@@ -279,13 +281,27 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
             case 'text_end':
               return { streaming: { ...stream, text: update.content ?? stream.text } }
             case 'thinking_delta':
-              return { streaming: { ...stream, thinking: stream.thinking + (update.delta ?? '') } }
+              return {
+                streaming: {
+                  ...stream,
+                  thinking: stream.thinking + (update.delta ?? ''),
+                  thinkingLive: true
+                }
+              }
             case 'thinking_end':
-              return { streaming: { ...stream, thinking: update.content ?? stream.thinking } }
+              return {
+                streaming: {
+                  ...stream,
+                  thinking: update.content ?? stream.thinking,
+                  thinkingLive: false
+                }
+              }
             case 'toolcall_start':
               return {
                 streaming: {
                   ...stream,
+                  // Reaching a tool call means reasoning for this turn is done.
+                  thinkingLive: false,
                   tools: [
                     ...stream.tools,
                     { id: update.id ?? '', name: update.toolName ?? 'tool', argsText: '' }

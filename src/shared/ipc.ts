@@ -170,6 +170,8 @@ export interface ModelDto {
   name: string
   reasoning: boolean
   contextWindow: number
+  /** Maximum tokens the model will generate in one response. */
+  maxTokens: number
   input: string[]
   cost: { input: number; output: number; cacheRead: number; cacheWrite: number }
 }
@@ -434,6 +436,21 @@ export interface MonitorRequestDto {
   answerTokens: number
 }
 
+/** What the model is doing right now, as far as the endpoint will say. */
+export interface MonitorStatusDto {
+  /** Which source produced the numbers. */
+  source: 'slots' | 'metrics' | 'none'
+  phase: 'idle' | 'prompt' | 'generate'
+  /** Prompt tokens processed so far, when reading the prompt. */
+  promptProcessed: number | null
+  /** Total prompt tokens for the current request. */
+  promptTotal: number | null
+  /** Tokens generated for the current request. */
+  generated: number | null
+  /** Configured output ceiling for the active model. */
+  maxOutput: number | null
+}
+
 /** Everything the Monitor tab renders. */
 export interface MonitorSnapshotDto {
   /** ISO 8601 timestamp of the snapshot. */
@@ -462,6 +479,8 @@ export interface MonitorSnapshotDto {
   }
   gpus: MonitorGpuDto[]
   recent: MonitorRequestDto[]
+  /** Current request state, for the Monitor's Status section. */
+  status: MonitorStatusDto
 }
 
 /**

@@ -17,6 +17,8 @@ interface SelectProps<T extends string> {
   direction?: 'up' | 'down'
   /** Stretch to the width of the container. */
   block?: boolean
+  /** Hide the dropdown arrow. */
+  hideCaret?: boolean
   placeholder?: string
 }
 
@@ -52,6 +54,7 @@ export function Select<T extends string>({
   title,
   direction = 'down',
   block,
+  hideCaret,
   placeholder
 }: SelectProps<T>) {
   const [open, setOpen] = useState(false)
@@ -99,6 +102,11 @@ export function Select<T extends string>({
   }, [open, options.length])
 
   const current = options.find((option) => option.value === value)
+  /** Widest label, used to size the closed control to its longest option. */
+  const widest = options.reduce(
+    (longest, option) => (option.label.length > longest.length ? option.label : longest),
+    ''
+  )
 
   const renderSwatch = (colors: string[]): ReactElement => (
     <span className="select__swatch" aria-hidden="true">
@@ -109,10 +117,20 @@ export function Select<T extends string>({
   )
 
   return (
-    <div className="select" ref={rootRef} style={block ? { width: '100%' } : undefined}>
+    <div className={`select${block ? ' block' : ''}`} ref={rootRef}>
+      {/* Invisible copy of the longest option so the control is never wider
+          than it needs to be, and never clips its widest choice. */}
+      {block ? null : (
+        <span className="pick select__sizer" aria-hidden="true">
+          {current?.swatch ? renderSwatch(current.swatch) : null}
+          <span className="select__label">{widest}</span>
+          <span className="select__caret">⌄</span>
+        </span>
+      )}
+
       <button
         type="button"
-        className={`pick select__button${block ? ' block' : ''}`}
+        className="pick select__button"
         onClick={() => setOpen((wasOpen) => !wasOpen)}
         disabled={disabled}
         title={title}
@@ -121,9 +139,11 @@ export function Select<T extends string>({
       >
         {current?.swatch ? renderSwatch(current.swatch) : null}
         <span className="select__label">{current?.label ?? placeholder ?? '—'}</span>
-        <span className="select__caret" aria-hidden="true">
-          ⌄
-        </span>
+        {hideCaret ? null : (
+          <span className="select__caret" aria-hidden="true">
+            ⌄
+          </span>
+        )}
       </button>
 
       {open ? (

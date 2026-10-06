@@ -158,6 +158,7 @@ export function Composer() {
             }}
             disabled={models.length === 0}
             direction="up"
+            hideCaret
             title="Model"
             placeholder="No model"
           />
@@ -168,6 +169,7 @@ export function Composer() {
             onChange={(value) => void selectThinking(value)}
             disabled={!status?.supportsThinking}
             direction="up"
+            hideCaret
             title="Reasoning level"
             placeholder="off"
           />

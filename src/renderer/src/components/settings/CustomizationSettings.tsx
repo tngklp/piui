@@ -19,7 +19,7 @@ export function CustomizationSettings() {
       <p className="modal__hint">
         Colours apply immediately and are remembered for your next launch.
       </p>
-      <Select value={themeId} options={options} onChange={setTheme} block title="Theme" />
+      <Select value={themeId} options={options} onChange={setTheme} title="Theme" />
     </section>
   )
 }

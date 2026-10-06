@@ -173,15 +173,34 @@ export function Transcript() {
   const runningTools = usePiUi((state) => state.runningTools)
   const dialog = usePiUi((state) => state.dialog)
   const endRef = useRef<HTMLDivElement | null>(null)
+  const colRef = useRef<HTMLDivElement | null>(null)
+  /** Whether the transcript was pinned to the bottom before the last update. */
+  const pinned = useRef(true)
+
+  // Track the scroll position of the surrounding `.scroll` container so new
+  // output only follows the bottom when the user is already there.
+  useEffect(() => {
+    const scroller = colRef.current?.closest('.scroll')
+    if (!scroller) return
+
+    const onScroll = (): void => {
+      pinned.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 64
+    }
+
+    onScroll()
+    scroller.addEventListener('scroll', onScroll, { passive: true })
+    return () => scroller.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    if (!pinned.current) return
+    endRef.current?.scrollIntoView({ block: 'end' })
   }, [items, streaming, runningTools, dialog])
 
   const isEmpty = items.length === 0 && !streaming && runningTools.length === 0
 
   return (
-    <div className="col">
+    <div className="col" ref={colRef}>
       {isEmpty ? (
         <div className="empty">
           <b>Ask Pi to work on your project.</b>
@@ -203,7 +222,9 @@ export function Transcript() {
 
       {streaming ? (
         <div className="asst">
-          {streaming.thinking ? <Thinking text={streaming.thinking} live /> : null}
+          {streaming.thinking ? (
+            <Thinking text={streaming.thinking} live={streaming.thinkingLive} />
+          ) : null}
           {streaming.text ? <Markdown text={streaming.text} /> : null}
           {streaming.tools.map((tool) => (
             <div className="card" key={tool.id || tool.name}>

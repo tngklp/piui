@@ -1896,17 +1896,33 @@ select.pick {
 
 .select {
   position: relative;
-  display: inline-block;
+  display: inline-grid;
+}
+
+/* Sized to its widest option by the hidden sizer sharing its grid cell. */
+.select__sizer {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 .select__button {
+  grid-area: 1 / 1;
   display: inline-flex;
   align-items: center;
   gap: 6px;
   width: 100%;
 }
 
-.select__button.block {
+.select.block {
+  width: 100%;
+}
+
+.select.block .select__button {
   justify-content: space-between;
 }
 
@@ -2545,6 +2561,16 @@ select.pick {
   gap: 8px;
 }
 
+.prov__hd .inp {
+  flex: 1;
+  min-width: 0;
+}
+
+.prov__hd .b {
+  flex: none;
+  white-space: nowrap;
+}
+
 .prov__row {
   display: grid;
   grid-template-columns: 1.35fr 1fr 165px;
@@ -2569,25 +2595,33 @@ select.pick {
 
 .mrow {
   display: grid;
-  grid-template-columns: 1.05fr 1.05fr 82px 82px auto auto 28px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.05fr) 86px 86px auto auto 28px;
   gap: 6px;
   align-items: center;
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
 
+/* Column labels sit below the divider and align with their inputs. */
 .mrow--head {
-  border-top: 0;
-  padding: 2px 0 4px;
+  border-top: 1px solid var(--line);
+  padding: 8px 0 6px;
   gap: 6px;
 }
 
 .mrow--head span {
+  min-width: 0;
+  padding-left: 9px;
   font-size: 11.5px;
   color: var(--dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.mrow--head span:nth-child(3),
+.mrow--head span:nth-child(4) {
+  padding-left: 8px;
 }
 
 .inp {
@@ -2609,6 +2643,15 @@ select.pick {
 
 .inp.num {
   text-align: right;
+  /* Remove the browser's stepper arrows. */
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.inp.num::-webkit-outer-spin-button,
+.inp.num::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
 }
 
 .chk {
@@ -2629,6 +2672,22 @@ select.pick {
 }
 
 /* ---------- package catalogue ---------- */
+
+.stat {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 12.5px;
+}
+
+.stat__label {
+  color: var(--dim);
+}
+
+.stat__value {
+  font-family: var(--mono);
+  font-size: 12px;
+}
 
 .pkg-installed {
   border: 1px solid var(--line);
