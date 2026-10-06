@@ -5,8 +5,12 @@
  * squircle with a dark geometric pi glyph. Everything is drawn procedurally so
  * the repository does not need to carry binary artwork through a design tool.
  *
- * Outputs `resources/icon.png` (used as the window/taskbar icon) and
+ * Outputs `assets/icon.png` (used as the window/taskbar icon) and
  * `build/icon.png` (used by electron-builder to derive the installer icon).
+ *
+ * Both are generated, so they are not committed: `predev` and `pretypecheck`
+ * run this script, which keeps a fresh clone buildable without carrying binary
+ * artwork in the repository.
  *
  * Usage: node scripts/make-icon.mjs
  */
@@ -148,7 +152,7 @@ function encodePng(pixels) {
 
 const png = encodePng(render())
 
-for (const target of ['resources', 'build']) {
+for (const target of ['assets', 'build']) {
   const directory = join(ROOT, target)
   mkdirSync(directory, { recursive: true })
   writeFileSync(join(directory, 'icon.png'), png)

@@ -177,25 +177,38 @@ export function PackagesSettings() {
         subtitle="Skills, extensions, prompts and themes published to npm."
       />
 
-      {installed.length > 0 ? (
-        <div className="pkg-installed">
-          <h4>Installed ({installed.length})</h4>
-          {installed.map((entry) => (
-            <div className="pkg-row" key={`${entry.scope}:${entry.source}`}>
-              <span className="mono pkg-row__name">{entry.source}</span>
-              <span className="pkg-chip">{entry.scope}</span>
-              <span className="sp" />
-              <button
-                className="b sm"
-                disabled={busy !== null}
-                onClick={() => void uninstall(entry.source)}
-              >
-                {busy === entry.source ? 'Removing…' : 'Uninstall'}
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <h3>Installed</h3>
+      <div className="pkg-installed">
+        {installed.length === 0 ? (
+          <p className="pkg-empty">
+            Nothing installed yet. Anything you add below shows up here, and is available to the
+            agent in every session.
+          </p>
+        ) : (
+          <>
+            <h4>
+              {installed.length} package{installed.length === 1 ? '' : 's'}
+            </h4>
+            {installed.map((entry) => (
+              <div className="pkg-row" key={`${entry.scope}:${entry.source}`}>
+                <span className="pkg-row__text">
+                  <b>{entry.source.replace(/^npm:/, '')}</b>
+                  <small className="mono">{entry.source}</small>
+                </span>
+                <span className="pkg-chip">{entry.scope}</span>
+                <span className="sp" />
+                <button
+                  className="b sm"
+                  disabled={busy !== null}
+                  onClick={() => void uninstall(entry.source)}
+                >
+                  {busy === entry.source ? 'Removing…' : 'Uninstall'}
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
 
       <div className="pkg-search">
         <label className="sbox pkg-search__box">

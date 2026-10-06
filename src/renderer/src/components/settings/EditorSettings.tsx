@@ -9,7 +9,7 @@ import {
   clampFontSize
 } from '../../lib/ui-prefs'
 import { Select, type SelectOption } from '../Select'
-import { Row, SettingsHeader, Switch } from './rows'
+import { NumberField, Row, SettingsHeader, Switch } from './rows'
 
 /** `0` means "follow the language's own convention". */
 const TAB_SIZE_CHOICES: SelectOption<string>[] = TAB_SIZE_OPTIONS.map((size) => ({
@@ -29,18 +29,14 @@ export function EditorSettings() {
       <h3>Typography</h3>
       <div className="gcard">
         <Row title="Font size" hint="Also adjustable with Ctrl+scroll inside the editor.">
-          <span className="grow__num">
-            <input
-              className="inp num"
-              type="number"
-              min={EDITOR_FONT_MIN}
-              max={EDITOR_FONT_MAX}
-              value={prefs.editorFontSize}
-              aria-label="Editor font size in pixels"
-              onChange={(event) => setPrefs({ editorFontSize: clampFontSize(event.target.value) })}
-            />
-            <small>px</small>
-          </span>
+          <NumberField
+            label="Editor font size in pixels"
+            value={prefs.editorFontSize}
+            min={EDITOR_FONT_MIN}
+            max={EDITOR_FONT_MAX}
+            suffix="px"
+            onCommit={(value) => setPrefs({ editorFontSize: clampFontSize(value) })}
+          />
         </Row>
 
         <Row
@@ -118,22 +114,16 @@ export function EditorSettings() {
         </Row>
 
         <Row title="Auto save delay" hint="How long the pause has to last before the write.">
-          <span className="grow__num">
-            <input
-              className="inp num"
-              type="number"
-              min={AUTOSAVE_MIN_MS}
-              max={AUTOSAVE_MAX_MS}
-              step={100}
-              value={prefs.editorAutoSaveDelayMs}
-              aria-label="Auto save delay in milliseconds"
-              disabled={!prefs.editorAutoSave}
-              onChange={(event) =>
-                setPrefs({ editorAutoSaveDelayMs: clampAutoSaveDelay(event.target.value) })
-              }
-            />
-            <small>ms</small>
-          </span>
+          <NumberField
+            label="Auto save delay in milliseconds"
+            value={prefs.editorAutoSaveDelayMs}
+            min={AUTOSAVE_MIN_MS}
+            max={AUTOSAVE_MAX_MS}
+            step={100}
+            suffix="ms"
+            disabled={!prefs.editorAutoSave}
+            onCommit={(value) => setPrefs({ editorAutoSaveDelayMs: clampAutoSaveDelay(value) })}
+          />
         </Row>
       </div>
     </section>

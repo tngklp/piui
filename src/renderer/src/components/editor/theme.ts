@@ -48,6 +48,15 @@ const LIGHT_TOKENS = {
   regexp: '#811F3F'
 }
 
+/**
+ * Selection wash. Mixed from the accent rather than reusing `--lilac-soft`,
+ * which is only ~15% opaque and all but invisible over the editor background.
+ */
+const SELECTION = 'color-mix(in srgb, var(--lilac) 38%, transparent)'
+
+/** Active-line tint, kept translucent so it cannot cover the selection layer. */
+const ACTIVE_LINE = 'color-mix(in srgb, var(--raise) 55%, transparent)'
+
 /** Editor chrome: everything that should track the app theme. */
 export function editorTheme(
   appearance: 'light' | 'dark',
@@ -81,10 +90,26 @@ export function editorTheme(
         '.cm-cursor, .cm-dropCursor': {
           borderLeft: '2px solid var(--lilac-strong)'
         },
-        '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
-          backgroundColor: 'var(--lilac-soft)'
+        // CodeMirror's base theme sets the drawn selection with a selector of
+        // `&dark.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground`,
+        // which is more specific than a plain `.cm-selectionBackground`. A theme
+        // that only targets the short selector therefore loses, and the
+        // selection is painted in the base theme's near-black `#222` — invisible
+        // on any of our backgrounds. Match the full path, and give the same
+        // colour to the native selection used when the editor is unfocused.
+        '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground': {
+          backgroundColor: SELECTION
         },
-        '.cm-selectionMatch': { backgroundColor: 'var(--lilac-soft)' },
+        '.cm-selectionLayer .cm-selectionBackground': {
+          backgroundColor: SELECTION
+        },
+        '.cm-content ::selection': {
+          backgroundColor: SELECTION
+        },
+        '.cm-selectionMatch': {
+          backgroundColor: SELECTION,
+          outline: '1px solid var(--lilac-strong)'
+        },
         '.cm-gutters': {
           backgroundColor: 'var(--bg)',
           color: 'var(--dim)',
@@ -98,7 +123,9 @@ export function editorTheme(
           backgroundColor: 'transparent',
           color: 'var(--text)'
         },
-        '.cm-activeLine': { backgroundColor: 'var(--raise)' },
+        // Translucent: the selection layer is drawn behind the line content, so
+        // an opaque active-line background would hide the selection on it.
+        '.cm-activeLine': { backgroundColor: ACTIVE_LINE },
         '.cm-foldGutter .cm-gutterElement': { padding: '0 4px', cursor: 'pointer' },
         '.cm-foldPlaceholder': {
           backgroundColor: 'var(--raise)',
@@ -108,7 +135,7 @@ export function editorTheme(
           borderRadius: '4px'
         },
         '.cm-matchingBracket, &.cm-focused .cm-matchingBracket': {
-          backgroundColor: 'var(--lilac-soft)',
+          backgroundColor: SELECTION,
           outline: '1px solid var(--lilac-strong)'
         },
         '.cm-nonmatchingBracket': { color: 'var(--del)' },
@@ -159,7 +186,7 @@ export function editorTheme(
         },
         '.cm-panel.cm-search button:hover': { borderColor: 'var(--lilac-strong)' },
         '.cm-searchMatch': {
-          backgroundColor: 'var(--lilac-soft)',
+          backgroundColor: SELECTION,
           outline: '1px solid var(--lilac-strong)'
         },
         '.cm-searchMatch.cm-searchMatch-selected': { backgroundColor: 'var(--lilac)' }

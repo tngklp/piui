@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
-import icon from '../../resources/icon.png?asset'
+import icon from '../../assets/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
 import { initSdk } from './pi/sdk'
 

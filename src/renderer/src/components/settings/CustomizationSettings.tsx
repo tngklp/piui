@@ -10,8 +10,27 @@ const VARIANT_LABELS: Record<ThemeVariant, string> = {
   light: 'Light'
 }
 
-/** Files previewed in each icon-pack button: the ones every project has. */
-const SAMPLES = ['index.ts', 'main.py', 'package.json', 'README.md']
+/**
+ * Files previewed in each icon-pack button: a folder plus the languages and
+ * file types a project is most likely to contain.
+ */
+const SAMPLE_FILES = [
+  'main.py',
+  'app.js',
+  'index.ts',
+  'Program.cs',
+  'main.cpp',
+  'Main.java',
+  'main.rs',
+  'init.lua',
+  'main.go',
+  'data.json',
+  'config.yaml',
+  'photo.png',
+  'README.md',
+  '.gitignore',
+  'payload.dat'
+]
 
 /**
  * Appearance: the theme grid and the icon-pack grid.
@@ -75,10 +94,9 @@ export function CustomizationSettings() {
               onClick={() => setPrefs({ iconPack: pack.id })}
             >
               <span className="pack__row">
-                <img src={folderIconUrl(pack.id, 'src', false)} alt="" />
-                <img src={folderIconUrl(pack.id, 'src', true)} alt="" />
-                {SAMPLES.map((file) => (
-                  <img key={file} src={fileIconUrl(pack.id, file)} alt="" />
+                <img src={folderIconUrl(pack.id, 'src', false)} alt="" title="src/" />
+                {SAMPLE_FILES.map((file) => (
+                  <img key={file} src={fileIconUrl(pack.id, file)} alt="" title={file} />
                 ))}
               </span>
               <span className="pack__name">{pack.name}</span>

@@ -240,6 +240,7 @@ const FILE_EXTENSIONS = {
   ipynb: 'jupyter',
   sql: 'database',
   db: 'database',
+  dat: 'database',
   sqlite: 'database',
   sqlite3: 'database',
   prisma: 'prisma',

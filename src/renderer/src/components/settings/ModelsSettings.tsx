@@ -226,6 +226,8 @@ export function ModelsSettings() {
         </p>
       ) : null}
 
+      <h3>Providers</h3>
+
       {draft.providers.map((provider, providerIndex) => {
         // Hosted APIs decide a model's context window, output limit and
         // capabilities themselves, so those fields are read-only there and only
@@ -236,12 +238,16 @@ export function ModelsSettings() {
           <div className="prov" key={providerIndex}>
             <div className="prov__hd">
               <input
-                className="inp mono"
+                className="prov__id mono"
                 value={provider.id}
                 aria-label="Provider id"
                 placeholder="provider id"
+                spellCheck={false}
                 onChange={(event) => updateProvider(providerIndex, { id: event.target.value })}
               />
+              <span className={`chip${hosted ? ' lil' : ''}`}>
+                {hosted ? 'Hosted API' : 'Local'}
+              </span>
               <span className="sp" />
               <button
                 className="b sm bad"
@@ -513,6 +519,7 @@ export function ModelsSettings() {
         )
       })}
 
+      <h3>Add a provider</h3>
       <div className="addprov" ref={addRef}>
         <button
           type="button"

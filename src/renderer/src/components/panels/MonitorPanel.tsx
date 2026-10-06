@@ -202,36 +202,6 @@ export function MonitorPanel() {
         </small>
       </div>
 
-      <div className="mc">
-        <h3>System</h3>
-
-        <div className="gh">
-          <b style={{ fontWeight: 500 }}>CPU</b>
-          <small>
-            {monitor.system.cpuPercent === null
-              ? '—'
-              : `${ratio(monitor.system.cpuPercent / 100)}%`}
-          </small>
-        </div>
-        <div className="bar">
-          <i style={{ width: `${Math.min(100, monitor.system.cpuPercent ?? 0)}%` }} />
-        </div>
-        <small>
-          {monitor.system.cpuModel} · {monitor.system.cpuCores} cores
-        </small>
-
-        <div className="gh" style={{ marginTop: 12 }}>
-          <b style={{ fontWeight: 500 }}>Memory</b>
-          <small>{ratio(memoryPercent / 100)}%</small>
-        </div>
-        <div className="bar">
-          <i style={{ width: `${Math.min(100, memoryPercent)}%`, opacity: 0.55 }} />
-        </div>
-        <small>
-          {gib(monitor.system.memoryUsed)} of {gib(monitor.system.memoryTotal)} in use
-        </small>
-      </div>
-
       {monitor.gpus.length > 0 ? (
         <div className="mc">
           <h3>GPU</h3>
@@ -269,6 +239,36 @@ export function MonitorPanel() {
           <small>nvidia-smi reported no GPU. Ignore this if you run the model elsewhere.</small>
         </div>
       )}
+
+      <div className="mc">
+        <h3>System</h3>
+
+        <div className="gh">
+          <b style={{ fontWeight: 500 }}>CPU</b>
+          <small>
+            {monitor.system.cpuPercent === null
+              ? '—'
+              : `${ratio(monitor.system.cpuPercent / 100)}%`}
+          </small>
+        </div>
+        <div className="bar">
+          <i style={{ width: `${Math.min(100, monitor.system.cpuPercent ?? 0)}%` }} />
+        </div>
+        <small>
+          {monitor.system.cpuModel} · {monitor.system.cpuCores} cores
+        </small>
+
+        <div className="gh" style={{ marginTop: 12 }}>
+          <b style={{ fontWeight: 500 }}>Memory</b>
+          <small>{ratio(memoryPercent / 100)}%</small>
+        </div>
+        <div className="bar">
+          <i style={{ width: `${Math.min(100, memoryPercent)}%`, opacity: 0.55 }} />
+        </div>
+        <small>
+          {gib(monitor.system.memoryUsed)} of {gib(monitor.system.memoryTotal)} in use
+        </small>
+      </div>
     </div>
   )
 }

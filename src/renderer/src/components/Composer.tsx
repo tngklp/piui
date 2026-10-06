@@ -1,7 +1,14 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import type { CommandDto, ThinkingLevelDto } from '@shared/ipc'
 import { usePiUi } from '../store'
-import { readAttachments, toPromptImages, type Attachment } from '../lib/attachments'
+import {
+  TEXT_ACCEPT,
+  humanSize,
+  inlineTextAttachments,
+  readAttachments,
+  toPromptImages,
+  type Attachment
+} from '../lib/attachments'
 import { Select, type SelectOption } from './Select'
 
 /** A row in the slash menu. */
@@ -79,9 +86,12 @@ export function Composer() {
   ).map((level) => ({ value: level, label: level }))
 
   const submit = async (mode: 'prompt' | 'steer' | 'followUp'): Promise<void> => {
-    const value = text
-    // Attachments only travel with a prompt; steering and follow-ups are text.
+    // Text attachments are inlined into the message; images travel alongside it
+    // as content blocks. Steering and follow-ups are text-only.
+    const inlined = mode === 'prompt' ? inlineTextAttachments(attachments) : ''
+    const value = inlined.length > 0 ? `${text}\n\n${inlined}` : text
     const images = mode === 'prompt' ? toPromptImages(attachments) : undefined
+
     setText('')
     if (mode === 'prompt') setAttachments([])
     await send(value, mode, images)
@@ -218,20 +228,36 @@ export function Composer() {
 
         {attachments.length > 0 || attachError ? (
           <div className="attach">
-            {attachments.map((attachment) => (
-              <span className="attach__item" key={attachment.id}>
-                <img src={attachment.dataUrl} alt="" title={attachment.name} />
-                <button
-                  type="button"
-                  className="attach__x"
-                  title={`Remove ${attachment.name}`}
-                  aria-label={`Remove ${attachment.name}`}
-                  onClick={() => removeAttachment(attachment.id)}
-                >
-                  ✕
-                </button>
-              </span>
-            ))}
+            {attachments.map((attachment) =>
+              attachment.kind === 'image' ? (
+                <span className="attach__item" key={attachment.id}>
+                  <img src={attachment.dataUrl} alt="" title={attachment.name} />
+                  <button
+                    type="button"
+                    className="attach__x"
+                    title={`Remove ${attachment.name}`}
+                    aria-label={`Remove ${attachment.name}`}
+                    onClick={() => removeAttachment(attachment.id)}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ) : (
+                <span className="attach__file" key={attachment.id} title={attachment.name}>
+                  <b>{attachment.name}</b>
+                  <small>{humanSize(attachment.bytes)}</small>
+                  <button
+                    type="button"
+                    className="attach__x static"
+                    title={`Remove ${attachment.name}`}
+                    aria-label={`Remove ${attachment.name}`}
+                    onClick={() => removeAttachment(attachment.id)}
+                  >
+                    ✕
+                  </button>
+                </span>
+              )
+            )}
             {attachError ? <span className="attach__err">{attachError}</span> : null}
           </div>
         ) : null}
@@ -269,7 +295,7 @@ export function Composer() {
             ref={fileInputRef}
             className="attach__input"
             type="file"
-            accept="image/*"
+            accept={`image/*,${TEXT_ACCEPT}`}
             multiple
             tabIndex={-1}
             aria-hidden="true"
@@ -279,8 +305,8 @@ export function Composer() {
           <button
             type="button"
             className="ibtn attach__add"
-            title="Add an image to the prompt"
-            aria-label="Add an image to the prompt"
+            title="Attach an image or a text file"
+            aria-label="Attach an image or a text file"
             onClick={() => fileInputRef.current?.click()}
           >
             <svg

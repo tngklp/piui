@@ -1,6 +1,6 @@
 import { usePiUi } from '../../store'
 import { SCROLLBACK_MAX, SCROLLBACK_MIN, clampScrollback } from '../../lib/ui-prefs'
-import { Row, SettingsHeader, Switch } from './rows'
+import { NumberField, Row, SettingsHeader, Switch } from './rows'
 
 /** Default shell placeholder, for whichever platform is running. */
 const SHELL_PLACEHOLDER = navigator.userAgent.includes('Windows') ? 'powershell.exe' : '/bin/zsh'
@@ -71,21 +71,15 @@ export function GeneralSettings() {
         </Row>
 
         <Row title="Scrollback" hint="Lines of terminal output kept above the visible screen.">
-          <span className="grow__num">
-            <input
-              className="inp num"
-              type="number"
-              min={SCROLLBACK_MIN}
-              max={SCROLLBACK_MAX}
-              step={100}
-              value={prefs.terminalScrollback}
-              aria-label="Terminal scrollback lines"
-              onChange={(event) =>
-                setPrefs({ terminalScrollback: clampScrollback(event.target.value) })
-              }
-            />
-            <small>lines</small>
-          </span>
+          <NumberField
+            label="Terminal scrollback lines"
+            value={prefs.terminalScrollback}
+            min={SCROLLBACK_MIN}
+            max={SCROLLBACK_MAX}
+            step={100}
+            suffix="lines"
+            onCommit={(value) => setPrefs({ terminalScrollback: clampScrollback(value) })}
+          />
         </Row>
       </div>
     </section>
