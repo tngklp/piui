@@ -4,7 +4,10 @@
   "version": "0.1.0",
   "description": "PiUI — a desktop GUI for the Pi coding agent",
   "license": "MIT",
-  "author": "tngklp",
+  "author": {
+    "name": "tngklp",
+    "email": "tngklp@users.noreply.github.com"
+  },
   "homepage": "https://github.com/tngklp/piui",
   "repository": {
     "type": "git",
@@ -12,6 +15,7 @@
   },
   "type": "module",
   "main": "./out/main/index.js",
+  "desktopName": "piui.desktop",
   "engines": {
     "node": ">=22.19.0"
   },

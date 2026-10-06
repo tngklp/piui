@@ -1,21 +1,58 @@
 name: Release
 
-# Manual for now: nothing is published until the release is triggered by hand
-# from the Actions tab. To publish on tags instead, add
+# A release starts when the version in package.json changes on main. Editing
+# package.json for anything else (a dependency bump, a script) is a no-op,
+# because the version tag already exists and the guard job below bails out.
 #
-#   push:
-#     tags: ['v*']
-#
-# under `on:` and set `releaseType: release` in electron-builder.yml.
+# Run it by hand from the Actions tab to retry a failed release; tick "force" to
+# rebuild a version whose tag already exists.
 on:
+  push:
+    branches: [main]
+    paths: ['package.json']
   workflow_dispatch:
+    inputs:
+      force:
+        description: Release even if the version tag already exists
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
 jobs:
+  # Decides whether this run has anything to release, so the expensive packaging
+  # jobs are skipped for ordinary commits.
+  version:
+    name: Check version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
+      release: ${{ steps.read.outputs.release }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          if [ "${{ inputs.force }}" = "true" ]; then
+            echo "Forced, releasing v$version regardless of existing tags."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif gh release view "v$version" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v$version is already released; nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "v$version has no release yet; building it."
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          fi
+
   windows:
     name: Windows installers
+    needs: version
+    if: needs.version.outputs.release == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,15 +64,19 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
-      # Produces the setup .exe, the portable .exe, and the latest.yml the
-      # updater reads, then uploads them to the release.
+      # Uploads the setup .exe, the portable .exe, the no-install zip, and the
+      # latest.yml the updater reads.
       - name: Package and publish
-        run: npx electron-builder --win --publish always
+        run: npx electron-builder --win nsis portable zip --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   linux:
     name: Linux packages
+    # After Windows, because both jobs upload to the same release and creating it
+    # twice at once races.
+    needs: [version, windows]
+    if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +86,16 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
+      # fpm compresses the deb with xz, so the tool has to be present.
+      - name: Ensure the deb toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq xz-utils
+      # Loud failure beats a package whose terminal cannot load its native module.
+      - name: Check the native terminal module
+        run: test -f node_modules/node-pty/build/Release/pty.node
       - name: Build
         run: npm run build
+      # node-pty has no Linux prebuild, so its module has to be compiled, which
+      # is what `npm ci` did above.
       - name: Package and publish
         run: npx electron-builder --linux --publish always
         env:

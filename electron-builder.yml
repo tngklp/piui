@@ -8,10 +8,13 @@ directories:
 
 asar: true
 
-# node-pty ships N-API prebuilds (its own install script prefers them and only
-# falls back to node-gyp), and N-API is ABI-stable across Electron versions, so
-# there is nothing to rebuild. Letting electron-builder try would invoke MSBuild
-# and fail on machines without the Spectre-mitigated VC++ libraries.
+# node-pty ships N-API prebuilds for win32 and darwin but not linux, and N-API is
+# ABI-stable across Electron versions, so on Windows the shipped prebuild is used
+# as-is: rebuilding would invoke MSBuild and fail where the Spectre-mitigated
+# VC++ libraries are absent. This key only exists at the top level — the schema
+# rejects it under `win` — so Linux inherits it too and takes its native module
+# from `npm ci`, where node-pty's own install script runs node-gyp because it has
+# no Linux prebuild. The Linux job asserts that the module is there.
 npmRebuild: false
 
 # The pi SDK loads WASM and dynamic assets at runtime, so keep it on disk
@@ -26,18 +29,14 @@ asarUnpack:
   # files, not entries inside app.asar.
   - '**/node_modules/prettier/**'
 
-# Publishing to GitHub is what makes the in-app updater work: the releases feed
-# is where a new version is discovered, and electron-builder uploads the
-# installers plus the latest.yml metadata the updater reads.
-#
-# `releaseType: draft` keeps every run private until the draft is published by
-# hand in the GitHub UI, which is also the moment existing installs start seeing
-# it. Switch to `release` to publish the moment the build finishes.
+# `releaseType: release` publishes as soon as the build finishes, which is what
+# makes an installed copy see the update. Use `draft` if you would rather review
+# the artifacts before they go live.
 publish:
   provider: github
   owner: tngklp
   repo: piui
-  releaseType: draft
+  releaseType: release
 
 win:
   icon: build/icon.png
@@ -68,5 +67,8 @@ linux:
     - deb
   category: Development
   synopsis: Desktop GUI for the Pi coding agent
+  # Uses the `desktopName` from package.json for the .desktop entry and its
+  # StartupWMClass, so a running PiUI window associates with its launcher icon.
+  syncDesktopName: true
   # Only the AppImage updates itself; the updater says so for a deb install.
   artifactName: ${productName}-${version}-${arch}.${ext}
