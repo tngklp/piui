@@ -471,3 +471,156 @@ textarea {
   font-size: 12px;
   color: var(--piui-text-muted);
 }
+
+/* ---------- markdown ---------- */
+
+.markdown {
+  overflow-wrap: anywhere;
+}
+
+.markdown > *:first-child {
+  margin-top: 0;
+}
+
+.markdown > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown p,
+.markdown ul,
+.markdown ol,
+.markdown blockquote,
+.markdown table,
+.markdown pre {
+  margin: 0 0 10px;
+}
+
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 16px 0 8px;
+  line-height: 1.3;
+}
+
+.markdown h1 {
+  font-size: 19px;
+}
+
+.markdown h2 {
+  font-size: 17px;
+}
+
+.markdown h3 {
+  font-size: 15px;
+}
+
+.markdown h4 {
+  font-size: 14px;
+}
+
+.markdown ul,
+.markdown ol {
+  padding-left: 22px;
+}
+
+.markdown li {
+  margin: 2px 0;
+}
+
+.markdown a {
+  color: #7fb2ff;
+}
+
+.markdown blockquote {
+  border-left: 3px solid var(--piui-border);
+  padding-left: 10px;
+  color: var(--piui-text-muted);
+}
+
+.markdown code {
+  font-family: var(--piui-mono);
+  font-size: 12.5px;
+}
+
+.markdown :not(pre) > code {
+  background: var(--piui-bg-raised-2);
+  border: 1px solid var(--piui-border);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.markdown table {
+  border-collapse: collapse;
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.markdown th,
+.markdown td {
+  border: 1px solid var(--piui-border);
+  padding: 5px 9px;
+  text-align: left;
+}
+
+.markdown th {
+  background: var(--piui-bg-raised-2);
+}
+
+.markdown hr {
+  border: none;
+  border-top: 1px solid var(--piui-border);
+  margin: 14px 0;
+}
+
+.markdown img {
+  max-width: 100%;
+}
+
+.codeblock {
+  position: relative;
+  border: 1px solid var(--piui-border);
+  border-radius: 8px;
+  background: #0d1117;
+  overflow: hidden;
+}
+
+.codeblock pre {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  max-height: 420px;
+}
+
+.codeblock pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.codeblock__copy {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--piui-border);
+  background: rgba(20, 20, 26, 0.85);
+  color: var(--piui-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.codeblock:hover .codeblock__copy {
+  opacity: 1;
+}
+
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}

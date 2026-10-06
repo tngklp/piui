@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ChatBlockDto, ChatItemDto } from '@shared/ipc'
 import { summarizeToolArguments } from '../lib/format'
 import { usePiUi } from '../store'
+import { Markdown } from './Markdown'
 
 function ToolCallBlock({ block }: { block: Extract<ChatBlockDto, { type: 'toolCall' }> }) {
   const summary = summarizeToolArguments(block.arguments)
@@ -29,11 +30,7 @@ function AssistantMessage({ item }: { item: Extract<ChatItemDto, { kind: 'assist
     <div className="message message--assistant">
       {item.blocks.map((block, index) => {
         if (block.type === 'text') {
-          return (
-            <div className="prose" key={`text-${index}`}>
-              {block.text}
-            </div>
-          )
+          return <Markdown text={block.text} key={`text-${index}`} />
         }
         if (block.type === 'thinking') {
           return (
@@ -136,7 +133,7 @@ export function Transcript() {
               <pre className="thinking__body">{streaming.thinking}</pre>
             </details>
           ) : null}
-          {streaming.text ? <div className="prose">{streaming.text}</div> : null}
+          {streaming.text ? <Markdown text={streaming.text} /> : null}
           {streaming.tools.map((tool) => (
             <div className="tool tool--streaming" key={tool.id || tool.name}>
               <span className="tool__badge">tool</span>
