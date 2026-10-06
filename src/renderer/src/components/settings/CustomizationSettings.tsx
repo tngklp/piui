@@ -28,8 +28,7 @@ const SAMPLE_FILES = [
   'config.yaml',
   'photo.png',
   'README.md',
-  '.gitignore',
-  'payload.dat'
+  '.gitignore'
 ]
 
 /**

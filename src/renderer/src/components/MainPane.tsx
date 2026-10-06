@@ -1,28 +1,16 @@
-import type { ChatItemDto } from '@shared/ipc'
 import { usePiUi } from '../store'
 import { ChatView } from './ChatView'
 import { EditorView } from './editor/EditorView'
 
-/** Collapse a prompt into a short single-line session title. */
-function titleFrom(text: string): string {
-  const flat = text.replace(/\s+/g, ' ').trim()
-  return flat.length > 64 ? `${flat.slice(0, 64)}…` : flat || 'New session'
-}
-
-/** Main column: chat/editor tabs, the session title, and the active view. */
+/** Main column: chat/editor tabs, the run state, and the active view. */
 export function MainPane() {
   const mainTab = usePiUi((state) => state.mainTab)
   const setMainTab = usePiUi((state) => state.setMainTab)
   const status = usePiUi((state) => state.status)
-  const items = usePiUi((state) => state.items)
   const openFiles = usePiUi((state) => state.openFiles)
   const rightOpen = usePiUi((state) => state.rightOpen)
   const toggleRight = usePiUi((state) => state.toggleRight)
 
-  const firstUser = items.find(
-    (item): item is Extract<ChatItemDto, { kind: 'user' }> => item.kind === 'user'
-  )
-  const title = status?.sessionName ?? (firstUser ? titleFrom(firstUser.text) : 'New session')
   const running = Boolean(status?.isStreaming)
 
   return (
@@ -49,7 +37,6 @@ export function MainPane() {
           </button>
         </div>
 
-        <h1>{title}</h1>
         <span className="sp" />
         <span className="chip lil">{running ? 'Running' : 'Idle'}</span>
         {rightOpen ? null : (

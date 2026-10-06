@@ -3,7 +3,7 @@ import type { ModelDefDto, ModelsConfigDto, ProviderConfigDto } from '@shared/ip
 import { HOSTED_PROVIDERS, isHostedProviderId, type HostedProvider } from '@shared/providers'
 import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
-import { SettingsHeader } from './rows'
+import { SettingsHeader, Switch } from './rows'
 
 /** Provider APIs the agent understands. */
 const API_OPTIONS: SelectOption<string>[] = [
@@ -245,9 +245,6 @@ export function ModelsSettings() {
                 spellCheck={false}
                 onChange={(event) => updateProvider(providerIndex, { id: event.target.value })}
               />
-              <span className={`chip${hosted ? ' lil' : ''}`}>
-                {hosted ? 'Hosted API' : 'Local'}
-              </span>
               <span className="sp" />
               <button
                 className="b sm bad"
@@ -398,30 +395,28 @@ export function ModelsSettings() {
                           })
                         }
                       />
-                      <label className="chk" title="The model supports reasoning effort">
-                        <input
-                          type="checkbox"
+                      <span className="chk" title="The model supports reasoning effort">
+                        <Switch
+                          label="Supports reasoning effort"
                           checked={model.reasoning}
-                          onChange={(event) =>
-                            updateModel(providerIndex, modelIndex, {
-                              reasoning: event.target.checked
-                            })
+                          onChange={(reasoning) =>
+                            updateModel(providerIndex, modelIndex, { reasoning })
                           }
                         />
                         think
-                      </label>
-                      <label className="chk" title="The model accepts images">
-                        <input
-                          type="checkbox"
+                      </span>
+                      <span className="chk" title="The model accepts images">
+                        <Switch
+                          label="Accepts images"
                           checked={model.input.includes('image')}
-                          onChange={(event) =>
+                          onChange={(images) =>
                             updateModel(providerIndex, modelIndex, {
-                              input: event.target.checked ? ['text', 'image'] : ['text']
+                              input: images ? ['text', 'image'] : ['text']
                             })
                           }
                         />
                         images
-                      </label>
+                      </span>
                     </>
                   )}
                   <button
@@ -519,7 +514,6 @@ export function ModelsSettings() {
         )
       })}
 
-      <h3>Add a provider</h3>
       <div className="addprov" ref={addRef}>
         <button
           type="button"

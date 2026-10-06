@@ -208,8 +208,6 @@ export function Sidebar() {
           <b>{workspace?.name ?? 'No workspace'}</b>
           <small>{sessions.length} saved sessions</small>
         </span>
-        <span className="sp" />
-        <span style={{ color: 'var(--dim)' }}>⌄</span>
       </button>
 
       <button className="newbtn" onClick={() => void newSession()} disabled={busy}>
