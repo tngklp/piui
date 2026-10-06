@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { usePiUi } from '../store'
 
 /**
- * Renders extension-UI dialogs (and PiUI's own approval prompts) as a modal and
+ * Renders extension-UI dialogs (including PiUI's own approval prompts) and
  * sends the answer back to the main process.
  */
 export function DialogHost() {
@@ -34,10 +34,11 @@ export function DialogHost() {
 
         {dialog.method === 'select' ? (
           <div className="modal__options">
-            {dialog.options.map((option) => (
+            {dialog.options.map((option, index) => (
               <button
-                key={option}
                 className="modal__option"
+                key={option}
+                autoFocus={index === 0}
                 onClick={() => void respond({ id: dialog.id, value: option })}
               >
                 {option}
@@ -51,37 +52,39 @@ export function DialogHost() {
             className="modal__input"
             value={text}
             placeholder={dialog.placeholder ?? ''}
+            autoFocus
             onChange={(event) => setText(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') void respond({ id: dialog.id, value: text })
               if (event.key === 'Escape') cancel()
             }}
-            autoFocus
           />
         ) : null}
 
         {dialog.method === 'editor' ? (
           <textarea
-            className="modal__input modal__input--multiline"
+            className="modal__input mono multiline"
             value={text}
-            onChange={(event) => setText(event.target.value)}
             autoFocus
+            onChange={(event) => setText(event.target.value)}
           />
         ) : null}
 
-        <div className="modal__actions">
-          <button className="button" onClick={cancel}>
-            Cancel
-          </button>
-          {dialog.method === 'input' || dialog.method === 'editor' ? (
-            <button
-              className="button button--primary"
-              onClick={() => void respond({ id: dialog.id, value: text })}
-            >
-              OK
+        {dialog.method === 'select' ? null : (
+          <div className="modal__actions">
+            <button className="b" onClick={cancel}>
+              Cancel
             </button>
-          ) : null}
-        </div>
+            {dialog.method === 'input' || dialog.method === 'editor' ? (
+              <button
+                className="b pri"
+                onClick={() => void respond({ id: dialog.id, value: text })}
+              >
+                OK
+              </button>
+            ) : null}
+          </div>
+        )}
       </div>
     </div>
   )

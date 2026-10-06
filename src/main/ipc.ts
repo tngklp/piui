@@ -18,6 +18,8 @@ import { getRuntimeInfo } from './pi/runtime-info'
 import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
 import { WorkspaceStore } from './pi/workspace-store'
+import { listDirectory } from './fs-list'
+import { readMonitor } from './monitor'
 
 export interface IpcContext {
   /** Current main window, used to push agent events to the renderer. */
@@ -172,6 +174,19 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.WorkspaceSet, async (_event, cwd: string): Promise<WorkspaceDto> => {
     await workspaceStore.set(cwd)
     return (await host()).setWorkspace(cwd)
+  })
+
+  ipcMain.handle(IpcChannel.FsList, async (_event, target: string) => {
+    const root = (await host()).getWorkspace().cwd
+    return listDirectory(target, root)
+  })
+
+  ipcMain.handle(IpcChannel.MonitorGet, async () => {
+    const agent = await host()
+    return readMonitor({
+      endpoint: () => agent.getModelEndpoint(),
+      recentRequests: (limit) => agent.getRecentRequests(limit)
+    })
   })
 
   ipcMain.handle(IpcChannel.ApprovalGetConfig, async () => {

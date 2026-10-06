@@ -1,0 +1,207 @@
+import { useEffect } from 'react'
+import { usePiUi } from '../../store'
+
+const POLL_MS = 1500
+
+function number(value: number | null, digits = 0): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return value.toLocaleString('en-US', {
+    maximumFractionDigits: digits,
+    minimumFractionDigits: digits
+  })
+}
+
+function ratio(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${Math.round(value * 100)}`
+}
+
+function sparkPaths(values: number[]): { line: string; area: string } | null {
+  if (values.length < 2) return null
+  const max = Math.max(...values, 1)
+  const step = 300 / (values.length - 1)
+  const points = values.map(
+    (value, index) =>
+      `${(index * step).toFixed(1)},${(62 - (Math.min(value, max) / max) * 58).toFixed(1)}`
+  )
+  return { line: `M${points.join('L')}`, area: `M0,64L${points.join('L')}L300,64Z` }
+}
+
+function timeOf(iso: string): string {
+  const date = new Date(iso)
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+/** Live inference metrics from the model endpoint and GPU telemetry. */
+export function MonitorPanel() {
+  const monitor = usePiUi((state) => state.monitor)
+  const setMonitor = usePiUi((state) => state.setMonitor)
+
+  useEffect(() => {
+    let cancelled = false
+
+    const tick = async (): Promise<void> => {
+      try {
+        const snapshot = await window.piui.getMonitor()
+        if (!cancelled) setMonitor(snapshot)
+      } catch {
+        // Leave the last snapshot in place; the next tick retries.
+      }
+    }
+
+    void tick()
+    const timer = window.setInterval(() => void tick(), POLL_MS)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [setMonitor])
+
+  if (!monitor) {
+    return (
+      <div className="pad">
+        <p style={{ color: 'var(--dim)', fontSize: 13 }}>Reading metrics…</p>
+      </div>
+    )
+  }
+
+  const spark = sparkPaths(monitor.speed.history)
+  const kvPercent = monitor.kvCache.usageRatio
+
+  return (
+    <div className="pad mon">
+      <div className="eng">
+        <span className={monitor.engine.available ? 'dot' : 'dot off'} />
+        <div>
+          <b>{monitor.engine.model ?? 'No model selected'}</b>
+          <small>{monitor.engine.endpoint ?? 'no endpoint configured'}</small>
+        </div>
+        <span className="sp" />
+        <span className="chip lil">{monitor.engine.available ? 'Serving' : 'Offline'}</span>
+      </div>
+
+      {monitor.engine.error ? (
+        <div className="mc">
+          <h3>Endpoint</h3>
+          <small>{monitor.engine.error}</small>
+        </div>
+      ) : null}
+
+      <div className="mc">
+        <div className="two">
+          <div>
+            <small>Answer speed</small>
+            <div className="big">
+              {number(monitor.speed.answerTokensPerSecond, 0)}
+              <em>tok/s</em>
+            </div>
+          </div>
+          <div>
+            <small>Prompt speed</small>
+            <div className="big">
+              {number(monitor.speed.promptTokensPerSecond, 0)}
+              <em>tok/s</em>
+            </div>
+          </div>
+        </div>
+        {spark ? (
+          <svg
+            className="spark"
+            viewBox="0 0 300 64"
+            preserveAspectRatio="none"
+            aria-label="Answer speed history"
+          >
+            <path className="ar" d={spark.area} />
+            <path className="ln" d={spark.line} />
+          </svg>
+        ) : (
+          <small style={{ display: 'block', marginTop: 6 }}>Not enough samples yet.</small>
+        )}
+      </div>
+
+      <div className="mc">
+        <h3>KV cache</h3>
+        <div className="gh">
+          <b style={{ fontWeight: 500 }}>
+            {monitor.kvCache.tokens === null ? '—' : `${number(monitor.kvCache.tokens)} tokens`}
+          </b>
+          <small>{kvPercent === null ? '—' : `${ratio(kvPercent)}%`}</small>
+        </div>
+        <div className="bar">
+          <i style={{ width: `${Math.min(100, Math.max(0, (kvPercent ?? 0) * 100))}%` }} />
+        </div>
+        <small>
+          Context window {number(monitor.engine.contextWindow)} tokens ·{' '}
+          {monitor.requests.processing} processing · {monitor.requests.deferred} deferred
+        </small>
+      </div>
+
+      {monitor.gpus.length > 0 ? (
+        <div className="mc">
+          <h3>GPUs</h3>
+          {monitor.gpus.map((gpu) => (
+            <div className="gpu" key={gpu.name}>
+              <div className="gh">
+                <b>{gpu.name}</b>
+                <small>
+                  {Math.round(gpu.utilization)}% load
+                  {gpu.powerWatts === null ? '' : ` · ${Math.round(gpu.powerWatts)} W`}
+                </small>
+              </div>
+              <div className="bar">
+                <i style={{ width: `${Math.min(100, gpu.utilization)}%` }} />
+              </div>
+              <small>
+                VRAM {(gpu.memoryUsed / 1024).toFixed(1)} of {(gpu.memoryTotal / 1024).toFixed(1)}{' '}
+                GB
+              </small>
+              <div className="bar">
+                <i
+                  style={{
+                    width: `${gpu.memoryTotal > 0 ? Math.min(100, (gpu.memoryUsed / gpu.memoryTotal) * 100) : 0}%`,
+                    opacity: 0.55
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="mc">
+          <h3>GPUs</h3>
+          <small>nvidia-smi reported no GPU. Ignore this if you run the model elsewhere.</small>
+        </div>
+      )}
+
+      <div className="mc">
+        <h3>Recent requests</h3>
+        {monitor.recent.length === 0 ? (
+          <small>No completed requests in this session yet.</small>
+        ) : (
+          <table className="rq">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Prompt</th>
+                <th>Answer</th>
+                <th>Model</th>
+              </tr>
+            </thead>
+            <tbody>
+              {monitor.recent.map((request, index) => (
+                <tr key={`${request.at}-${index}`}>
+                  <td>{timeOf(request.at)}</td>
+                  <td>{request.promptTokens.toLocaleString('en-US')}</td>
+                  <td>{request.answerTokens.toLocaleString('en-US')}</td>
+                  <td>{request.model || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  )
+}

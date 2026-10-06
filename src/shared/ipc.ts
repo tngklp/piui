@@ -37,7 +37,9 @@ export const IpcChannel = {
   SessionsFork: 'piui:sessions:fork',
   WorkspaceGet: 'piui:workspace:get',
   WorkspacePick: 'piui:workspace:pick',
-  WorkspaceSet: 'piui:workspace:set'
+  WorkspaceSet: 'piui:workspace:set',
+  FsList: 'piui:fs:list',
+  MonitorGet: 'piui:monitor:get'
 } as const
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -245,6 +247,73 @@ export interface WorkspaceDto {
   name: string
 }
 
+/** One entry in the file explorer. */
+export interface FsEntryDto {
+  name: string
+  path: string
+  kind: 'file' | 'directory'
+  /** Working-tree status when the folder is in a git repository. */
+  status?: 'M' | 'U'
+}
+
+/** A directory listing for the explorer. */
+export interface FsListingDto {
+  path: string
+  entries: FsEntryDto[]
+  /** Set when the path is outside the workspace or unreadable. */
+  error: string | null
+}
+
+/** One GPU as reported by nvidia-smi. */
+export interface MonitorGpuDto {
+  name: string
+  /** Percent, 0-100. */
+  utilization: number
+  /** MiB. */
+  memoryUsed: number
+  /** MiB. */
+  memoryTotal: number
+  powerWatts: number | null
+}
+
+/** One finished model request, derived from the session transcript. */
+export interface MonitorRequestDto {
+  at: string
+  model: string
+  promptTokens: number
+  answerTokens: number
+}
+
+/** Everything the Monitor tab renders. */
+export interface MonitorSnapshotDto {
+  /** ISO 8601 timestamp of the snapshot. */
+  at: string
+  engine: {
+    /** Whether the inference endpoint answered a metrics request. */
+    available: boolean
+    model: string | null
+    endpoint: string | null
+    contextWindow: number | null
+    error: string | null
+  }
+  speed: {
+    answerTokensPerSecond: number | null
+    promptTokensPerSecond: number | null
+    /** Answer speed history, oldest first, for the sparkline. */
+    history: number[]
+  }
+  kvCache: {
+    usageRatio: number | null
+    tokens: number | null
+  }
+  requests: {
+    processing: number
+    deferred: number
+  }
+  gpus: MonitorGpuDto[]
+  recent: MonitorRequestDto[]
+}
+
 /**
  * The API surface PiUI exposes to the renderer as `window.piui`.
  * Every method is implemented in the preload script and backed by IPC.
@@ -294,4 +363,8 @@ export interface PiUiApi {
   pickWorkspace(): Promise<string | null>
   /** Switch the agent to a different working directory. */
   setWorkspace(path: string): Promise<WorkspaceDto>
+  /** List a directory for the file explorer. */
+  listDirectory(path: string): Promise<FsListingDto>
+  /** Read the current monitor snapshot. */
+  getMonitor(): Promise<MonitorSnapshotDto>
 }

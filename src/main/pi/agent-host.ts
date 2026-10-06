@@ -11,6 +11,7 @@ import type {
   ChatBlockDto,
   ChatItemDto,
   ModelDto,
+  MonitorRequestDto,
   PromptInput,
   SessionStatsDto,
   SessionStatusDto,
@@ -459,6 +460,44 @@ export class AgentHost {
     this.cwd = cwd
     await this.replaceSession(SessionManager.create(cwd))
     return this.getWorkspace()
+  }
+
+  /** Inference endpoint details for the active model. */
+  getModelEndpoint(): {
+    baseUrl: string | null
+    model: string | null
+    contextWindow: number | null
+  } {
+    const model = this.session.model as (SdkModel & { baseUrl?: string }) | undefined
+    return {
+      baseUrl: typeof model?.baseUrl === 'string' ? model.baseUrl : null,
+      model: model ? `${model.provider}/${model.id}` : null,
+      contextWindow: model?.contextWindow ?? null
+    }
+  }
+
+  /** Recently completed turns, newest first, for the monitor's request table. */
+  getRecentRequests(limit: number): MonitorRequestDto[] {
+    const requests: MonitorRequestDto[] = []
+
+    for (const raw of this.session.messages) {
+      const message = raw as {
+        role?: string
+        model?: string
+        timestamp?: number
+        usage?: { input?: number; output?: number }
+      }
+      if (message.role !== 'assistant' || !message.usage) continue
+
+      requests.push({
+        at: new Date(message.timestamp ?? Date.now()).toISOString(),
+        model: message.model ?? '',
+        promptTokens: message.usage.input ?? 0,
+        answerTokens: message.usage.output ?? 0
+      })
+    }
+
+    return requests.slice(-limit).reverse()
   }
 
   dispose(): void {

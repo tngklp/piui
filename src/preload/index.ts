@@ -55,7 +55,9 @@ const api: PiUiApi = {
   forkSession: () => ipcRenderer.invoke(IpcChannel.SessionsFork),
   getWorkspace: () => ipcRenderer.invoke(IpcChannel.WorkspaceGet),
   pickWorkspace: () => ipcRenderer.invoke(IpcChannel.WorkspacePick),
-  setWorkspace: (path: string) => ipcRenderer.invoke(IpcChannel.WorkspaceSet, path)
+  setWorkspace: (path: string) => ipcRenderer.invoke(IpcChannel.WorkspaceSet, path),
+  listDirectory: (path: string) => ipcRenderer.invoke(IpcChannel.FsList, path),
+  getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet)
 }
 
 if (process.contextIsolated) {

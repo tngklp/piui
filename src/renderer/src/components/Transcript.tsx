@@ -5,46 +5,66 @@ import { usePiUi } from '../store'
 import { DiffView } from './DiffView'
 import { Markdown } from './Markdown'
 
-function ToolCallBlock({ block }: { block: Extract<ChatBlockDto, { type: 'toolCall' }> }) {
+function ToolCallCard({ block }: { block: Extract<ChatBlockDto, { type: 'toolCall' }> }) {
   const summary = summarizeToolArguments(block.arguments)
-  let body: string
-  try {
-    body = JSON.stringify(block.arguments, null, 2)
-  } catch {
-    body = String(block.arguments)
-  }
 
   return (
-    <details className="tool">
-      <summary className="tool__summary">
-        <span className="tool__badge">tool</span>
-        <span className="tool__name">{block.name}</span>
-        {summary ? <code className="tool__args">{summary}</code> : null}
-      </summary>
-      <pre className="tool__body">{body}</pre>
-    </details>
+    <div className="card">
+      <div className="hd">
+        <span className="tag">{block.name}</span>
+        {summary ? <span className="path">{summary}</span> : null}
+      </div>
+    </div>
   )
 }
 
-function AssistantMessage({ item }: { item: Extract<ChatItemDto, { kind: 'assistant' }> }) {
+function AssistantItem({ item }: { item: Extract<ChatItemDto, { kind: 'assistant' }> }) {
   return (
-    <div className="message message--assistant">
+    <div className="asst">
       {item.blocks.map((block, index) => {
         if (block.type === 'text') {
           return <Markdown text={block.text} key={`text-${index}`} />
         }
         if (block.type === 'thinking') {
           return (
-            <details className="thinking" key={`thinking-${index}`}>
-              <summary className="thinking__summary">Thinking</summary>
-              <pre className="thinking__body">{block.text}</pre>
+            <details className="think" key={`think-${index}`}>
+              <summary>Thought</summary>
+              <pre>{block.text}</pre>
             </details>
           )
         }
-        return <ToolCallBlock block={block} key={block.id || `tool-${index}`} />
+        return <ToolCallCard block={block} key={block.id || `tool-${index}`} />
       })}
-      {item.stopped ? <p className="message__meta">Stopped by user</p> : null}
-      {item.error ? <p className="message__error">{item.error}</p> : null}
+      {item.stopped ? <p style={{ color: 'var(--dim)', fontSize: 13 }}>Stopped by user</p> : null}
+      {item.error ? <p style={{ color: 'var(--del)', fontSize: 13 }}>{item.error}</p> : null}
+    </div>
+  )
+}
+
+function ToolResultCard({ item }: { item: Extract<ChatItemDto, { kind: 'toolResult' }> }) {
+  const diff = item.diff
+  const hasCounts = item.addedLines !== undefined || item.removedLines !== undefined
+
+  return (
+    <div className="card">
+      <div className="hd">
+        <span className={`tag${item.isError ? ' bad' : ''}`}>{item.toolName}</span>
+        {item.filePath ? <span className="path">{item.filePath}</span> : null}
+        <span className="sp" />
+        {hasCounts ? (
+          <>
+            {item.addedLines ? <span className="ok">+{item.addedLines}</span> : null}
+            {item.removedLines ? (
+              <span style={{ color: 'var(--del)' }}>−{item.removedLines}</span>
+            ) : null}
+          </>
+        ) : item.isError ? (
+          <span style={{ color: 'var(--del)' }}>failed</span>
+        ) : (
+          <span className="ok">✓</span>
+        )}
+      </div>
+      {diff ? <DiffView diff={diff} /> : <pre className="out">{item.text || '(no output)'}</pre>}
     </div>
   )
 }
@@ -53,52 +73,34 @@ function TranscriptItem({ item }: { item: ChatItemDto }) {
   switch (item.kind) {
     case 'user':
       return (
-        <div className="message message--user">
-          <div className="prose">{item.text}</div>
+        <div className="user">
+          {item.text}
           {item.imageCount > 0 ? (
-            <p className="message__meta">
+            <div style={{ fontSize: 12, opacity: 0.75, marginTop: 6 }}>
               {item.imageCount} image{item.imageCount === 1 ? '' : 's'}
-            </p>
+            </div>
           ) : null}
         </div>
       )
 
     case 'assistant':
-      return <AssistantMessage item={item} />
+      return <AssistantItem item={item} />
 
-    case 'toolResult': {
-      const diff = item.diff
-      const hasCounts = item.addedLines !== undefined || item.removedLines !== undefined
-
-      return (
-        <details className={`result${item.isError ? ' result--error' : ''}`} open={Boolean(diff)}>
-          <summary className="result__summary">
-            <span className="tool__badge">{item.isError ? 'error' : 'result'}</span>
-            <span className="tool__name">{item.toolName}</span>
-            {item.filePath ? <code className="tool__args">{item.filePath}</code> : null}
-            {hasCounts ? (
-              <span className="diff__counts">
-                {item.addedLines ? <span className="diff__added">+{item.addedLines}</span> : null}
-                {item.removedLines ? (
-                  <span className="diff__removed">−{item.removedLines}</span>
-                ) : null}
-              </span>
-            ) : null}
-          </summary>
-          {diff ? (
-            <DiffView diff={diff} />
-          ) : (
-            <pre className="result__body">{item.text || '(no output)'}</pre>
-          )}
-        </details>
-      )
-    }
+    case 'toolResult':
+      return <ToolResultCard item={item} />
 
     case 'bash':
       return (
-        <div className="message message--bash">
-          <code className="bash__command">$ {item.command}</code>
-          <pre className="bash__output">{item.output || '(no output)'}</pre>
+        <div className="card">
+          <div className="hd">
+            <span className="tag">bash</span>
+            <b className="mono" style={{ fontWeight: 500 }}>
+              {item.command}
+            </b>
+            <span className="sp" />
+            <span className="ok">{item.exitCode === 0 ? '✓' : `exit ${item.exitCode ?? '?'}`}</span>
+          </div>
+          <pre className="out">{item.output || '(no output)'}</pre>
         </div>
       )
 
@@ -107,6 +109,7 @@ function TranscriptItem({ item }: { item: ChatItemDto }) {
   }
 }
 
+/** Scrolling transcript with a live streaming bubble. */
 export function Transcript() {
   const items = usePiUi((state) => state.items)
   const streaming = usePiUi((state) => state.streaming)
@@ -120,14 +123,11 @@ export function Transcript() {
   const isEmpty = items.length === 0 && !streaming && runningTools.length === 0
 
   return (
-    <div className="transcript">
+    <div className="col">
       {isEmpty ? (
         <div className="empty">
-          <p className="empty__title">Ask Pi to work on your project.</p>
-          <p className="empty__hint">
-            PiUI runs the Pi agent against the current working directory. Enter sends a prompt.
-            While Pi is working, Enter steers the current turn and Ctrl+Enter queues a follow-up.
-          </p>
+          <b>Ask Pi to work on your project.</b>
+          Message Pi below. Type <code>/</code> for commands, <code>!</code> to run a shell command.
         </div>
       ) : null}
 
@@ -136,29 +136,31 @@ export function Transcript() {
       ))}
 
       {runningTools.map((tool) => (
-        <div className="running" key={tool.id}>
-          <span className="running__spinner" aria-hidden="true" />
-          <span className="tool__name">{tool.name}</span>
-          <span className="running__label">running…</span>
+        <div className="activity" key={tool.id}>
+          <span className="spinner" />
+          <span className="mono">{tool.name}</span>
+          <span>running…</span>
         </div>
       ))}
 
       {streaming ? (
-        <div className="message message--assistant">
+        <div className="asst">
           {streaming.thinking ? (
-            <details className="thinking" open>
-              <summary className="thinking__summary">Thinking</summary>
-              <pre className="thinking__body">{streaming.thinking}</pre>
+            <details className="think" open>
+              <summary>Thinking</summary>
+              <pre>{streaming.thinking}</pre>
             </details>
           ) : null}
           {streaming.text ? <Markdown text={streaming.text} /> : null}
           {streaming.tools.map((tool) => (
-            <div className="tool tool--streaming" key={tool.id || tool.name}>
-              <span className="tool__badge">tool</span>
-              <span className="tool__name">{tool.name}</span>
+            <div className="card" key={tool.id || tool.name}>
+              <div className="hd">
+                <span className="tag">{tool.name}</span>
+                <span className="path">{summarizeToolArguments(tool.argsText)}</span>
+              </div>
             </div>
           ))}
-          <span className="caret" aria-hidden="true" />
+          <p className="stream" />
         </div>
       ) : null}
 

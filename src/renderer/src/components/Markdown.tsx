@@ -7,7 +7,7 @@ import remarkMath from 'remark-math'
 import 'highlight.js/styles/github-dark.css'
 import 'katex/dist/katex.min.css'
 
-/** Wraps a fenced code block with a copy button. */
+/** Fenced code block with a copy button. */
 function CodeBlock({ children }: { children?: ReactNode }) {
   const preRef = useRef<HTMLPreElement | null>(null)
   const [copied, setCopied] = useState(false)
@@ -42,14 +42,10 @@ const components: Components = {
   )
 }
 
-/**
- * Renders assistant output as GitHub-flavoured markdown with syntax
- * highlighting and KaTeX math. Re-parsing on every streamed delta is cheap
- * enough for the sizes PiUI deals with.
- */
+/** Assistant output as GitHub-flavoured markdown with highlighting and math. */
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
-    <div className="markdown">
+    <div className="md">
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeHighlight, rehypeKatex]}

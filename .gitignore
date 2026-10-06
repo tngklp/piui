@@ -25,3 +25,7 @@ Thumbs.db
 # Env
 .env
 .env.local
+
+# Generated from material-icon-theme (run `npm run icons`)
+src/renderer/public/material-icons/
+src/renderer/src/lib/material-icons.json

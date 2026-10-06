@@ -4,6 +4,7 @@ import type {
   ApprovalConfig,
   ChatItemDto,
   ModelDto,
+  MonitorSnapshotDto,
   NoticeDto,
   RuntimeInfoDto,
   SessionStatusDto,
@@ -13,6 +14,36 @@ import type {
   UiResponseDto,
   WorkspaceDto
 } from '@shared/ipc'
+import { loadThemeId, saveThemeId, systemPrefersDark } from './theme/preference'
+import { applyTheme, resolveTheme } from './theme/themes'
+
+/** Right-hand panel views. */
+export type RightTab = 'files' | 'term' | 'tree' | 'mon'
+/** Sidebar session filters. */
+export type SessionFilter = 'all' | 'running' | 'starred'
+
+const STARRED_KEY = 'piui.starred'
+
+function loadStarred(): string[] {
+  try {
+    const raw = localStorage.getItem(STARRED_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    return Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+function saveStarred(paths: string[]): void {
+  try {
+    localStorage.setItem(STARRED_KEY, JSON.stringify(paths))
+  } catch {
+    // Storage may be unavailable; stars still apply for this session.
+  }
+}
 
 /** Live assistant output accumulated from streaming deltas. */
 export interface StreamingState {
@@ -59,6 +90,21 @@ interface PiUiState {
   sessions: SessionSummaryDto[]
   /** The working directory the agent is operating on. */
   workspace: WorkspaceDto | null
+  /** Saved sessions across every workspace, for the recents list. */
+  allSessions: SessionSummaryDto[]
+  /** Session paths the user starred, persisted locally. */
+  starred: string[]
+  sessionQuery: string
+  sessionFilter: SessionFilter
+  /** Theme id from the theme registry, or `auto`. */
+  themeId: string
+  rightOpen: boolean
+  rightTab: RightTab
+  rightWidth: number
+  welcomeOpen: boolean
+  /** File selected in the explorer. */
+  selectedFile: string | null
+  monitor: MonitorSnapshotDto | null
   initialize: () => Promise<void>
   refresh: () => Promise<void>
   ingest: (event: AgentEventDto) => void
@@ -72,6 +118,19 @@ interface PiUiState {
   renameSession: (name: string) => Promise<void>
   forkSession: () => Promise<void>
   changeWorkspace: () => Promise<void>
+  openWorkspace: (path: string) => Promise<void>
+  setTheme: (id: string) => void
+  setRightTab: (tab: RightTab) => void
+  toggleRight: () => void
+  setRightWidth: (width: number) => void
+  openWelcome: () => void
+  closeWelcome: () => void
+  setSessionQuery: (query: string) => void
+  setSessionFilter: (filter: SessionFilter) => void
+  toggleStar: (path: string) => void
+  loadAllSessions: () => Promise<void>
+  selectFile: (path: string | null) => void
+  setMonitor: (snapshot: MonitorSnapshotDto | null) => void
   send: (text: string, mode?: 'prompt' | 'steer' | 'followUp') => Promise<void>
   abort: () => Promise<void>
   newSession: () => Promise<void>
@@ -107,6 +166,17 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   settingsOpen: false,
   sessions: [],
   workspace: null,
+  allSessions: [],
+  starred: loadStarred(),
+  sessionQuery: '',
+  sessionFilter: 'all',
+  themeId: loadThemeId(),
+  rightOpen: true,
+  rightTab: 'files',
+  rightWidth: 360,
+  welcomeOpen: true,
+  selectedFile: null,
+  monitor: null,
 
   initialize: async () => {
     if (get().initialized) return
@@ -139,6 +209,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
         sessions,
         error: null
       })
+      void get().loadAllSessions()
     } catch (cause) {
       set({ error: describeError(cause) })
     }
@@ -341,20 +412,65 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   },
 
   changeWorkspace: async () => {
+    const picked = await window.piui.pickWorkspace()
+    if (!picked) return
+    await get().openWorkspace(picked)
+  },
+
+  openWorkspace: async (path) => {
     try {
-      const picked = await window.piui.pickWorkspace()
-      if (!picked) return
-      set({ busy: true, streaming: null, runningTools: [], items: [] })
-      const workspace = await window.piui.setWorkspace(picked)
-      set({ workspace })
+      set({ busy: true, streaming: null, runningTools: [], items: [], selectedFile: null })
+      const workspace = await window.piui.setWorkspace(path)
+      set({ workspace, welcomeOpen: false })
       await get().refresh()
       await get().loadSessions()
+      await get().loadAllSessions()
     } catch (cause) {
       set({ error: describeError(cause) })
     } finally {
       set({ busy: false })
     }
   },
+
+  setTheme: (id) => {
+    saveThemeId(id)
+    applyTheme(resolveTheme(id, systemPrefersDark()))
+    set({ themeId: id })
+  },
+
+  setRightTab: (tab) => set({ rightTab: tab, rightOpen: true }),
+
+  toggleRight: () => set((state) => ({ rightOpen: !state.rightOpen })),
+
+  setRightWidth: (width) => set({ rightWidth: width }),
+
+  openWelcome: () => set({ welcomeOpen: true }),
+
+  closeWelcome: () => set({ welcomeOpen: false }),
+
+  setSessionQuery: (query) => set({ sessionQuery: query }),
+
+  setSessionFilter: (filter) => set({ sessionFilter: filter }),
+
+  toggleStar: (path) => {
+    const starred = get().starred.includes(path)
+      ? get().starred.filter((item) => item !== path)
+      : [...get().starred, path]
+    saveStarred(starred)
+    set({ starred })
+  },
+
+  loadAllSessions: async () => {
+    try {
+      set({ allSessions: await window.piui.listAllSessions() })
+    } catch {
+      // Recents are advisory; ignore failures.
+    }
+  },
+
+  selectFile: (path) => set({ selectedFile: path }),
+
+  setMonitor: (snapshot) => set({ monitor: snapshot }),
 
   saveApprovalConfig: async (config) => {
     try {

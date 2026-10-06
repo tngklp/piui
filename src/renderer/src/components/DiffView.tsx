@@ -1,34 +1,24 @@
 import { memo } from 'react'
 
-/** Classify one line of a unified/display diff for colouring. */
+/** Classify one diff line for the add/remove/hunk styling. */
 function lineClass(line: string): string {
-  if (line.startsWith('+++') || line.startsWith('---')) return 'diff__line diff__line--meta'
-  if (line.startsWith('@@')) return 'diff__line diff__line--hunk'
-  if (line.startsWith('+')) return 'diff__line diff__line--add'
-  if (line.startsWith('-')) return 'diff__line diff__line--del'
-  return 'diff__line'
+  if (line.startsWith('+++') || line.startsWith('---') || line.startsWith('@@')) return 'h'
+  if (line.startsWith('+')) return 'a'
+  if (line.startsWith('-')) return 'd'
+  return ''
 }
 
-interface DiffViewProps {
-  diff: string
-  filePath?: string
-}
-
-/** Renders a display-oriented diff with add/remove line colouring. */
-export const DiffView = memo(function DiffView({ diff, filePath }: DiffViewProps) {
+/** Display-oriented diff rendered with add/remove line colouring. */
+export const DiffView = memo(function DiffView({ diff }: { diff: string }) {
   const lines = diff.length > 0 ? diff.split('\n') : []
 
   return (
     <div className="diff">
-      {filePath ? <div className="diff__path">{filePath}</div> : null}
-      <pre className="diff__body">
-        {lines.map((line, index) => (
-          <span className={lineClass(line)} key={index}>
-            {line}
-            {'\n'}
-          </span>
-        ))}
-      </pre>
+      {lines.map((line, index) => (
+        <div className={lineClass(line)} key={index}>
+          {line}
+        </div>
+      ))}
     </div>
   )
 })
