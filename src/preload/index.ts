@@ -66,6 +66,7 @@ const api: PiUiApi = {
   readFile: (path: string) => ipcRenderer.invoke(IpcChannel.FsRead, path),
   writeFile: (path: string, content: string) =>
     ipcRenderer.invoke(IpcChannel.FsWrite, path, content),
+  listWorkspaceFiles: () => ipcRenderer.invoke(IpcChannel.FsIndex),
   deleteSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsDelete, path),
   getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet),
   getModelsConfig: () => ipcRenderer.invoke(IpcChannel.ModelsGet),

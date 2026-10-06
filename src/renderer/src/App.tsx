@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type PointerEvent } from 'react'
 import { DialogHost } from './components/DialogHost'
 import { MainPane } from './components/MainPane'
+import { QuickOpen } from './components/QuickOpen'
 import { RightPanel } from './components/RightPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
@@ -17,6 +18,7 @@ export default function App() {
   const focusSearch = usePiUi((state) => state.focusSearch)
   const closeWelcome = usePiUi((state) => state.closeWelcome)
   const settingsOpen = usePiUi((state) => state.settingsOpen)
+  const openQuickOpen = usePiUi((state) => state.openQuickOpen)
 
   const [dragging, setDragging] = useState(false)
 
@@ -45,12 +47,18 @@ export default function App() {
         event.preventDefault()
         closeWelcome()
         focusSearch()
+        return
+      }
+      if (key === 'p') {
+        event.preventDefault()
+        closeWelcome()
+        openQuickOpen()
       }
     }
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [closeWelcome, focusSearch, newSession, settingsOpen])
+  }, [closeWelcome, focusSearch, newSession, openQuickOpen, settingsOpen])
 
   useEffect(() => {
     if (!dragging) return
@@ -90,6 +98,7 @@ export default function App() {
       <Welcome />
       <DialogHost />
       <SettingsDialog />
+      <QuickOpen />
     </>
   )
 }

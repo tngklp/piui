@@ -118,6 +118,8 @@ interface PiUiState {
   rightTab: RightTab
   rightWidth: number
   welcomeOpen: boolean
+  /** Whether the Ctrl+P file picker is showing. */
+  quickOpen: boolean
   /** File selected in the explorer. */
   selectedFile: string | null
   /** Which main column view is showing. */
@@ -152,6 +154,8 @@ interface PiUiState {
   setRightWidth: (width: number) => void
   openWelcome: () => void
   closeWelcome: () => void
+  openQuickOpen: () => void
+  closeQuickOpen: () => void
   setSessionQuery: (query: string) => void
   setSessionFilter: (filter: SessionFilter) => void
   toggleStar: (path: string) => void
@@ -211,6 +215,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   rightTab: 'files',
   rightWidth: 360,
   welcomeOpen: true,
+  quickOpen: false,
   selectedFile: null,
   mainTab: 'chat',
   openFiles: [],
@@ -534,6 +539,10 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   openWelcome: () => set({ welcomeOpen: true }),
 
   closeWelcome: () => set({ welcomeOpen: false }),
+
+  openQuickOpen: () => set({ quickOpen: true }),
+
+  closeQuickOpen: () => set({ quickOpen: false }),
 
   setSessionQuery: (query) => set({ sessionQuery: query }),
 

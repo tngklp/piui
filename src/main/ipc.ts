@@ -25,6 +25,7 @@ import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
 import { WorkspaceStore } from './pi/workspace-store'
 import { listDirectory, readFileText, writeFileText } from './fs-list'
+import { invalidateWorkspaceFiles, listWorkspaceFiles } from './fs-index'
 import { readMonitor } from './monitor'
 import { TerminalManager } from './terminal'
 
@@ -201,6 +202,13 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IpcChannel.FsWrite, async (_event, target: string, content: string) => {
     await writeFileText(target, content)
+    // The quick-open index now has a stale entry for this file.
+    invalidateWorkspaceFiles()
+  })
+
+  ipcMain.handle(IpcChannel.FsIndex, async () => {
+    const root = (await host()).getWorkspace().cwd
+    return listWorkspaceFiles(root)
   })
 
   ipcMain.handle(IpcChannel.SessionsDelete, async (_event, sessionPath: string) => {

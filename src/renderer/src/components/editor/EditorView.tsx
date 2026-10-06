@@ -37,6 +37,7 @@ import { gotoLine, highlightSelectionMatches, search, searchKeymap } from '@code
 import { usePiUi } from '../../store'
 import { fileIconName, iconUrl } from '../../lib/fileIcon'
 import { baseName, extensionOf, languageFor } from './languages'
+import { indentGuides } from './indentGuides'
 import { editorHighlight, editorTheme } from './theme'
 
 /**
@@ -197,10 +198,11 @@ export function EditorView() {
         closeBrackets(),
         autocompletion(),
         highlightSelectionMatches(),
+        indentGuides,
         search({ top: true }),
         CONTENT_ATTRIBUTES,
         themeCompartment.of([
-          editorTheme(appearance(), preferences.fontSize),
+          editorTheme(appearance(), preferences.fontSize, indent),
           editorHighlight(appearance())
         ]),
         languageCompartment.of(language.extension),
@@ -295,7 +297,7 @@ export function EditorView() {
     view.dispatch({
       effects: [
         themeCompartment.reconfigure([
-          editorTheme(appearance(), fontSize),
+          editorTheme(appearance(), fontSize, indent),
           editorHighlight(appearance())
         ]),
         layoutCompartment.reconfigure([

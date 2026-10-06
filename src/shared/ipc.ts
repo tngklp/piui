@@ -43,6 +43,8 @@ export const IpcChannel = {
   FsList: 'piui:fs:list',
   FsRead: 'piui:fs:read',
   FsWrite: 'piui:fs:write',
+  /** Recursive workspace file index for quick open. */
+  FsIndex: 'piui:fs:index',
   SessionsDelete: 'piui:sessions:delete',
   MonitorGet: 'piui:monitor:get',
   /** Read or replace the provider/model definitions in `models.json`. */
@@ -553,6 +555,8 @@ export interface PiUiApi {
   readFile(path: string): Promise<FsFileDto>
   /** Write file contents back to disk. */
   writeFile(path: string, content: string): Promise<void>
+  /** Workspace-relative paths of every indexable file, sorted. */
+  listWorkspaceFiles(): Promise<string[]>
   /** Delete a saved session file. */
   deleteSession(path: string): Promise<void>
   /** Read the current monitor snapshot. */
