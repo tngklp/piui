@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { ChatBlockDto, ChatItemDto } from '@shared/ipc'
 import { summarizeToolArguments } from '../lib/format'
 import { usePiUi } from '../store'
+import { DiffView } from './DiffView'
 import { Markdown } from './Markdown'
 
 function ToolCallBlock({ block }: { block: Extract<ChatBlockDto, { type: 'toolCall' }> }) {
@@ -65,16 +66,33 @@ function TranscriptItem({ item }: { item: ChatItemDto }) {
     case 'assistant':
       return <AssistantMessage item={item} />
 
-    case 'toolResult':
+    case 'toolResult': {
+      const diff = item.diff
+      const hasCounts = item.addedLines !== undefined || item.removedLines !== undefined
+
       return (
-        <details className={`result${item.isError ? ' result--error' : ''}`}>
+        <details className={`result${item.isError ? ' result--error' : ''}`} open={Boolean(diff)}>
           <summary className="result__summary">
             <span className="tool__badge">{item.isError ? 'error' : 'result'}</span>
             <span className="tool__name">{item.toolName}</span>
+            {item.filePath ? <code className="tool__args">{item.filePath}</code> : null}
+            {hasCounts ? (
+              <span className="diff__counts">
+                {item.addedLines ? <span className="diff__added">+{item.addedLines}</span> : null}
+                {item.removedLines ? (
+                  <span className="diff__removed">−{item.removedLines}</span>
+                ) : null}
+              </span>
+            ) : null}
           </summary>
-          <pre className="result__body">{item.text || '(no output)'}</pre>
+          {diff ? (
+            <DiffView diff={diff} />
+          ) : (
+            <pre className="result__body">{item.text || '(no output)'}</pre>
+          )}
         </details>
       )
+    }
 
     case 'bash':
       return (

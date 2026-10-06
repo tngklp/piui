@@ -1,12 +1,17 @@
+import { join } from 'node:path'
 import { app, ipcMain, type BrowserWindow } from 'electron'
 import {
   IpcChannel,
   IpcEvent,
   type AppInfo,
+  type ApprovalConfig,
   type PromptInput,
-  type ThinkingLevelDto
+  type ThinkingLevelDto,
+  type UiRequestDto,
+  type UiResponseDto
 } from '@shared/ipc'
 import { AgentHost } from './pi/agent-host'
+import { ApprovalManager } from './pi/approval'
 import { getRuntimeInfo } from './pi/runtime-info'
 import type { UiTransport } from './pi/ui-context'
 
@@ -28,7 +33,19 @@ export function registerIpcHandlers(context: IpcContext): void {
     }
   }
 
+  const pendingDialogs = new Map<string, (response: UiResponseDto) => void>()
+  /** Extensions block on dialogs; give up only after a long idle period. */
+  const DIALOG_TIMEOUT_MS = 10 * 60 * 1000
+
   const transport: UiTransport = {
+    ask: (request: UiRequestDto) =>
+      new Promise<UiResponseDto>((resolve) => {
+        pendingDialogs.set(request.id, resolve)
+        send(IpcEvent.UiRequest, request)
+        setTimeout(() => {
+          if (pendingDialogs.delete(request.id)) resolve({ id: request.id, cancelled: true })
+        }, DIALOG_TIMEOUT_MS)
+      }),
     notify: (notice) => send(IpcEvent.Notice, notice),
     setStatus: (key, text) => send(IpcEvent.AgentEvent, { type: 'piui_status', key, text }),
     setWidget: (key, lines, placement) =>
@@ -38,14 +55,25 @@ export function registerIpcHandlers(context: IpcContext): void {
     log: (message) => send(IpcEvent.Notice, { level: 'info', message })
   }
 
+  const approvals = new ApprovalManager(join(app.getPath('userData'), 'approval-rules.json'))
+  let approvalsLoaded: Promise<void> | null = null
+  const ensureApprovalsLoaded = async (): Promise<void> => {
+    approvalsLoaded ??= approvals.load()
+    await approvalsLoaded
+  }
+
   let hostPromise: Promise<AgentHost> | null = null
 
   const host = (): Promise<AgentHost> => {
-    hostPromise ??= AgentHost.create({
-      cwd: resolveCwd(),
-      emitEvent: (event) => send(IpcEvent.AgentEvent, event),
-      transport
-    })
+    hostPromise ??= (async () => {
+      await ensureApprovalsLoaded()
+      return AgentHost.create({
+        cwd: resolveCwd(),
+        emitEvent: (event) => send(IpcEvent.AgentEvent, event),
+        transport,
+        approvalExtension: approvals.extension()
+      })
+    })()
     return hostPromise
   }
 
@@ -95,5 +123,22 @@ export function registerIpcHandlers(context: IpcContext): void {
   })
   ipcMain.handle(IpcChannel.AgentSetThinking, async (_event, level: ThinkingLevelDto) => {
     ;(await host()).setThinkingLevel(level)
+  })
+
+  ipcMain.handle(IpcChannel.ApprovalGetConfig, async () => {
+    await ensureApprovalsLoaded()
+    return approvals.getConfig()
+  })
+
+  ipcMain.handle(IpcChannel.ApprovalSetConfig, async (_event, config: ApprovalConfig) => {
+    await approvals.setConfig(config)
+  })
+
+  ipcMain.handle(IpcChannel.UiRespond, (_event, response: UiResponseDto) => {
+    const resolve = pendingDialogs.get(response.id)
+    if (resolve) {
+      pendingDialogs.delete(response.id)
+      resolve(response)
+    }
   })
 }

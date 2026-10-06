@@ -1,6 +1,8 @@
 import { useEffect } from 'react'
 import type { ThinkingLevelDto } from '@shared/ipc'
+import { ApprovalSettings } from './components/ApprovalSettings'
 import { Composer } from './components/Composer'
+import { DialogHost } from './components/DialogHost'
 import { StatusBar } from './components/StatusBar'
 import { Transcript } from './components/Transcript'
 import { usePiUi } from './store'
@@ -17,6 +19,7 @@ export default function App() {
   const selectThinking = usePiUi((state) => state.selectThinking)
   const newSession = usePiUi((state) => state.newSession)
   const compact = usePiUi((state) => state.compact)
+  const openSettings = usePiUi((state) => state.openSettings)
 
   useEffect(() => {
     void initialize()
@@ -74,6 +77,9 @@ export default function App() {
           <button className="button" onClick={() => void compact()} disabled={status?.isStreaming}>
             Compact
           </button>
+          <button className="button" onClick={openSettings}>
+            Rules
+          </button>
         </div>
       </header>
 
@@ -114,6 +120,8 @@ export default function App() {
 
       <StatusBar />
       <Composer />
+      <DialogHost />
+      <ApprovalSettings />
     </div>
   )
 }

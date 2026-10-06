@@ -24,7 +24,12 @@ export const IpcChannel = {
   AgentCompact: 'piui:agent:compact',
   AgentSetModel: 'piui:agent:set-model',
   AgentCycleModel: 'piui:agent:cycle-model',
-  AgentSetThinking: 'piui:agent:set-thinking'
+  AgentSetThinking: 'piui:agent:set-thinking',
+  /** Resolve a pending extension-UI dialog opened by the main process. */
+  UiRespond: 'piui:ui:respond',
+  /** Read or replace the tool-approval rules. */
+  ApprovalGetConfig: 'piui:approval:get-config',
+  ApprovalSetConfig: 'piui:approval:set-config'
 } as const
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -32,7 +37,9 @@ export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
 /** Push channels sent from the main process to the renderer. */
 export const IpcEvent = {
   AgentEvent: 'piui:agent:event',
-  Notice: 'piui:notice'
+  Notice: 'piui:notice',
+  /** A dialog an extension (or PiUI itself) is waiting on. */
+  UiRequest: 'piui:ui:request'
 } as const
 
 export type IpcEvent = (typeof IpcEvent)[keyof typeof IpcEvent]
@@ -144,6 +151,15 @@ export type ChatItemDto =
       toolName: string
       text: string
       isError: boolean
+      /** Display diff produced by the edit tool. */
+      diff?: string
+      /** Unified patch produced by the edit tool. */
+      patch?: string
+      /** Absolute or relative path the tool acted on, when known. */
+      filePath?: string
+      /** Line counts for diff badges. */
+      addedLines?: number
+      removedLines?: number
     }
   | { kind: 'bash'; id: string; command: string; output: string; exitCode: number | null }
 
@@ -162,6 +178,40 @@ export interface PromptInput {
   images?: { type: 'image'; data: string; mimeType: string }[]
   /** Required when the agent is already streaming. */
   streamingBehavior?: 'steer' | 'followUp'
+}
+
+/** A dialog the agent or an extension is waiting on the user to answer. */
+export type UiRequestDto =
+  | { id: string; method: 'select'; title: string; options: string[] }
+  | { id: string; method: 'confirm'; title: string; message: string; danger?: boolean }
+  | { id: string; method: 'input'; title: string; placeholder?: string }
+  | { id: string; method: 'editor'; title: string; prefill?: string }
+
+/** The renderer's answer to a {@link UiRequestDto}. */
+export type UiResponseDto =
+  | { id: string; cancelled: true }
+  | { id: string; value: string }
+  | { id: string; confirmed: boolean }
+
+/** What PiUI does when a tool call matches a rule. */
+export type ApprovalAction = 'allow' | 'ask' | 'deny'
+
+/**
+ * One approval rule. Rules are evaluated in order and the first match wins.
+ * `tool` is a tool name or `*`; `pattern` is a glob matched against the tool's
+ * subject (a shell command for `bash`, a file path for `edit`/`write`/`read`).
+ */
+export interface ApprovalRule {
+  id: string
+  tool: string
+  pattern: string
+  action: ApprovalAction
+}
+
+/** The complete approval policy: ordered rules plus a fallback. */
+export interface ApprovalConfig {
+  defaultPolicy: ApprovalAction
+  rules: ApprovalRule[]
 }
 
 /**
@@ -189,4 +239,12 @@ export interface PiUiApi {
   onAgentEvent(listener: (event: AgentEventDto) => void): () => void
   /** Subscribe to transient notices. Returns an unsubscribe function. */
   onNotice(listener: (notice: NoticeDto) => void): () => void
+  /** Subscribe to extension-UI dialogs. Returns an unsubscribe function. */
+  onUiRequest(listener: (request: UiRequestDto) => void): () => void
+  /** Answer a pending extension-UI dialog. */
+  respondToUi(response: UiResponseDto): Promise<void>
+  /** Read the current tool-approval rules. */
+  getApprovalConfig(): Promise<ApprovalConfig>
+  /** Replace the tool-approval rules. */
+  setApprovalConfig(config: ApprovalConfig): Promise<void>
 }

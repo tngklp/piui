@@ -1,12 +1,15 @@
 import { create } from 'zustand'
 import type {
   AgentEventDto,
+  ApprovalConfig,
   ChatItemDto,
   ModelDto,
   NoticeDto,
   RuntimeInfoDto,
   SessionStatusDto,
-  ThinkingLevelDto
+  ThinkingLevelDto,
+  UiRequestDto,
+  UiResponseDto
 } from '@shared/ipc'
 
 /** Live assistant output accumulated from streaming deltas. */
@@ -44,10 +47,20 @@ interface PiUiState {
   runningTools: RunningTool[]
   notices: (NoticeDto & { id: number })[]
   busy: boolean
+  /** A dialog the agent or an extension is waiting on, if any. */
+  dialog: UiRequestDto | null
+  /** Current tool-approval policy. */
+  approvalConfig: ApprovalConfig | null
+  /** Whether the approval-rules panel is open. */
+  settingsOpen: boolean
   initialize: () => Promise<void>
   refresh: () => Promise<void>
   ingest: (event: AgentEventDto) => void
   dismissNotice: (id: number) => void
+  respondToDialog: (response: UiResponseDto) => Promise<void>
+  openSettings: () => void
+  closeSettings: () => void
+  saveApprovalConfig: (config: ApprovalConfig) => Promise<void>
   send: (text: string, mode?: 'prompt' | 'steer' | 'followUp') => Promise<void>
   abort: () => Promise<void>
   newSession: () => Promise<void>
@@ -78,6 +91,9 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   runningTools: [],
   notices: [],
   busy: false,
+  dialog: null,
+  approvalConfig: null,
+  settingsOpen: false,
 
   initialize: async () => {
     if (get().initialized) return
@@ -86,16 +102,18 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
       noticeId += 1
       set((state) => ({ notices: [...state.notices, { ...notice, id: noticeId }].slice(-4) }))
     })
+    window.piui.onUiRequest((request) => set({ dialog: request }))
     set({ initialized: true })
 
     try {
-      const [runtime, status, messages, models] = await Promise.all([
+      const [runtime, status, messages, models, approvalConfig] = await Promise.all([
         window.piui.getRuntimeInfo(),
         window.piui.getStatus(),
         window.piui.getMessages(),
-        window.piui.getModels()
+        window.piui.getModels(),
+        window.piui.getApprovalConfig()
       ])
-      set({ runtime, status, items: messages, models, error: null })
+      set({ runtime, status, items: messages, models, approvalConfig, error: null })
     } catch (cause) {
       set({ error: describeError(cause) })
     }
@@ -237,6 +255,28 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   },
 
   dismissNotice: (id) => set((state) => ({ notices: state.notices.filter((n) => n.id !== id) })),
+
+  respondToDialog: async (response) => {
+    set({ dialog: null })
+    try {
+      await window.piui.respondToUi(response)
+    } catch {
+      // The dialog may already have timed out in the main process.
+    }
+  },
+
+  openSettings: () => set({ settingsOpen: true }),
+
+  closeSettings: () => set({ settingsOpen: false }),
+
+  saveApprovalConfig: async (config) => {
+    try {
+      await window.piui.setApprovalConfig(config)
+      set({ approvalConfig: config })
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    }
+  },
 
   send: async (text, mode = 'prompt') => {
     const trimmed = text.trim()

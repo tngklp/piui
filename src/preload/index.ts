@@ -3,10 +3,13 @@ import {
   IpcChannel,
   IpcEvent,
   type AgentEventDto,
+  type ApprovalConfig,
   type NoticeDto,
   type PiUiApi,
   type PromptInput,
-  type ThinkingLevelDto
+  type ThinkingLevelDto,
+  type UiRequestDto,
+  type UiResponseDto
 } from '@shared/ipc'
 
 /** Bridge an ipcRenderer event channel to a listener, returning an unsubscribe function. */
@@ -39,7 +42,12 @@ const api: PiUiApi = {
   setThinkingLevel: (level: ThinkingLevelDto) =>
     ipcRenderer.invoke(IpcChannel.AgentSetThinking, level),
   onAgentEvent: (listener) => subscribe<AgentEventDto>(IpcEvent.AgentEvent, listener),
-  onNotice: (listener) => subscribe<NoticeDto>(IpcEvent.Notice, listener)
+  onNotice: (listener) => subscribe<NoticeDto>(IpcEvent.Notice, listener),
+  onUiRequest: (listener) => subscribe<UiRequestDto>(IpcEvent.UiRequest, listener),
+  respondToUi: (response: UiResponseDto) => ipcRenderer.invoke(IpcChannel.UiRespond, response),
+  getApprovalConfig: () => ipcRenderer.invoke(IpcChannel.ApprovalGetConfig),
+  setApprovalConfig: (config: ApprovalConfig) =>
+    ipcRenderer.invoke(IpcChannel.ApprovalSetConfig, config)
 }
 
 if (process.contextIsolated) {

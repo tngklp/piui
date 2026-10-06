@@ -1,6 +1,9 @@
 import {
   createAgentSession,
+  DefaultResourceLoader,
+  getAgentDir,
   type AgentSession,
+  type InlineExtension,
   type PromptOptions
 } from '@earendil-works/pi-coding-agent'
 import type {
@@ -28,6 +31,7 @@ interface SdkMessage {
   toolCallId?: string
   toolName?: string
   isError?: boolean
+  details?: unknown
   command?: string
   output?: string
   exitCode?: number
@@ -55,6 +59,8 @@ export interface AgentHostOptions {
   /** Called for every session event with a JSON-safe payload. */
   emitEvent: (event: unknown) => void
   transport: UiTransport
+  /** Inline extension that enforces PiUI's approval rules. */
+  approvalExtension: InlineExtension
 }
 
 function toModelDto(model: SdkModel | undefined): ModelDto | null {
@@ -111,9 +117,33 @@ function countImages(content: unknown): number {
   return content.filter((block) => (block as { type?: string }).type === 'image').length
 }
 
+/** Count `+`/`-` lines in a display diff for the badges shown in the UI. */
+function countDiffLines(diff: string): { added: number; removed: number } {
+  let added = 0
+  let removed = 0
+  for (const line of diff.split('\n')) {
+    if (line.startsWith('+++') || line.startsWith('---')) continue
+    if (line.startsWith('+')) added += 1
+    else if (line.startsWith('-')) removed += 1
+  }
+  return { added, removed }
+}
+
 /** Convert persisted agent messages into renderer-friendly items. */
 export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
   const items: ChatItemDto[] = []
+
+  // First pass: index tool-call arguments so results can show paths and diffs.
+  const toolCalls = new Map<string, Record<string, unknown>>()
+  for (const raw of messages) {
+    const message = raw as SdkMessage
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) continue
+    for (const block of message.content as SdkContentBlock[]) {
+      if (block.type === 'toolCall' && typeof block.id === 'string') {
+        toolCalls.set(block.id, (block.arguments as Record<string, unknown>) ?? {})
+      }
+    }
+  }
 
   messages.forEach((raw, index) => {
     const message = raw as SdkMessage
@@ -143,16 +173,31 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
         break
       }
 
-      case 'toolResult':
-        items.push({
+      case 'toolResult': {
+        const args = toolCalls.get(message.toolCallId ?? '')
+        const details = message.details as { diff?: string; patch?: string } | undefined
+        const item: Extract<ChatItemDto, { kind: 'toolResult' }> = {
           kind: 'toolResult',
           id,
           toolCallId: message.toolCallId ?? '',
           toolName: message.toolName ?? 'tool',
           text: textFromContent(message.content),
           isError: message.isError ?? false
-        })
+        }
+
+        const filePath = args?.path ?? args?.file_path
+        if (typeof filePath === 'string') item.filePath = filePath
+        if (typeof details?.patch === 'string') item.patch = details.patch
+        if (typeof details?.diff === 'string') {
+          item.diff = details.diff
+          const counts = countDiffLines(details.diff)
+          item.addedLines = counts.added
+          item.removedLines = counts.removed
+        }
+
+        items.push(item)
         break
+      }
 
       case 'bashExecution':
         items.push({
@@ -211,7 +256,19 @@ export class AgentHost {
   }
 
   private static async openSession(options: AgentHostOptions): Promise<AgentSession> {
-    const { session } = await createAgentSession({ cwd: options.cwd })
+    const agentDir = getAgentDir()
+    const resourceLoader = new DefaultResourceLoader({
+      cwd: options.cwd,
+      agentDir,
+      extensionFactories: [options.approvalExtension]
+    })
+    await resourceLoader.reload()
+
+    const { session } = await createAgentSession({
+      cwd: options.cwd,
+      agentDir,
+      resourceLoader
+    })
     return session
   }
 

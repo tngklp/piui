@@ -1,4 +1,5 @@
-import type { NoticeDto } from '@shared/ipc'
+import { randomUUID } from 'node:crypto'
+import type { NoticeDto, UiRequestDto, UiResponseDto } from '@shared/ipc'
 import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent'
 
 /**
@@ -6,6 +7,8 @@ import type { ExtensionUIContext } from '@earendil-works/pi-coding-agent'
  * which forwards the calls to the renderer.
  */
 export interface UiTransport {
+  /** Ask the user a question and resolve with their answer. */
+  ask(request: UiRequestDto): Promise<UiResponseDto>
   notify(notice: NoticeDto): void
   setStatus(key: string, text: string | undefined): void
   setWidget(
@@ -24,10 +27,8 @@ const NOOP = (): void => {}
  * Build an `ExtensionUIContext` for the PiUI GUI.
  *
  * PiUI presents the same surface as Pi's RPC mode: notifications, status,
- * widgets, title, and editor text are forwarded to the renderer. Interactive
- * dialogs (`select`, `confirm`, `input`, `editor`, `custom`) are resolved with
- * safe defaults until the full dialog bridge lands — denying a confirmation is
- * the safe default for an unattended prompt.
+ * widgets, title, and editor text are forwarded to the renderer, and
+ * interactive dialogs are answered by a renderer modal.
  *
  * TUI-only members (terminal input, custom components, themes, footer/header)
  * are intentionally unsupported, matching Pi's own RPC-mode limitations.
@@ -38,21 +39,26 @@ export function createUiHost(transport: UiTransport): ExtensionUIContext {
   }
 
   const host = {
-    select: async (): Promise<string | undefined> => {
-      unsupported('select')
-      return undefined
+    select: async (title: string, options: string[]): Promise<string | undefined> => {
+      const response = await transport.ask({ id: randomUUID(), method: 'select', title, options })
+      return 'value' in response ? response.value : undefined
     },
-    confirm: async (): Promise<boolean> => {
-      unsupported('confirm')
-      return false
+    confirm: async (title: string, message: string): Promise<boolean> => {
+      const response = await transport.ask({ id: randomUUID(), method: 'confirm', title, message })
+      return 'confirmed' in response ? response.confirmed : false
     },
-    input: async (): Promise<string | undefined> => {
-      unsupported('input')
-      return undefined
+    input: async (title: string, placeholder?: string): Promise<string | undefined> => {
+      const response = await transport.ask({
+        id: randomUUID(),
+        method: 'input',
+        title,
+        placeholder
+      })
+      return 'value' in response ? response.value : undefined
     },
-    editor: async (): Promise<string | undefined> => {
-      unsupported('editor')
-      return undefined
+    editor: async (title: string, prefill?: string): Promise<string | undefined> => {
+      const response = await transport.ask({ id: randomUUID(), method: 'editor', title, prefill })
+      return 'value' in response ? response.value : undefined
     },
     notify: (message: string, type: 'info' | 'warning' | 'error' = 'info'): void => {
       transport.notify({ level: type, message })
