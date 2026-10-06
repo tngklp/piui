@@ -1,15 +1,10 @@
 name: Release
 
-# A release starts when the version in package.json changes on main. Editing
-# package.json for anything else (a dependency bump, a script) is a no-op,
-# because the version tag already exists and the guard job below bails out.
-#
-# Run it by hand from the Actions tab to retry a failed release; tick "force" to
-# rebuild a version whose tag already exists.
+# Releases are started by hand from the Actions tab, so a commit can never
+# publish on its own. The guard job below skips the packaging work when the
+# version in package.json is already released; tick "force" to rebuild a version
+# whose tag exists anyway.
 on:
-  push:
-    branches: [main]
-    paths: ['package.json']
   workflow_dispatch:
     inputs:
       force:
@@ -21,8 +16,8 @@ permissions:
   contents: write
 
 jobs:
-  # Decides whether this run has anything to release, so the expensive packaging
-  # jobs are skipped for ordinary commits.
+  # Decides whether this run has anything to release, so re-running an already
+  # published version is a cheap no-op unless "force" is ticked.
   version:
     name: Check version
     runs-on: ubuntu-latest

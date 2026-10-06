@@ -9,10 +9,6 @@ a purpose-built app instead of a terminal.
 &nbsp;·&nbsp;
 [All releases](https://github.com/tngklp/piui/releases)
 
-<sub>Those two links go straight to the v0.1.0 files. The
-[releases page](https://github.com/tngklp/piui/releases) has every version, the portable and
-zip builds, and the `.deb` for Debian-based distributions.</sub>
-
 PiUI embeds the Pi agent runtime directly in an Electron main process and presents it through a
 React interface. It shares the same agent directory (`~/.pi/agent`) as the `pi` CLI, so settings,
 credentials, skills, models, and sessions are common to both. Anything you change in PiUI shows up
