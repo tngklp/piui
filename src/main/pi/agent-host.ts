@@ -288,6 +288,8 @@ export class AgentHost {
   private session!: AgentSession
   private unsubscribe: (() => void) | undefined
   private cwd: string
+  /** Loader the current session was built from, kept so packages can be reloaded. */
+  private resourceLoader: DefaultResourceLoader | undefined
   private readonly options: AgentHostOptions
   private readonly uiHost: ReturnType<typeof createUiHost>
 
@@ -312,6 +314,7 @@ export class AgentHost {
       extensionFactories: [this.options.approvalExtension]
     })
     await resourceLoader.reload()
+    this.resourceLoader = resourceLoader
 
     const { session } = await createAgentSession({
       cwd: this.cwd,
@@ -320,6 +323,16 @@ export class AgentHost {
       ...(sessionManager ? { sessionManager } : {})
     })
     return session
+  }
+
+  /**
+   * Re-read skills, commands, and extensions from disk and rebind them.
+   * Used after installing or removing a package.
+   */
+  async reloadResources(): Promise<void> {
+    if (!this.resourceLoader) return
+    await this.resourceLoader.reload()
+    await this.session.bindExtensions({ uiContext: this.uiHost, mode: 'rpc' })
   }
 
   private applySession(session: AgentSession): void {

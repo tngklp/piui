@@ -19,6 +19,7 @@ import {
 import { AgentHost } from './pi/agent-host'
 import { ApprovalManager } from './pi/approval'
 import { readModelsConfig, writeModelsConfig } from './pi/models-store'
+import { installPackage, listInstalledPackages, removePackage, searchCatalog } from './pi/packages'
 import { getRuntimeInfo } from './pi/runtime-info'
 import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
@@ -246,6 +247,34 @@ export function registerIpcHandlers(context: IpcContext): void {
   })
 
   app.on('before-quit', () => terminals.disposeAll())
+
+  ipcMain.handle(IpcChannel.PackagesSearch, (_event, query: string, type: string, page: number) =>
+    searchCatalog(query, type, page)
+  )
+
+  ipcMain.handle(IpcChannel.PackagesInstalled, async () => {
+    const cwd = (await host()).getWorkspace().cwd
+    return listInstalledPackages(cwd)
+  })
+
+  ipcMain.handle(IpcChannel.PackagesInstall, async (_event, source: string) => {
+    const agent = await host()
+    const cwd = agent.getWorkspace().cwd
+    await installPackage(cwd, source, (message) =>
+      send(IpcEvent.PackagesProgress, { source, message })
+    )
+    // Pick the new skills, commands, and extensions up without a restart.
+    await agent.reloadResources()
+    return listInstalledPackages(cwd)
+  })
+
+  ipcMain.handle(IpcChannel.PackagesRemove, async (_event, source: string) => {
+    const agent = await host()
+    const cwd = agent.getWorkspace().cwd
+    await removePackage(cwd, source)
+    await agent.reloadResources()
+    return listInstalledPackages(cwd)
+  })
 
   ipcMain.handle(IpcChannel.ApprovalGetConfig, async () => {
     await ensureApprovalsLoaded()

@@ -1,11 +1,13 @@
 import { usePiUi, type SettingsTab } from '../store'
 import { CustomizationSettings } from './settings/CustomizationSettings'
 import { ModelsSettings } from './settings/ModelsSettings'
+import { PackagesSettings } from './settings/PackagesSettings'
 import { ToolsSettings } from './settings/ToolsSettings'
 
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
   { id: 'customization', label: 'Customization', hint: 'Theme and appearance' },
   { id: 'models', label: 'Models', hint: 'Providers and models' },
+  { id: 'packages', label: 'Packages', hint: 'Skills and extensions' },
   { id: 'tools', label: 'Tools', hint: 'Approval policy' }
 ]
 
@@ -44,6 +46,7 @@ export function SettingsDialog() {
         <div className="settings__body">
           {tab === 'customization' ? <CustomizationSettings /> : null}
           {tab === 'models' ? <ModelsSettings /> : null}
+          {tab === 'packages' ? <PackagesSettings /> : null}
           {tab === 'tools' ? <ToolsSettings /> : null}
         </div>
       </div>

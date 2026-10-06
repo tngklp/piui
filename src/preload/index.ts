@@ -6,6 +6,7 @@ import {
   type ApprovalConfig,
   type ModelsConfigDto,
   type NoticeDto,
+  type PackageProgressDto,
   type PiUiApi,
   type PromptInput,
   type TerminalCreateInput,
@@ -76,7 +77,14 @@ const api: PiUiApi = {
     ipcRenderer.invoke(IpcChannel.TerminalResize, id, cols, rows),
   terminalDispose: (id: string) => ipcRenderer.invoke(IpcChannel.TerminalDispose, id),
   onTerminalData: (listener) => subscribe<TerminalDataDto>(IpcEvent.TerminalData, listener),
-  onTerminalExit: (listener) => subscribe<TerminalExitDto>(IpcEvent.TerminalExit, listener)
+  onTerminalExit: (listener) => subscribe<TerminalExitDto>(IpcEvent.TerminalExit, listener),
+  searchPackages: (query: string, type: string, page: number) =>
+    ipcRenderer.invoke(IpcChannel.PackagesSearch, query, type, page),
+  listInstalledPackages: () => ipcRenderer.invoke(IpcChannel.PackagesInstalled),
+  installPackage: (source: string) => ipcRenderer.invoke(IpcChannel.PackagesInstall, source),
+  removePackage: (source: string) => ipcRenderer.invoke(IpcChannel.PackagesRemove, source),
+  onPackageProgress: (listener) =>
+    subscribe<PackageProgressDto>(IpcEvent.PackagesProgress, listener)
 }
 
 if (process.contextIsolated) {

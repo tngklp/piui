@@ -23,7 +23,7 @@ export type RightTab = 'files' | 'term' | 'mon'
 /** Main column views. */
 export type MainTab = 'chat' | 'editor'
 /** Settings sections. */
-export type SettingsTab = 'customization' | 'models' | 'tools'
+export type SettingsTab = 'customization' | 'models' | 'packages' | 'tools'
 /** Sidebar session filters. */
 export type SessionFilter = 'all' | 'running' | 'starred'
 

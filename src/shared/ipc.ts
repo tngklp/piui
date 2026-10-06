@@ -50,7 +50,12 @@ export const IpcChannel = {
   TerminalCreate: 'piui:terminal:create',
   TerminalWrite: 'piui:terminal:write',
   TerminalResize: 'piui:terminal:resize',
-  TerminalDispose: 'piui:terminal:dispose'
+  TerminalDispose: 'piui:terminal:dispose',
+  /** pi.dev package catalogue and installation. */
+  PackagesSearch: 'piui:packages:search',
+  PackagesInstalled: 'piui:packages:installed',
+  PackagesInstall: 'piui:packages:install',
+  PackagesRemove: 'piui:packages:remove'
 } as const
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -64,10 +69,48 @@ export const IpcEvent = {
   /** Output from a terminal session. */
   TerminalData: 'piui:terminal:data',
   /** A terminal session ended. */
-  TerminalExit: 'piui:terminal:exit'
+  TerminalExit: 'piui:terminal:exit',
+  /** Progress from a package install. */
+  PackagesProgress: 'piui:packages:progress'
 } as const
 
 export type IpcEvent = (typeof IpcEvent)[keyof typeof IpcEvent]
+
+/** One package from the pi.dev catalogue. */
+export interface CatalogPackageDto {
+  name: string
+  description: string
+  /** Any of `skill`, `extension`, `prompt`, `theme`. */
+  types: string[]
+  downloads: number
+  /** ISO 8601 timestamp of the last publish, or an empty string. */
+  updatedAt: string
+  /** Install spec handed to the package manager, e.g. `npm:pi-hermes-memory`. */
+  source: string
+  url: string
+}
+
+/** One page of catalogue search results. */
+export interface CatalogPageDto {
+  items: CatalogPackageDto[]
+  page: number
+  pageSize: number
+  /** Total matches for the query, before paging. */
+  total: number
+}
+
+/** A package already configured in settings. */
+export interface InstalledPackageDto {
+  source: string
+  scope: 'user' | 'project'
+  filtered: boolean
+}
+
+/** Progress from a package install. */
+export interface PackageProgressDto {
+  source: string
+  message: string
+}
 
 /** Options for starting a terminal session. */
 export interface TerminalCreateInput {
@@ -496,4 +539,14 @@ export interface PiUiApi {
   onTerminalData(listener: (payload: TerminalDataDto) => void): () => void
   /** Subscribe to terminal exit events. Returns an unsubscribe function. */
   onTerminalExit(listener: (payload: TerminalExitDto) => void): () => void
+  /** Search the pi.dev package catalogue. */
+  searchPackages(query: string, type: string, page: number): Promise<CatalogPageDto>
+  /** List the packages configured in settings. */
+  listInstalledPackages(): Promise<InstalledPackageDto[]>
+  /** Install a package from the catalogue and persist it. */
+  installPackage(source: string): Promise<InstalledPackageDto[]>
+  /** Remove a package and forget it in settings. */
+  removePackage(source: string): Promise<InstalledPackageDto[]>
+  /** Subscribe to install progress. Returns an unsubscribe function. */
+  onPackageProgress(listener: (payload: PackageProgressDto) => void): () => void
 }
