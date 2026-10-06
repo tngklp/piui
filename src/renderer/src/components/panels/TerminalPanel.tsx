@@ -46,7 +46,6 @@ function terminalTheme(): Record<string, string> {
 export function TerminalPanel() {
   const workspace = usePiUi((state) => state.workspace)
   const themeId = usePiUi((state) => state.themeId)
-  const shellPreference = usePiUi((state) => state.prefs.terminalShell)
 
   const hostRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -87,8 +86,7 @@ export function TerminalPanel() {
         id: SESSION_ID,
         cwd: workspaceCwd,
         cols: term.cols,
-        rows: term.rows,
-        shell: shellPreference
+        rows: term.rows
       })
       if (disposed) return
 
@@ -142,7 +140,7 @@ export function TerminalPanel() {
       fitRef.current = null
       readyRef.current = false
     }
-  }, [workspaceCwd, shellPreference])
+  }, [workspaceCwd])
 
   // Repaint the palette when the app theme changes.
   useEffect(() => {
@@ -159,8 +157,7 @@ export function TerminalPanel() {
       id: SESSION_ID,
       cwd: workspaceCwd,
       cols: term.cols,
-      rows: term.rows,
-      shell: shellPreference
+      rows: term.rows
     })
     readyRef.current = true
     setShell(session.shell)

@@ -473,6 +473,15 @@ export class AgentHost {
     return this.getModels()
   }
 
+  /**
+   * Problems the model runtime found in `models.json`. A single invalid field
+   * invalidates the whole file and takes every model with it, so the reason has
+   * to reach the user somewhere.
+   */
+  getModelsError(): string | null {
+    return this.session.modelRuntime.getError() ?? null
+  }
+
   async prompt(input: PromptInput): Promise<void> {
     const options: PromptOptions = {}
     if (input.images && input.images.length > 0) {

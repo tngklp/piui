@@ -233,8 +233,9 @@ export function registerIpcHandlers(context: IpcContext): void {
       const written = await writeModelsConfig(sdk().getAgentDir(), config)
       // The session caches the catalogue; reload it so the change takes effect
       // without restarting the app.
-      const models = await (await host()).refreshModels()
-      return { config: written, models }
+      const agent = await host()
+      const models = await agent.refreshModels()
+      return { config: written, models, error: agent.getModelsError() }
     }
   )
 

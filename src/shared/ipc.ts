@@ -129,8 +129,6 @@ export interface TerminalCreateInput {
   cwd: string
   cols: number
   rows: number
-  /** Absolute path to the shell to run; empty means pick a sensible default. */
-  shell?: string
 }
 
 /** A live terminal session, including the output produced so far. */
@@ -391,6 +389,11 @@ export interface ModelsConfigDto {
 export interface ModelsUpdateResultDto {
   config: ModelsConfigDto
   models: ModelDto[]
+  /**
+   * Why the catalogue could not be used, when it could not. One invalid field
+   * invalidates the whole file, and the effect is that no model is selectable.
+   */
+  error: string | null
 }
 
 /** One saved session, flattened for the session browser. */

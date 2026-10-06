@@ -1,7 +1,12 @@
 import { usePiUi } from '../../store'
-import { THEMES } from '../../theme/themes'
-import { EDITOR_FONT_MAX, EDITOR_FONT_MIN, clampFontSize } from '../../lib/ui-prefs'
-import { Select, type SelectOption } from '../Select'
+import { THEMES, type ThemeVariant } from '../../theme/themes'
+
+/** Small caption under each family name in the theme grid. */
+const VARIANT_LABELS: Record<ThemeVariant, string> = {
+  normal: 'Normal',
+  dark: 'Dark',
+  light: 'Light'
+}
 
 /** A labelled checkbox row. */
 function Toggle({
@@ -30,53 +35,51 @@ function Toggle({
   )
 }
 
-/** Appearance, editor typography, and interface behaviour. */
+/**
+ * Appearance and interface behaviour.
+ *
+ * `THEMES` is ordered three variants per family, so the grid lays itself out
+ * three to a row: a family's normal, dark, and light palettes side by side.
+ */
 export function CustomizationSettings() {
   const themeId = usePiUi((state) => state.themeId)
   const setTheme = usePiUi((state) => state.setTheme)
-  const prefs = usePiUi((state) => state.prefs)
+  const expandThinking = usePiUi((state) => state.prefs.expandThinking)
   const setPrefs = usePiUi((state) => state.setPrefs)
-
-  const options: SelectOption<string>[] = THEMES.map((theme) => ({
-    value: theme.id,
-    label: theme.name,
-    swatch: [theme.tokens.bg, theme.tokens.panel, theme.tokens.accent, theme.tokens.text]
-  }))
 
   return (
     <>
       <section className="set-section">
         <h3>Theme</h3>
-        <Select value={themeId} options={options} onChange={setTheme} title="Theme" hideCaret />
-      </section>
+        <p className="set-note">
+          Every theme comes in three variants: the themed palette, the same accent on a neutral dark
+          background, and a light version. The choice is remembered for your next launch.
+        </p>
 
-      <section className="set-section">
-        <h3>Editor</h3>
-
-        <div className="set-field">
-          <span>Font size</span>
-          <div className="set-inline">
-            <input
-              className="inp num"
-              type="number"
-              min={EDITOR_FONT_MIN}
-              max={EDITOR_FONT_MAX}
-              value={prefs.editorFontSize}
-              aria-label="Editor font size in pixels"
-              onChange={(event) => setPrefs({ editorFontSize: clampFontSize(event.target.value) })}
-            />
-            <span className="set-unit">px</span>
-            <span className="sp" />
-            <span className="set-note">Ctrl+scroll in the editor does the same</span>
-          </div>
+        <div className="themes" role="radiogroup" aria-label="Theme">
+          {THEMES.map((theme) => (
+            <button
+              key={theme.id}
+              type="button"
+              role="radio"
+              aria-checked={theme.id === themeId}
+              className={`theme${theme.id === themeId ? ' on' : ''}`}
+              title={theme.name}
+              onClick={() => setTheme(theme.id)}
+            >
+              <span className="theme__swatch" aria-hidden="true">
+                <i style={{ background: theme.tokens.bg }} />
+                <i style={{ background: theme.tokens.panel }} />
+                <i style={{ background: theme.tokens.raise }} />
+                <i style={{ background: theme.tokens.accent }} />
+              </span>
+              <span className="theme__text">
+                <b>{theme.family}</b>
+                <small>{VARIANT_LABELS[theme.variant]}</small>
+              </span>
+            </button>
+          ))}
         </div>
-
-        <Toggle
-          label="Word wrap"
-          hint="Wrap long lines instead of scrolling sideways (Alt+Z)"
-          checked={prefs.editorWrap}
-          onChange={(editorWrap) => setPrefs({ editorWrap })}
-        />
       </section>
 
       <section className="set-section">
@@ -85,24 +88,9 @@ export function CustomizationSettings() {
         <Toggle
           label="Expand reasoning by default"
           hint="Show the model's thinking blocks opened rather than collapsed"
-          checked={prefs.expandThinking}
+          checked={expandThinking}
           onChange={(expandThinking) => setPrefs({ expandThinking })}
         />
-
-        <div className="set-field">
-          <span>Terminal shell</span>
-          <input
-            className="inp mono"
-            value={prefs.terminalShell}
-            placeholder="Let PiUI choose"
-            aria-label="Terminal shell"
-            onChange={(event) => setPrefs({ terminalShell: event.target.value })}
-          />
-          <small className="set-note">
-            Full path to the shell the Terminal panel runs. Leave empty to use the system default —
-            PowerShell on Windows, $SHELL elsewhere.
-          </small>
-        </div>
       </section>
     </>
   )

@@ -81,9 +81,6 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   }
 ]
 
-/** Never matched by an option, so the control always reads as a menu. */
-const ADD_SENTINEL = '__add_provider__'
-
 function emptyModel(): ModelDefDto {
   return {
     id: '',
@@ -141,6 +138,7 @@ type CatalogState =
  */
 export function ModelsSettings() {
   const config = usePiUi((state) => state.modelsConfig)
+  const modelsError = usePiUi((state) => state.modelsError)
   const save = usePiUi((state) => state.saveModelsConfig)
 
   const [draft, setDraft] = useState<ModelsConfigDto | null>(null)
@@ -148,11 +146,14 @@ export function ModelsSettings() {
   const [revealed, setRevealed] = useState<number[]>([])
   /** Provider index whose catalogue picker is open. */
   const [picker, setPicker] = useState<number | null>(null)
+  /** Whether the "add provider" menu is open. */
+  const [adding, setAdding] = useState(false)
   const [query, setQuery] = useState('')
   const [catalogs, setCatalogs] = useState<Record<string, CatalogState>>({})
 
   const hydrated = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const addRef = useRef<HTMLDivElement | null>(null)
 
   // Seed once per dialog open so writes do not fight the user's typing.
   useEffect(() => {
@@ -169,6 +170,25 @@ export function ModelsSettings() {
       if (timer.current) clearTimeout(timer.current)
     }
   }, [draft, save])
+
+  // Close the add-provider menu on an outside click or Escape.
+  useEffect(() => {
+    if (!adding) return
+
+    const onPointerDown = (event: globalThis.PointerEvent): void => {
+      if (!addRef.current?.contains(event.target as Node)) setAdding(false)
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setAdding(false)
+    }
+
+    window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [adding])
 
   const pickerProvider = picker !== null ? draft?.providers[picker] : undefined
 
@@ -245,16 +265,6 @@ export function ModelsSettings() {
       ? API_OPTIONS
       : [{ value: api, label: api }, ...API_OPTIONS]
 
-  const presetOptions: SelectOption<string>[] = PROVIDER_PRESETS.map((entry) => ({
-    value: entry.id,
-    label: entry.label
-  }))
-
-  const providerMenuOptions: SelectOption<string>[] = [
-    ...presetOptions,
-    { value: '__custom__', label: 'Custom provider' }
-  ]
-
   const toggleReveal = (index: number): void =>
     setRevealed((current) =>
       current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]
@@ -268,6 +278,12 @@ export function ModelsSettings() {
   return (
     <section className="set-section">
       <h3>Models</h3>
+
+      {modelsError ? (
+        <p className="hint bad">
+          This catalogue could not be loaded, so no model is selectable: {modelsError}
+        </p>
+      ) : null}
 
       {draft.providers.map((provider, providerIndex) => (
         <div className="prov" key={providerIndex}>
@@ -535,23 +551,53 @@ export function ModelsSettings() {
         </div>
       ))}
 
-      <div className="addprov">
-        <Select
-          value={ADD_SENTINEL}
-          options={providerMenuOptions}
-          title="Add a provider"
-          placeholder="＋ Add provider"
-          onChange={(value) =>
-            update((next) => {
-              const chosen = PROVIDER_PRESETS.find((entry) => entry.id === value)
-              next.providers.push(
-                chosen
-                  ? presetProvider(chosen, next.providers)
-                  : emptyProvider(nextProviderId(next.providers))
-              )
-            })
-          }
-        />
+      <div className="addprov" ref={addRef}>
+        <button
+          type="button"
+          className="b addprov__btn"
+          aria-haspopup="menu"
+          aria-expanded={adding}
+          onClick={() => setAdding((wasOpen) => !wasOpen)}
+        >
+          ＋ Add provider
+        </button>
+
+        {adding ? (
+          <div className="admenu" role="menu">
+            {PROVIDER_PRESETS.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                role="menuitem"
+                className="admenu__item"
+                onClick={() => {
+                  update((next) => {
+                    next.providers.push(presetProvider(preset, next.providers))
+                  })
+                  setAdding(false)
+                }}
+              >
+                <span>{preset.label}</span>
+                <small>{preset.baseUrl}</small>
+              </button>
+            ))}
+
+            <button
+              type="button"
+              role="menuitem"
+              className="admenu__item"
+              onClick={() => {
+                update((next) => {
+                  next.providers.push(emptyProvider(nextProviderId(next.providers)))
+                })
+                setAdding(false)
+              }}
+            >
+              <span>Custom provider</span>
+              <small>Local or self-hosted endpoint</small>
+            </button>
+          </div>
+        ) : null}
       </div>
     </section>
   )

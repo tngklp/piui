@@ -81,10 +81,7 @@ export class TerminalManager {
     }
 
     const cwd = existsSync(input.cwd) ? input.cwd : fallbackCwd
-    // An explicit shell wins; otherwise pick the user's preferred one.
-    const chosen = input.shell?.trim()
-    const { file, args } =
-      chosen && existsSync(chosen) ? { file: chosen, args: [] } : resolveShell()
+    const { file, args } = resolveShell()
 
     const child = pty.spawn(file, args, {
       name: 'xterm-256color',

@@ -2651,35 +2651,6 @@ select.pick {
 
 /* ---------- settings controls ---------- */
 
-.set-field {
-  display: grid;
-  gap: 5px;
-}
-
-.set-field > span {
-  font-size: 11.5px;
-  color: var(--dim);
-}
-
-.set-field .inp {
-  max-width: 260px;
-}
-
-.set-inline {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.set-inline .inp {
-  max-width: 90px;
-}
-
-.set-unit {
-  font-size: 11.5px;
-  color: var(--dim);
-}
-
 .set-note {
   font-size: 11.5px;
   color: var(--dim);
@@ -2858,10 +2829,114 @@ select.pick {
 }
 
 .addprov {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
   margin-top: 6px;
+}
+
+.addprov__btn {
+  padding: 7px 14px;
+}
+
+.admenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  min-width: 260px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 5px;
+  display: grid;
+  gap: 2px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  box-shadow: 0 14px 34px rgb(0 0 0 / 0.34);
+  scrollbar-gutter: stable;
+}
+
+.admenu__item {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  padding: 7px 9px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.admenu__item small {
+  font-size: 11px;
+  color: var(--dim);
+}
+
+.admenu__item:hover {
+  background: var(--lilac-soft);
+}
+
+/* ---------- theme grid ---------- */
+
+.themes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.theme {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  min-width: 0;
+}
+
+.theme:hover {
+  border-color: var(--lilac-strong);
+}
+
+.theme.on {
+  border-color: var(--lilac);
+  background: var(--lilac-soft);
+}
+
+.theme__swatch {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+  flex: none;
+}
+
+.theme__swatch i {
+  width: 11px;
+  height: 11px;
+  border-radius: 3px;
+  display: block;
+  box-shadow: inset 0 0 0 1px rgb(128 128 128 / 0.35);
+}
+
+.theme__text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.theme__text b {
+  font-size: 12.5px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.theme__text small {
+  font-size: 11px;
+  color: var(--dim);
 }
 
 /* ---------- secret input ---------- */

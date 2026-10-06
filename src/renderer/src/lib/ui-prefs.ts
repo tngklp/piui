@@ -12,8 +12,6 @@ export interface UiPreferences {
   editorWrap: boolean
   /** Expand reasoning blocks in the transcript by default. */
   expandThinking: boolean
-  /** Shell used by the Terminal panel; empty means "pick a sensible default". */
-  terminalShell: string
 }
 
 const STORAGE_KEY = 'piui.prefs'
@@ -24,8 +22,7 @@ export const EDITOR_FONT_MAX = 24
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   editorFontSize: 13,
   editorWrap: false,
-  expandThinking: false,
-  terminalShell: ''
+  expandThinking: false
 }
 
 function clampFontSize(value: unknown): number {
@@ -40,8 +37,7 @@ function normalize(value: unknown): UiPreferences {
   return {
     editorFontSize: clampFontSize(raw.editorFontSize),
     editorWrap: typeof raw.editorWrap === 'boolean' ? raw.editorWrap : false,
-    expandThinking: typeof raw.expandThinking === 'boolean' ? raw.expandThinking : false,
-    terminalShell: typeof raw.terminalShell === 'string' ? raw.terminalShell : ''
+    expandThinking: typeof raw.expandThinking === 'boolean' ? raw.expandThinking : false
   }
 }
 

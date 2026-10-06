@@ -100,15 +100,24 @@ export async function writeModelsConfig(
   for (const provider of config.providers) {
     const id = provider.id.trim()
     if (id.length === 0) continue
-    providers[id] = {
+
+    const entry: Record<string, unknown> = {
       ...asRecord(existing[id]),
       baseUrl: provider.baseUrl,
       api: provider.api,
-      apiKey: provider.apiKey,
       models: provider.models
         .filter((model) => model.id.trim().length > 0)
         .map((model) => ({ ...model, id: model.id.trim(), name: model.name || model.id.trim() }))
     }
+
+    // The schema rejects an empty `apiKey` (minLength 1) and a single bad field
+    // invalidates the whole file, which makes every model disappear. Leaving the
+    // key out means "not set yet", which is exactly what an empty field is.
+    const apiKey = provider.apiKey.trim()
+    if (apiKey.length > 0) entry.apiKey = apiKey
+    else delete entry.apiKey
+
+    providers[id] = entry
   }
 
   await mkdir(dirname(path), { recursive: true })

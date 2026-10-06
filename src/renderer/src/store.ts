@@ -101,6 +101,8 @@ interface PiUiState {
   settingsTab: SettingsTab
   /** Provider/model catalogue from `models.json`. */
   modelsConfig: ModelsConfigDto | null
+  /** Why `models.json` could not be used, if it could not. */
+  modelsError: string | null
   /** Increments whenever a global shortcut asks for the session search box. */
   searchFocusSeq: number
   /** Saved sessions for the current workspace, newest first. */
@@ -208,6 +210,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   settingsOpen: false,
   settingsTab: 'customization',
   modelsConfig: null,
+  modelsError: null,
   searchFocusSeq: 0,
   sessions: [],
   workspace: null,
@@ -449,7 +452,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     set({ modelsConfig: config })
     try {
       const result = await window.piui.setModelsConfig(config)
-      set({ modelsConfig: result.config, models: result.models })
+      set({ modelsConfig: result.config, models: result.models, modelsError: result.error })
     } catch (cause) {
       set({ error: describeError(cause) })
     }
