@@ -44,10 +44,73 @@ function findExecutable(candidates: string[]): string | null {
   return null
 }
 
-/** Shell to run, and the arguments that keep it non-interactive-friendly. */
-function resolveShell(): { file: string; args: string[] } {
-  const override = process.env.PIUI_SHELL
-  if (override) return { file: override, args: [] }
+/**
+ * Split a command line into its program and arguments, honouring quotes.
+ *
+ * The terminal setting accepts a whole command, not just an executable path, so
+ * entries like `docker exec -it pi bash` or `wsl.exe -d Ubuntu` work.
+ */
+function splitCommand(line: string): string[] {
+  const parts: string[] = []
+  let current = ''
+  let quote: '"' | "'" | null = null
+
+  for (const character of line) {
+    if (quote !== null) {
+      if (character === quote) quote = null
+      else current += character
+      continue
+    }
+    if (character === '"' || character === "'") {
+      quote = character
+      continue
+    }
+    if (/\s/.test(character)) {
+      if (current.length > 0) {
+        parts.push(current)
+        current = ''
+      }
+      continue
+    }
+    current += character
+  }
+
+  if (current.length > 0) parts.push(current)
+  return parts
+}
+
+/**
+ * Resolve a configured command: a bare name is looked up on PATH so entries like
+ * `docker` work, and a path is used only when it exists. Returns null when the
+ * program cannot be found, so the caller can fall back to a default shell.
+ */
+function resolveCommand(line: string): { file: string; args: string[] } | null {
+  const [command, ...args] = splitCommand(line)
+  if (!command) return null
+
+  const resolved =
+    command.includes('/') || command.includes('\\')
+      ? existsSync(command)
+        ? command
+        : null
+      : findExecutable([command])
+
+  return resolved === null ? null : { file: resolved, args }
+}
+
+/**
+ * Shell to run, and the arguments that keep it non-interactive-friendly.
+ *
+ * `override` is the user's setting, and `PIUI_SHELL` is the environment
+ * fallback; both accept a whole command line.
+ */
+function resolveShell(override?: string): { file: string; args: string[] } {
+  for (const configured of [override, process.env.PIUI_SHELL]) {
+    const command = configured?.trim()
+    if (!command) continue
+    const resolved = resolveCommand(command)
+    if (resolved) return resolved
+  }
 
   if (process.platform === 'win32') {
     const shell = findExecutable(['pwsh.exe', 'powershell.exe']) ?? process.env.ComSpec ?? 'cmd.exe'
@@ -81,10 +144,8 @@ export class TerminalManager {
     }
 
     const cwd = existsSync(input.cwd) ? input.cwd : fallbackCwd
-    // An explicit shell wins; otherwise pick the user's preferred one.
-    const chosen = input.shell?.trim()
-    const { file, args } =
-      chosen && existsSync(chosen) ? { file: chosen, args: [] } : resolveShell()
+    // An explicit command wins; otherwise pick the user's preferred shell.
+    const { file, args } = resolveShell(input.shell)
 
     const child = pty.spawn(file, args, {
       name: 'xterm-256color',

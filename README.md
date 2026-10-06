@@ -15,8 +15,10 @@ in the CLI and vice versa.
 - [Install](#install)
 - [Getting started](#getting-started)
 - [Development](#development)
+- [Packaging](#packaging)
 - [Project layout](#project-layout)
 - [How it works](#how-it-works)
+- [Running Pi in Docker](#running-pi-in-docker)
 - [Releasing](#releasing)
 - [Troubleshooting](#troubleshooting)
 - [License](#license)
@@ -93,12 +95,20 @@ curl -fsSL https://pi.dev/install.sh | sh
 Download the latest release from the
 [releases page](https://github.com/tngklp/piui/releases):
 
-| Platform | Download                          | Notes                                                   |
-| -------- | --------------------------------- | ------------------------------------------------------- |
-| Windows  | `PiUI-<version>-x64-setup.exe`    | Installer. Supports in-app updates.                     |
-| Windows  | `PiUI-<version>-x64-portable.exe` | Single file, no install. Cannot self-update, by design. |
-| Linux    | `PiUI-<version>-x64.AppImage`     | Supports in-app updates.                                |
-| Linux    | `PiUI-<version>-x64.deb`          | Reinstall to update.                                    |
+| Platform | Download                          | Notes                                                             |
+| -------- | --------------------------------- | ----------------------------------------------------------------- |
+| Windows  | `PiUI-<version>-x64-setup.exe`    | Installer. Supports in-app updates, launches instantly.           |
+| Windows  | `PiUI-<version>-x64.zip`          | Unzip once, run `PiUI.exe`. No install, launches instantly.       |
+| Windows  | `PiUI-<version>-x64-portable.exe` | One file, nothing to install. Re-extracts itself on every launch. |
+| Linux    | `PiUI-<version>-x64.AppImage`     | Supports in-app updates.                                          |
+| Linux    | `PiUI-<version>-x64.deb`          | Reinstall to update.                                              |
+
+**Why the portable build is slow to open.** It is a self-extracting launcher. On every launch it
+unpacks the whole ~380 MB app into a temp directory, runs it, deletes it on exit, and does the same
+again next time — so five to ten seconds pass before the window appears, every single time. The
+launcher template inside electron-builder always wipes and re-extracts, so there is no setting that
+avoids it. The setup build and the zip both start instantly; use one of those unless you need a
+single file. See [Packaging](#packaging).
 
 macOS is not packaged yet.
 
@@ -127,13 +137,26 @@ npm run smoke        # load the SDK the way the app does, without a window
 `npm install` may not run lifecycle scripts depending on your npm configuration. If `npm run dev`
 fails with `Error: Electron uninstall`, run `node node_modules/electron/install.js` once.
 
-Packaging:
+## Packaging
 
 ```sh
-npm run build:win     # Windows setup + portable
-npm run build:linux   # AppImage + deb
-npm run build:unpack  # unpacked directory, for inspecting the bundle
+npm run build:win      # setup + portable, the release artifacts
+npm run build:win:zip  # adds a no-install zip that starts instantly
+npm run build:linux    # AppImage + deb
+npm run build:unpack   # unpacked directory, for inspecting the bundle
 ```
+
+The three Windows artifacts trade size against startup time:
+
+| Artifact     | Size    | First launch  | Every launch after |
+| ------------ | ------- | ------------- | ------------------ |
+| setup `.exe` | ~132 MB | installer run | instant            |
+| `.zip`       | ~180 MB | one unzip     | instant            |
+| portable     | ~132 MB | 5-10 s        | 5-10 s             |
+
+All of them carry the same files; the difference is when the app is unpacked. Nothing is rebuilt at
+package time either — `npmRebuild` is off, because node-pty ships N-API prebuilds that Electron can
+load as they are. Turning it on makes the build require the Spectre-mitigated VC++ libraries.
 
 ## Project layout
 
@@ -199,19 +222,85 @@ A few decisions worth knowing:
 | Default workspace  | `PIUI_CWD`, default your home directory                  |
 | Terminal shell     | **Settings → General**, or the `PIUI_SHELL` env var      |
 
+The terminal shell is a whole command, not just a path, so it can start something other than a
+local shell — `docker exec -it pi bash`, `wsl.exe -d Ubuntu`, `ssh devbox`. See
+[Running Pi in Docker](#running-pi-in-docker).
+
+## Running Pi in Docker
+
+PiUI talks to a model endpoint over HTTP and runs the agent in-process, on the machine PiUI is
+installed on. It has no notion of a remote agent, so there is no setting that makes it "use" a
+container directly. Two things do work:
+
+**Run the model in a container, not the agent.** This is the usual case and needs no changes to
+PiUI: expose llama.cpp from the container and add it as a custom provider.
+
+```sh
+docker run --rm -p 8080:8080 -v ./models:/models ghcr.io/ggerganov/llama.cpp:server \
+  -m /models/model.gguf --host 0.0.0.0 --port 8080 --metrics
+```
+
+Then add a provider with base URL `http://127.0.0.1:8080/v1` under **Settings → Models**. The
+Monitor tab works too, because `--metrics` is exposed over the forwarded port.
+
+**Run the agent in a container.** Point the terminal at it, and drive `pi` inside the container
+from PiUI's Terminal tab:
+
+```
+Settings → General → Shell:  docker exec -it pi-agent bash
+```
+
+The integrated terminal is a real pseudo-terminal, so the TUI works normally. Set that shell to
+`pi` directly if you want the terminal to open straight into the agent:
+
+```
+Settings → General → Shell:  docker exec -it pi-agent pi
+```
+
+Note what this does and does not give you: it is a shell inside the container, sharing PiUI's
+window, and nothing else. The chat panel, the file explorer, and the editor still operate on the
+host workspace, and the agent's tools still run on the host. To work on the same files from both
+sides, mount the workspace into the container and keep the paths aligned:
+
+```sh
+docker run --rm -it --name pi-agent -v "$PWD:/work" -w /work <image> bash
+```
+
 ## Releasing
 
 Releases are built by hand — pushing a tag does not publish anything.
 
 1. Bump `version` in `package.json` and commit it.
 2. Run the **Release** workflow from the Actions tab, or `npm run release` locally.
-3. The run uploads the setup and portable `.exe` files, the Linux packages, and the `latest.yml`
-   metadata the updater reads to a **draft** GitHub release.
-4. Review the draft and publish it. Publishing is the moment installed copies start seeing the
-   update, since the app reads the releases feed on launch.
+3. The run uploads the installers and the `latest.yml` to a **draft** GitHub release.
+4. Review the draft and publish it.
+
+### What `latest.yml` is
+
+It is a small text file electron-builder writes next to the installers and uploads as a release
+asset. It holds the version, the file name to download, and the SHA-512 to verify it:
+
+```yaml
+version: 0.1.0
+path: PiUI-0.1.0-x64-setup.exe
+sha512: qvCiJ2v8ldNesw59lZ8VfQy...
+```
+
+It is not shipped inside the app and not installed anywhere. The running app fetches it **over
+HTTPS from the releases feed** on launch, compares the version there with its own, and offers the
+download if the feed is newer. So the check is already online — `latest.yml` _is_ what it checks.
+Electron-updater needs it because the release page alone does not say which asset is the update,
+nor what its hash is; the file gives it both, plus deltas.
+
+Publishing the draft is what makes an update visible. Nothing polls a draft.
 
 To publish automatically on tags instead, add a `push: tags: ['v*']` trigger to
 `.github/workflows/release.yml` and switch `releaseType` to `release` in `electron-builder.yml`.
+
+If you would rather not use GitHub as the feed, electron-builder's `publish` block also supports
+`provider: generic` (any static host) and `s3`. All of them serve the same `latest.yml`; only the
+URL changes. Replacing electron-updater with a hand-rolled "is there a newer release?" check would
+mean re-implementing the download, the hash verification, and the install step it already does.
 
 ## Troubleshooting
 

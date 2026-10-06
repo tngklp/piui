@@ -41,6 +41,8 @@ publish:
 
 win:
   icon: build/icon.png
+  # Fallback name for targets without their own, e.g. the opt-in zip.
+  artifactName: ${productName}-${version}-${arch}.${ext}
   target:
     # Setup: an installer with a Start-menu entry that can replace itself, which
     # is what the updater needs.

@@ -138,7 +138,10 @@ export interface TerminalCreateInput {
   cwd: string
   cols: number
   rows: number
-  /** Absolute path to the shell to run; empty picks a sensible default. */
+  /**
+   * Command to run in the terminal, e.g. `pwsh.exe -NoLogo` or
+   * `docker exec -it pi bash`. Empty picks a sensible default shell.
+   */
   shell?: string
 }
 

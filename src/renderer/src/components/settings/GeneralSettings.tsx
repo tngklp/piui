@@ -58,7 +58,7 @@ export function GeneralSettings() {
       <div className="gcard">
         <Row
           title="Shell"
-          hint="The shell the integrated terminal starts. Leave blank to use your login shell."
+          hint="The command the integrated terminal starts. Arguments are allowed, so `docker exec -it pi bash` or `wsl.exe -d Ubuntu` work. Leave blank to use your login shell."
         >
           <input
             className="inp mono"
