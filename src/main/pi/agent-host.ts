@@ -232,12 +232,10 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
           target.removedLines = counts.removed
         } else if (target.name === 'write' && typeof args.content === 'string') {
           // The write tool reports no diff, so show the written text as one
-          // fully-added hunk, the same way the edit tool presents its changes.
+          // fully-added hunk. No file headers or hunk marker: the card already
+          // names the file, and only the added lines are useful here.
           const lines = args.content.replace(/\n$/, '').split('\n')
-          const label = typeof filePath === 'string' ? filePath : 'file'
-          target.diff = `--- ${label}\n+++ ${label}\n@@\n${lines
-            .map((line) => `+${line}`)
-            .join('\n')}`
+          target.diff = lines.map((line) => `+${line}`).join('\n')
           target.addedLines = lines.length
           target.removedLines = 0
         }

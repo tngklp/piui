@@ -78,6 +78,9 @@ export function Sidebar() {
 
   const pinned = visible.filter((session) => starred.includes(session.path))
   const rest = visible.filter((session) => !starred.includes(session.path))
+  // The Running view is a short, live list; date groups only make sense for the
+  // full history.
+  const grouped = filter !== 'running'
   const groups = [
     { label: 'Today', items: rest.filter((session) => bucketOf(session.modified) === 'Today') },
     {
@@ -240,19 +243,21 @@ export function Sidebar() {
       </div>
 
       <div className="slist">
-        {pinned.length > 0 ? (
+        {grouped && pinned.length > 0 ? (
           <details className="g" open>
             <summary>Pinned</summary>
             {pinned.map(renderSession)}
           </details>
         ) : null}
 
-        {groups.map((group) => (
-          <details className="g" open key={group.label}>
-            <summary>{group.label}</summary>
-            {group.items.map(renderSession)}
-          </details>
-        ))}
+        {grouped
+          ? groups.map((group) => (
+              <details className="g" open key={group.label}>
+                <summary>{group.label}</summary>
+                {group.items.map(renderSession)}
+              </details>
+            ))
+          : visible.map(renderSession)}
 
         {visible.length === 0 ? (
           <p className="empty" style={{ padding: '20px 10px', fontSize: 13 }}>

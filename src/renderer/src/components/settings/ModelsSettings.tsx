@@ -198,7 +198,6 @@ export function ModelsSettings() {
                   className="inp mono"
                   value={model.id}
                   aria-label="Model id"
-                  placeholder="model id"
                   onChange={(event) =>
                     updateModel(providerIndex, modelIndex, { id: event.target.value })
                   }
@@ -207,7 +206,6 @@ export function ModelsSettings() {
                   className="inp"
                   value={model.name}
                   aria-label="Model display name"
-                  placeholder="display name"
                   onChange={(event) =>
                     updateModel(providerIndex, modelIndex, { name: event.target.value })
                   }

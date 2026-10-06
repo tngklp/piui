@@ -259,7 +259,6 @@ export function MonitorPanel() {
                 <th>Prompt</th>
                 <th>Answer</th>
                 <th>Took</th>
-                <th>tok/s</th>
               </tr>
             </thead>
             <tbody>
@@ -269,9 +268,6 @@ export function MonitorPanel() {
                   <td>{request.promptTokens.toLocaleString('en-US')}</td>
                   <td>{request.answerTokens.toLocaleString('en-US')}</td>
                   <td>{duration(request.durationMs)}</td>
-                  <td>
-                    {request.tokensPerSecond === null ? '—' : request.tokensPerSecond.toFixed(1)}
-                  </td>
                 </tr>
               ))}
             </tbody>

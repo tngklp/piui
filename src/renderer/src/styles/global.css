@@ -2646,6 +2646,12 @@ select.pick {
   min-height: 0;
 }
 
+/* Settings sections are grids, which would otherwise stretch a dropdown to the
+   full width. Left-align the ones that should hug their content. */
+.set-section > .select:not(.block) {
+  justify-self: start;
+}
+
 /* Keep the theme dropdowns inside the panel instead of opening a horizontal
    scrollbar on the scrolling body. */
 .settings__body,
@@ -2700,38 +2706,35 @@ select.pick {
 
 .models {
   display: grid;
-  gap: 0;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.05fr) 92px 92px auto auto 28px;
+  column-gap: 6px;
+  row-gap: 0;
 }
 
+/* Each row inherits the parent's column tracks, so the header captions sit
+   exactly above the inputs they describe. */
 .mrow {
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.05fr) 86px 86px auto auto 28px;
-  gap: 6px;
+  grid-template-columns: subgrid;
   align-items: center;
+  column-gap: 6px;
   padding-top: 6px;
   border-top: 1px solid var(--line);
 }
 
-/* Column labels sit below the divider and align with their inputs. */
+/* Column captions sit below the divider, styled like the provider row's. */
 .mrow--head {
-  border-top: 1px solid var(--line);
   padding: 8px 0 6px;
-  gap: 6px;
 }
 
 .mrow--head span {
   min-width: 0;
-  padding-left: 9px;
   font-size: 11.5px;
   color: var(--dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.mrow--head span:nth-child(3),
-.mrow--head span:nth-child(4) {
-  padding-left: 8px;
 }
 
 .inp {
