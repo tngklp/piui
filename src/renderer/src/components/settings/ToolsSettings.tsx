@@ -28,7 +28,10 @@ export function ToolsSettings() {
     <section className="set-section">
       <h3>Tool approval</h3>
       <p className="modal__hint">
-        PiUI pauses and asks before running a tool set to <b>Ask</b>.
+        Choose what PiUI does before the agent runs each tool. <b>Allow</b> runs it straight away,{' '}
+        <b>Ask</b> pauses the agent and shows an approval card in the transcript for you to accept
+        or reject, and <b>Deny</b> blocks it outright. Read-only tools are safe to allow; leave the
+        ones that run commands or change files on <b>Ask</b> so you can review them first.
       </p>
 
       <div className="rules">

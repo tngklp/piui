@@ -2728,6 +2728,11 @@ select.pick {
   padding: 8px 0 6px;
 }
 
+/* No rule between the captions and the first row of inputs. */
+.mrow--head + .mrow {
+  border-top: 0;
+}
+
 .mrow--head span {
   min-width: 0;
   font-size: 11.5px;
@@ -2782,6 +2787,13 @@ select.pick {
   font-size: 12.5px;
   border-radius: 8px;
   justify-self: start;
+}
+
+.addprov {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
 }
 
 /* ---------- package catalogue ---------- */

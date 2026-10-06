@@ -16,10 +16,7 @@ export function CustomizationSettings() {
   return (
     <section className="set-section">
       <h3>Theme</h3>
-      <p className="modal__hint">
-        Colours apply immediately and are remembered for your next launch.
-      </p>
-      <Select value={themeId} options={options} onChange={setTheme} title="Theme" />
+      <Select value={themeId} options={options} onChange={setTheme} title="Theme" hideCaret />
     </section>
   )
 }

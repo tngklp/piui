@@ -172,10 +172,6 @@ export function PackagesSettings() {
   return (
     <section className="set-section">
       <h3>Packages</h3>
-      <p className="modal__hint">
-        Skills, extensions, prompts, and themes published to npm. Installing writes the source to
-        your pi settings and reloads the agent, so new commands appear right away.
-      </p>
 
       {installed.length > 0 ? (
         <div className="pkg-installed">

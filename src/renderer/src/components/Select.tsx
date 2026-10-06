@@ -124,7 +124,7 @@ export function Select<T extends string>({
         <span className="pick select__sizer" aria-hidden="true">
           {current?.swatch ? renderSwatch(current.swatch) : null}
           <span className="select__label">{widest}</span>
-          <span className="select__caret">⌄</span>
+          {hideCaret ? null : <span className="select__caret">⌄</span>}
         </span>
       )}
 

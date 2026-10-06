@@ -475,10 +475,15 @@ async function collect(source: MonitorSource): Promise<MonitorSnapshotDto> {
       signal: AbortSignal.timeout(1500)
     })
     if (!response.ok) {
+      // Hosted APIs (OpenAI, Anthropic, DeepSeek, ...) answer their own paths and
+      // never expose inference telemetry, so say so rather than reporting a bare
+      // status code.
       snapshot.engine.error =
         response.status === 404 || response.status === 501
-          ? 'The server did not expose /metrics. Start llama.cpp with --metrics.'
-          : `Metrics request failed with HTTP ${response.status}.`
+          ? 'This endpoint does not expose /metrics. The Monitor reads live telemetry from a local llama.cpp-style server started with --metrics; hosted APIs do not provide it.'
+          : response.status === 401 || response.status === 403
+            ? `The endpoint refused the metrics request (HTTP ${response.status}). Hosted APIs do not publish inference telemetry — the Monitor only works with a local engine.`
+            : `Metrics request failed with HTTP ${response.status}.`
       return snapshot
     }
 
@@ -504,7 +509,7 @@ async function collect(source: MonitorSource): Promise<MonitorSnapshotDto> {
     snapshot.engine.error =
       cause instanceof Error && cause.name === 'TimeoutError'
         ? 'The inference endpoint did not respond within 1.5s.'
-        : `Could not reach ${metricsUrl(baseUrl)}.`
+        : `Could not reach ${metricsUrl(baseUrl)}. The Monitor needs a local engine that serves /metrics.`
   }
 
   if (snapshot.speed.answerTokensPerSecond !== null) {

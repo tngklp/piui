@@ -20,6 +20,70 @@ const API_OPTIONS: SelectOption<string>[] = [
 /** How long to wait after the last edit before writing `models.json`. */
 const SAVE_DEBOUNCE_MS = 400
 
+/**
+ * Ready-made provider entries for hosted APIs.
+ *
+ * The ids match pi's own provider ids, so the entry overlays the built-in
+ * provider: its model catalogue and streaming behaviour are kept and only the
+ * credentials come from here. Models are left empty on purpose — the built-in
+ * catalogue supplies them, and the user only has to paste a key.
+ */
+interface ProviderPreset {
+  id: string
+  label: string
+  baseUrl: string
+  api: string
+}
+
+const PROVIDER_PRESETS: ProviderPreset[] = [
+  {
+    id: 'openai',
+    label: 'ChatGPT (OpenAI)',
+    baseUrl: 'https://api.openai.com/v1',
+    api: 'openai-completions'
+  },
+  {
+    id: 'anthropic',
+    label: 'Claude (Anthropic)',
+    baseUrl: 'https://api.anthropic.com/v1',
+    api: 'anthropic-messages'
+  },
+  {
+    id: 'deepseek',
+    label: 'DeepSeek',
+    baseUrl: 'https://api.deepseek.com/v1',
+    api: 'openai-completions'
+  },
+  {
+    id: 'google',
+    label: 'Gemini (Google)',
+    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+    api: 'google-generative-ai'
+  },
+  { id: 'xai', label: 'Grok (xAI)', baseUrl: 'https://api.x.ai/v1', api: 'openai-completions' },
+  {
+    id: 'mistral',
+    label: 'Mistral',
+    baseUrl: 'https://api.mistral.ai/v1',
+    api: 'mistral-conversations'
+  },
+  {
+    id: 'groq',
+    label: 'Groq',
+    baseUrl: 'https://api.groq.com/openai/v1',
+    api: 'openai-completions'
+  },
+  {
+    id: 'openrouter',
+    label: 'OpenRouter',
+    baseUrl: 'https://openrouter.ai/api/v1',
+    api: 'openai-completions'
+  }
+]
+
+/** Sentinel for the free-form entry. */
+const CUSTOM_PRESET = ''
+
 function emptyModel(): ModelDefDto {
   return {
     id: '',
@@ -42,6 +106,20 @@ function emptyProvider(id: string): ProviderConfigDto {
   }
 }
 
+/** Provider entry for a hosted API preset, awaiting an API key. */
+function presetProvider(preset: ProviderPreset, taken: ProviderConfigDto[]): ProviderConfigDto {
+  // A second copy of the same preset gets a suffix so ids stay unique.
+  const used = new Set(taken.map((provider) => provider.id))
+  let id = preset.id
+  let suffix = 2
+  while (used.has(id)) {
+    id = `${preset.id}-${suffix}`
+    suffix += 1
+  }
+
+  return { id, baseUrl: preset.baseUrl, api: preset.api, apiKey: '', models: [] }
+}
+
 /** Pick a provider id that is not already taken. */
 function nextProviderId(providers: ProviderConfigDto[]): string {
   let index = providers.length + 1
@@ -61,6 +139,7 @@ export function ModelsSettings() {
   const save = usePiUi((state) => state.saveModelsConfig)
 
   const [draft, setDraft] = useState<ModelsConfigDto | null>(null)
+  const [preset, setPreset] = useState<string>(CUSTOM_PRESET)
   const hydrated = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -117,13 +196,14 @@ export function ModelsSettings() {
       ? API_OPTIONS
       : [{ value: api, label: api }, ...API_OPTIONS]
 
+  const presetOptions: SelectOption<string>[] = [
+    { value: CUSTOM_PRESET, label: 'Custom provider' },
+    ...PROVIDER_PRESETS.map((entry) => ({ value: entry.id, label: entry.label }))
+  ]
+
   return (
     <section className="set-section">
       <h3>Models</h3>
-      <p className="modal__hint">
-        Definitions live in <span className="mono">{draft.path}</span>. Changes are saved
-        automatically and applied to the running agent.
-      </p>
 
       {draft.providers.map((provider, providerIndex) => (
         <div className="prov" key={providerIndex}>
@@ -287,16 +367,30 @@ export function ModelsSettings() {
         </div>
       ))}
 
-      <button
-        className="b sm"
-        onClick={() =>
-          update((next) => {
-            next.providers.push(emptyProvider(nextProviderId(next.providers)))
-          })
-        }
-      >
-        ＋ Add provider
-      </button>
+      <div className="addprov">
+        <Select
+          value={preset}
+          options={presetOptions}
+          onChange={setPreset}
+          title="Provider preset"
+          placeholder="Custom"
+        />
+        <button
+          className="b sm"
+          onClick={() =>
+            update((next) => {
+              const chosen = PROVIDER_PRESETS.find((entry) => entry.id === preset)
+              next.providers.push(
+                chosen
+                  ? presetProvider(chosen, next.providers)
+                  : emptyProvider(nextProviderId(next.providers))
+              )
+            })
+          }
+        >
+          ＋ Add provider
+        </button>
+      </div>
     </section>
   )
 }
