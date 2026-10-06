@@ -238,6 +238,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     }
   )
 
+  ipcMain.handle(IpcChannel.ModelsCatalog, async (_event, provider: string) => {
+    return (await host()).getProviderModels(provider)
+  })
+
   ipcMain.handle(IpcChannel.TerminalCreate, async (_event, input: TerminalCreateInput) => {
     const cwd = (await host()).getWorkspace().cwd
     return terminals.create(input, cwd)

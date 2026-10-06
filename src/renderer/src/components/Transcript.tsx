@@ -8,7 +8,8 @@ import { Markdown } from './Markdown'
 
 /** Reasoning block with an animated open/close. */
 function Thinking({ text, live }: { text: string; live?: boolean }) {
-  const [open, setOpen] = useState(Boolean(live))
+  const expandThinking = usePiUi((state) => state.prefs.expandThinking)
+  const [open, setOpen] = useState(Boolean(live) || expandThinking)
 
   return (
     <div className="think">

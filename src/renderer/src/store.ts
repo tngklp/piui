@@ -18,6 +18,7 @@ import type {
 } from '@shared/ipc'
 import { loadThemeId, saveThemeId } from './theme/preference'
 import { applyTheme, resolveTheme } from './theme/themes'
+import { loadUiPreferences, saveUiPreferences, type UiPreferences } from './lib/ui-prefs'
 
 /** Right-hand panel views. */
 export type RightTab = 'files' | 'term' | 'mon'
@@ -114,6 +115,8 @@ interface PiUiState {
   sessionFilter: SessionFilter
   /** Theme id from the theme registry. */
   themeId: string
+  /** Persisted interface preferences. */
+  prefs: UiPreferences
   rightOpen: boolean
   rightTab: RightTab
   rightWidth: number
@@ -149,6 +152,8 @@ interface PiUiState {
   changeWorkspace: () => Promise<void>
   openWorkspace: (path: string) => Promise<void>
   setTheme: (id: string) => void
+  /** Merge and persist interface preferences. */
+  setPrefs: (patch: Partial<UiPreferences>) => void
   setRightTab: (tab: RightTab) => void
   toggleRight: () => void
   setRightWidth: (width: number) => void
@@ -211,6 +216,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   sessionQuery: '',
   sessionFilter: 'all',
   themeId: loadThemeId(),
+  prefs: loadUiPreferences(),
   rightOpen: true,
   rightTab: 'files',
   rightWidth: 360,
@@ -528,6 +534,12 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     saveThemeId(id)
     applyTheme(resolveTheme(id))
     set({ themeId: id })
+  },
+
+  setPrefs: (patch) => {
+    const prefs = { ...get().prefs, ...patch }
+    saveUiPreferences(prefs)
+    set({ prefs })
   },
 
   setRightTab: (tab) => set({ rightTab: tab, rightOpen: true }),

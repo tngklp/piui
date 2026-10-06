@@ -141,12 +141,132 @@ const GRAPHITE_LIGHT: ThemeTokens = {
   mod: '#A9721B'
 }
 
+const OCEAN_DARK: ThemeTokens = {
+  bg: '#0D1420',
+  panel: '#121B2A',
+  raise: '#1B2738',
+  line: '#24344A',
+  text: '#E4ECF7',
+  dim: '#93A4BD',
+  accent: '#4F9CF0',
+  accentStrong: '#7DB6F7',
+  accentSoft: 'rgba(79,156,240,.16)',
+  onAccent: '#06172B',
+  term: '#080E18',
+  add: '#5FD0A0',
+  addBg: '#102A22',
+  del: '#F0829B',
+  delBg: '#2F1A24',
+  mod: '#E3C07E'
+}
+
+const OCEAN_LIGHT: ThemeTokens = {
+  bg: '#EFF4FB',
+  panel: '#FFFFFF',
+  raise: '#E1EBF8',
+  line: '#D2E0F1',
+  text: '#14243B',
+  dim: '#5C7089',
+  accent: '#3F86D8',
+  accentStrong: '#1F63B5',
+  accentSoft: '#DFEAF9',
+  onAccent: '#FFFFFF',
+  term: '#0B1420',
+  add: '#1C7F57',
+  addBg: '#E0F2E9',
+  del: '#B93A58',
+  delBg: '#FAE4EA',
+  mod: '#A9721B'
+}
+
+const EMBER_DARK: ThemeTokens = {
+  bg: '#16110D',
+  panel: '#1D1611',
+  raise: '#2A2019',
+  line: '#3A2C22',
+  text: '#F2E9E1',
+  dim: '#A89A8C',
+  accent: '#F08A3C',
+  accentStrong: '#FFA257',
+  accentSoft: 'rgba(240,138,60,.16)',
+  onAccent: '#2A1508',
+  term: '#100C09',
+  add: '#7ED09A',
+  addBg: '#16281F',
+  del: '#F0788F',
+  delBg: '#33191F',
+  mod: '#E8C07A'
+}
+
+const EMBER_LIGHT: ThemeTokens = {
+  bg: '#FDF6F0',
+  panel: '#FFFFFF',
+  raise: '#F8ECE1',
+  line: '#ECDCCD',
+  text: '#33231A',
+  dim: '#7D6754',
+  accent: '#E07A2C',
+  accentStrong: '#B85C14',
+  accentSoft: '#FBE6D3',
+  onAccent: '#FFFFFF',
+  term: '#140F0B',
+  add: '#1F8A5B',
+  addBg: '#E1F4EA',
+  del: '#C23A5A',
+  delBg: '#FBE4EA',
+  mod: '#B7791F'
+}
+
+const ROSE_DARK: ThemeTokens = {
+  bg: '#160F14',
+  panel: '#1E151B',
+  raise: '#2A1E26',
+  line: '#3A2A34',
+  text: '#F2E7EE',
+  dim: '#AB95A4',
+  accent: '#F072A8',
+  accentStrong: '#FF92BD',
+  accentSoft: 'rgba(240,114,168,.16)',
+  onAccent: '#2C0D1C',
+  term: '#100A0E',
+  add: '#6FD6A2',
+  addBg: '#16281F',
+  del: '#F0788F',
+  delBg: '#33191F',
+  mod: '#E2C08D'
+}
+
+const ROSE_LIGHT: ThemeTokens = {
+  bg: '#FDF2F6',
+  panel: '#FFFFFF',
+  raise: '#F8E6EE',
+  line: '#EED3E0',
+  text: '#331C28',
+  dim: '#7D5F6D',
+  accent: '#DD5C93',
+  accentStrong: '#B13A72',
+  accentSoft: '#FADFEA',
+  onAccent: '#FFFFFF',
+  term: '#140D11',
+  add: '#1F8A5B',
+  addBg: '#E1F4EA',
+  del: '#C23A5A',
+  delBg: '#FBE4EA',
+  mod: '#B7791F'
+}
+
 /** Palettes, in the order they appear in Settings. */
 export const THEMES: Theme[] = [
   { id: 'lilac-dark', name: 'Lilac (dark)', appearance: 'dark', tokens: LILAC_DARK },
   { id: 'lilac-light', name: 'Lilac (light)', appearance: 'light', tokens: LILAC_LIGHT },
   { id: 'graphite-dark', name: 'Graphite (dark)', appearance: 'dark', tokens: GRAPHITE_DARK },
-  { id: 'graphite-light', name: 'Graphite (light)', appearance: 'light', tokens: GRAPHITE_LIGHT }
+  { id: 'graphite-light', name: 'Graphite (light)', appearance: 'light', tokens: GRAPHITE_LIGHT },
+  { id: 'ocean-dark', name: 'Ocean (dark)', appearance: 'dark', tokens: OCEAN_DARK },
+  { id: 'ocean-light', name: 'Ocean (light)', appearance: 'light', tokens: OCEAN_LIGHT },
+  { id: 'ember-dark', name: 'Ember (dark)', appearance: 'dark', tokens: EMBER_DARK },
+  { id: 'ember-light', name: 'Ember (light)', appearance: 'light', tokens: EMBER_LIGHT },
+  { id: 'rose-dark', name: 'Rose (dark)', appearance: 'dark', tokens: ROSE_DARK },
+  { id: 'rose-light', name: 'Rose (light)', appearance: 'light', tokens: ROSE_LIGHT }
 ]
 
 /** Palette used on first run. */

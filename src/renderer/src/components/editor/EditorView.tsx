@@ -35,6 +35,7 @@ import {
 } from '@codemirror/autocomplete'
 import { gotoLine, highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import { usePiUi } from '../../store'
+import { EDITOR_FONT_MAX, EDITOR_FONT_MIN } from '../../lib/ui-prefs'
 import { fileIconName, iconUrl } from '../../lib/fileIcon'
 import { baseName, extensionOf, languageFor } from './languages'
 import { indentGuides } from './indentGuides'
@@ -47,43 +48,6 @@ import { editorHighlight, editorTheme } from './theme'
 const contents = new Map<string, string>()
 const states = new Map<string, EditorState>()
 const dirtyFiles = new Set<string>()
-
-const WRAP_KEY = 'piui.editor.wrap'
-const FONT_KEY = 'piui.editor.fontSize'
-const MIN_FONT = 10
-const MAX_FONT = 24
-
-function loadBoolean(key: string, fallback: boolean): boolean {
-  try {
-    const raw = localStorage.getItem(key)
-    return raw === null ? fallback : raw === 'true'
-  } catch {
-    return fallback
-  }
-}
-
-function loadNumber(key: string, fallback: number): number {
-  try {
-    const raw = Number(localStorage.getItem(key))
-    return Number.isFinite(raw) && raw >= MIN_FONT && raw <= MAX_FONT ? raw : fallback
-  } catch {
-    return fallback
-  }
-}
-
-function persist(key: string, value: string): void {
-  try {
-    localStorage.setItem(key, value)
-  } catch {
-    // Storage may be unavailable; the setting still applies for this session.
-  }
-}
-
-/** Editor preferences, read once per app session. */
-const preferences = {
-  wrap: loadBoolean(WRAP_KEY, false),
-  fontSize: loadNumber(FONT_KEY, 13)
-}
 
 const CONTENT_ATTRIBUTES = CodeMirror.contentAttributes.of({
   spellcheck: 'false',
@@ -126,8 +90,11 @@ export function EditorView() {
     Object.fromEntries([...dirtyFiles].map((path) => [path, true]))
   )
   const [cursor, setCursor] = useState<CursorInfo>(EMPTY_CURSOR)
-  const [wrap, setWrap] = useState(preferences.wrap)
-  const [fontSize, setFontSize] = useState(preferences.fontSize)
+
+  // Editor typography lives in the store so the settings dialog can drive it.
+  const editorWrap = usePiUi((state) => state.prefs.editorWrap)
+  const editorFontSize = usePiUi((state) => state.prefs.editorFontSize)
+  const setPrefs = usePiUi((state) => state.setPrefs)
 
   const load = useCallback(async (path: string) => {
     const file = await window.piui.readFile(path)
@@ -163,11 +130,7 @@ export function EditorView() {
 
   saveRef.current = () => void save()
 
-  const setWrapping = useCallback((next: boolean) => {
-    preferences.wrap = next
-    persist(WRAP_KEY, String(next))
-    setWrap(next)
-  }, [])
+  const setWrapping = useCallback((next: boolean) => setPrefs({ editorWrap: next }), [setPrefs])
 
   const indentCommands = {
     'Mod-]': (view: CodeMirror): boolean =>
@@ -180,6 +143,7 @@ export function EditorView() {
     (path: string): Extension[] => {
       const language = languageFor(path)
       const indent = language.indent
+      const settings = usePiUi.getState().prefs
 
       return [
         lineNumbers(),
@@ -202,12 +166,12 @@ export function EditorView() {
         search({ top: true }),
         CONTENT_ATTRIBUTES,
         themeCompartment.of([
-          editorTheme(appearance(), preferences.fontSize),
+          editorTheme(appearance(), settings.editorFontSize),
           editorHighlight(appearance())
         ]),
         languageCompartment.of(language.extension),
         layoutCompartment.of([
-          preferences.wrap ? CodeMirror.lineWrapping : [],
+          settings.editorWrap ? CodeMirror.lineWrapping : [],
           indentUnit.of(' '.repeat(indent)),
           EditorState.tabSize.of(indent)
         ]),
@@ -217,7 +181,11 @@ export function EditorView() {
           {
             key: 'Alt-z',
             preventDefault: true,
-            run: () => (setWrapping(!preferences.wrap), true)
+            run: () => {
+              const store = usePiUi.getState()
+              store.setPrefs({ editorWrap: !store.prefs.editorWrap })
+              return true
+            }
           },
           { key: 'Mod-]', run: indentCommands['Mod-]'] },
           { key: 'Mod-[', run: indentCommands['Mod-['] },
@@ -259,7 +227,7 @@ export function EditorView() {
     },
     // The compartments are stable, and the commands only read refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [themeCompartment, languageCompartment, layoutCompartment, setWrapping]
+    [themeCompartment, languageCompartment, layoutCompartment]
   )
 
   // Build the editor, reusing the cached state so undo history survives.
@@ -297,27 +265,28 @@ export function EditorView() {
     view.dispatch({
       effects: [
         themeCompartment.reconfigure([
-          editorTheme(appearance(), fontSize),
+          editorTheme(appearance(), editorFontSize),
           editorHighlight(appearance())
         ]),
         layoutCompartment.reconfigure([
-          wrap ? CodeMirror.lineWrapping : [],
+          editorWrap ? CodeMirror.lineWrapping : [],
           indentUnit.of(' '.repeat(indent)),
           EditorState.tabSize.of(indent)
         ])
       ]
     })
     states.set(activeFile, view.state)
-  }, [themeId, wrap, fontSize, activeFile, themeCompartment, layoutCompartment])
+  }, [themeId, editorWrap, editorFontSize, activeFile, themeCompartment, layoutCompartment])
 
   /** Ctrl+scroll zooms the editor, matching VS Code. */
   const onWheel = (event: WheelEvent<HTMLDivElement>): void => {
     if (!event.ctrlKey) return
     event.preventDefault()
-    const next = Math.min(MAX_FONT, Math.max(MIN_FONT, fontSize + (event.deltaY < 0 ? 1 : -1)))
-    preferences.fontSize = next
-    persist(FONT_KEY, String(next))
-    setFontSize(next)
+    const next = Math.min(
+      EDITOR_FONT_MAX,
+      Math.max(EDITOR_FONT_MIN, editorFontSize + (event.deltaY < 0 ? 1 : -1))
+    )
+    setPrefs({ editorFontSize: next })
   }
 
   const crumbs = (activeFile ?? '').split(/[\\/]/).filter(Boolean)
@@ -356,10 +325,10 @@ export function EditorView() {
         <span className="sp" />
 
         <button
-          className={`ibtn${wrap ? ' on' : ''}`}
-          onClick={() => setWrapping(!wrap)}
+          className={`ibtn${editorWrap ? ' on' : ''}`}
+          onClick={() => setWrapping(!editorWrap)}
           title="Toggle word wrap (Alt+Z)"
-          aria-pressed={wrap}
+          aria-pressed={editorWrap}
         >
           <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor">
             <path d="M2 4h12M2 8h9a2.5 2.5 0 010 5H8M2 12h3" />

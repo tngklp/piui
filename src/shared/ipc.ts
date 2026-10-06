@@ -50,6 +50,8 @@ export const IpcChannel = {
   /** Read or replace the provider/model definitions in `models.json`. */
   ModelsGet: 'piui:models:get',
   ModelsSet: 'piui:models:set',
+  /** Models a provider offers, for the Add model picker. */
+  ModelsCatalog: 'piui:models:catalog',
   /** Real terminal sessions backed by a pseudo-terminal. */
   TerminalCreate: 'piui:terminal:create',
   TerminalWrite: 'piui:terminal:write',
@@ -127,6 +129,8 @@ export interface TerminalCreateInput {
   cwd: string
   cols: number
   rows: number
+  /** Absolute path to the shell to run; empty means pick a sensible default. */
+  shell?: string
 }
 
 /** A live terminal session, including the output produced so far. */
@@ -579,6 +583,8 @@ export interface PiUiApi {
   getModelsConfig(): Promise<ModelsConfigDto>
   /** Replace the provider and model definitions and reload the agent catalogue. */
   setModelsConfig(config: ModelsConfigDto): Promise<ModelsUpdateResultDto>
+  /** Every model a provider publishes, so one can be added without guessing. */
+  listProviderModels(provider: string): Promise<ModelDefDto[]>
   /** Start (or re-attach to) a terminal session. */
   terminalCreate(input: TerminalCreateInput): Promise<TerminalSessionDto>
   /** Send keystrokes to a terminal session. */

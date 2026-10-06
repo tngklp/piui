@@ -9,6 +9,7 @@ import type {
   ChatBlockDto,
   ChatItemDto,
   CommandDto,
+  ModelDefDto,
   ModelDto,
   MonitorRequestDto,
   PromptInput,
@@ -578,6 +579,37 @@ export class AgentHost {
       contextWindow: model?.contextWindow ?? null,
       maxTokens: model?.maxTokens ?? null
     }
+  }
+
+  /**
+   * Every model a provider publishes, for the "Add model" picker.
+   *
+   * Built-in providers (OpenAI, Anthropic, ...) return their real catalogue, so
+   * adding one fills in the context window, output limit, and capabilities
+   * instead of leaving the user to guess. Custom providers return nothing.
+   */
+  async getProviderModels(provider: string): Promise<ModelDefDto[]> {
+    if (!provider) return []
+
+    const models = this.session.modelRuntime.getModels(provider)
+    return models.map((model) => {
+      const cost = model.cost as
+        { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } | undefined
+      return {
+        id: model.id,
+        name: model.name ?? model.id,
+        reasoning: model.reasoning ?? false,
+        input: [...(model.input ?? ['text'])],
+        contextWindow: model.contextWindow ?? 0,
+        maxTokens: model.maxTokens ?? 0,
+        cost: {
+          input: cost?.input ?? 0,
+          output: cost?.output ?? 0,
+          cacheRead: cost?.cacheRead ?? 0,
+          cacheWrite: cost?.cacheWrite ?? 0
+        }
+      }
+    })
   }
 
   /** Recently completed turns, newest first, for the monitor's request table. */

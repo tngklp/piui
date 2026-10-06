@@ -2644,6 +2644,74 @@ select.pick {
   padding: 18px;
   overflow: hidden auto;
   min-height: 0;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+
+/* ---------- settings controls ---------- */
+
+.set-field {
+  display: grid;
+  gap: 5px;
+}
+
+.set-field > span {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.set-field .inp {
+  max-width: 260px;
+}
+
+.set-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.set-inline .inp {
+  max-width: 90px;
+}
+
+.set-unit {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.set-note {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.5;
+}
+
+.set-toggle {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  cursor: pointer;
+}
+
+.set-toggle input {
+  margin-top: 2px;
+  flex: none;
+}
+
+.set-toggle .tx {
+  display: grid;
+  gap: 2px;
+}
+
+.set-toggle b {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.set-toggle small {
+  font-size: 11.5px;
+  color: var(--dim);
+  line-height: 1.5;
 }
 
 /* Settings sections are grids, which would otherwise stretch a dropdown to the
@@ -2794,6 +2862,98 @@ select.pick {
   align-items: center;
   gap: 8px;
   margin-top: 6px;
+}
+
+/* ---------- secret input ---------- */
+
+.secret {
+  position: relative;
+  display: block;
+}
+
+.secret .inp {
+  padding-right: 32px;
+}
+
+.secret__eye {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--dim);
+}
+
+.secret__eye:hover {
+  background: var(--raise);
+  color: var(--text);
+}
+
+/* ---------- provider model picker ---------- */
+
+.mpick {
+  border: 1px solid var(--lilac-strong);
+  border-radius: 11px;
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+  background: var(--panel);
+}
+
+.mpick__hd {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mpick__hd .inp {
+  flex: 1;
+}
+
+.mpick__list {
+  max-height: 220px;
+  overflow: auto;
+  display: grid;
+  gap: 2px;
+  scrollbar-gutter: stable;
+}
+
+.mpick__row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 7px;
+  text-align: left;
+}
+
+.mpick__row:hover {
+  background: var(--lilac-soft);
+}
+
+.mpick__id {
+  flex: none;
+  font-size: 12px;
+}
+
+.mpick__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dim);
+  font-size: 11.5px;
+}
+
+.mpick__meta {
+  flex: none;
+  color: var(--dim);
+  font-size: 11px;
 }
 
 /* ---------- package catalogue ---------- */

@@ -71,6 +71,7 @@ const api: PiUiApi = {
   getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet),
   getModelsConfig: () => ipcRenderer.invoke(IpcChannel.ModelsGet),
   setModelsConfig: (config: ModelsConfigDto) => ipcRenderer.invoke(IpcChannel.ModelsSet, config),
+  listProviderModels: (provider: string) => ipcRenderer.invoke(IpcChannel.ModelsCatalog, provider),
   terminalCreate: (input: TerminalCreateInput) =>
     ipcRenderer.invoke(IpcChannel.TerminalCreate, input),
   terminalWrite: (id: string, data: string) =>

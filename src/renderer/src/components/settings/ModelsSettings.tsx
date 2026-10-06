@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ModelDefDto, ModelsConfigDto, ProviderConfigDto } from '@shared/ipc'
 import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
@@ -25,8 +25,8 @@ const SAVE_DEBOUNCE_MS = 400
  *
  * The ids match pi's own provider ids, so the entry overlays the built-in
  * provider: its model catalogue and streaming behaviour are kept and only the
- * credentials come from here. Models are left empty on purpose — the built-in
- * catalogue supplies them, and the user only has to paste a key.
+ * credentials come from here. Models are left empty on purpose — "Add model"
+ * offers that provider's real catalogue.
  */
 interface ProviderPreset {
   id: string
@@ -81,8 +81,8 @@ const PROVIDER_PRESETS: ProviderPreset[] = [
   }
 ]
 
-/** Sentinel for the free-form entry. */
-const CUSTOM_PRESET = ''
+/** Never matched by an option, so the control always reads as a menu. */
+const ADD_SENTINEL = '__add_provider__'
 
 function emptyModel(): ModelDefDto {
   return {
@@ -108,7 +108,6 @@ function emptyProvider(id: string): ProviderConfigDto {
 
 /** Provider entry for a hosted API preset, awaiting an API key. */
 function presetProvider(preset: ProviderPreset, taken: ProviderConfigDto[]): ProviderConfigDto {
-  // A second copy of the same preset gets a suffix so ids stay unique.
   const used = new Set(taken.map((provider) => provider.id))
   let id = preset.id
   let suffix = 2
@@ -127,6 +126,12 @@ function nextProviderId(providers: ProviderConfigDto[]): string {
   return `provider-${index}`
 }
 
+/** A model offered by a provider's catalogue, plus whether it is already added. */
+type CatalogState =
+  | { status: 'loading' }
+  | { status: 'ready'; models: ModelDefDto[] }
+  | { status: 'error'; message: string }
+
 /**
  * Provider and model catalogue editor.
  *
@@ -139,7 +144,13 @@ export function ModelsSettings() {
   const save = usePiUi((state) => state.saveModelsConfig)
 
   const [draft, setDraft] = useState<ModelsConfigDto | null>(null)
-  const [preset, setPreset] = useState<string>(CUSTOM_PRESET)
+  /** Provider indices whose API key is visible. */
+  const [revealed, setRevealed] = useState<number[]>([])
+  /** Provider index whose catalogue picker is open. */
+  const [picker, setPicker] = useState<number | null>(null)
+  const [query, setQuery] = useState('')
+  const [catalogs, setCatalogs] = useState<Record<string, CatalogState>>({})
+
   const hydrated = useRef(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -158,6 +169,44 @@ export function ModelsSettings() {
       if (timer.current) clearTimeout(timer.current)
     }
   }, [draft, save])
+
+  const pickerProvider = picker !== null ? draft?.providers[picker] : undefined
+
+  // Load the chosen provider's catalogue the first time its picker opens.
+  useEffect(() => {
+    const id = pickerProvider?.id
+    if (!id || catalogs[id] !== undefined) return
+
+    setCatalogs((current) => ({ ...current, [id]: { status: 'loading' } }))
+    window.piui
+      .listProviderModels(id)
+      .then((models) =>
+        setCatalogs((current) => ({ ...current, [id]: { status: 'ready', models } }))
+      )
+      .catch((cause: unknown) =>
+        setCatalogs((current) => ({
+          ...current,
+          [id]: { status: 'error', message: cause instanceof Error ? cause.message : String(cause) }
+        }))
+      )
+  }, [pickerProvider?.id, catalogs])
+
+  const catalogState = pickerProvider ? catalogs[pickerProvider.id] : undefined
+
+  const matches = useMemo(() => {
+    if (!pickerProvider || catalogState?.status !== 'ready') return []
+    const taken = new Set(pickerProvider.models.map((model) => model.id))
+    const needle = query.trim().toLowerCase()
+    return catalogState.models
+      .filter((model) => !taken.has(model.id))
+      .filter(
+        (model) =>
+          needle.length === 0 ||
+          model.id.toLowerCase().includes(needle) ||
+          model.name.toLowerCase().includes(needle)
+      )
+      .slice(0, 60)
+  }, [pickerProvider, catalogState, query])
 
   if (!draft) {
     return (
@@ -196,10 +245,25 @@ export function ModelsSettings() {
       ? API_OPTIONS
       : [{ value: api, label: api }, ...API_OPTIONS]
 
-  const presetOptions: SelectOption<string>[] = [
-    { value: CUSTOM_PRESET, label: 'Custom provider' },
-    ...PROVIDER_PRESETS.map((entry) => ({ value: entry.id, label: entry.label }))
+  const presetOptions: SelectOption<string>[] = PROVIDER_PRESETS.map((entry) => ({
+    value: entry.id,
+    label: entry.label
+  }))
+
+  const providerMenuOptions: SelectOption<string>[] = [
+    ...presetOptions,
+    { value: '__custom__', label: 'Custom provider' }
   ]
+
+  const toggleReveal = (index: number): void =>
+    setRevealed((current) =>
+      current.includes(index) ? current.filter((entry) => entry !== index) : [...current, index]
+    )
+
+  const openPicker = (index: number): void => {
+    setPicker(index)
+    setQuery('')
+  }
 
   return (
     <section className="set-section">
@@ -240,12 +304,53 @@ export function ModelsSettings() {
             </label>
             <label>
               <span>API key</span>
-              <input
-                className="inp mono"
-                value={provider.apiKey}
-                aria-label="API key"
-                onChange={(event) => updateProvider(providerIndex, { apiKey: event.target.value })}
-              />
+              <span className="secret">
+                <input
+                  className="inp mono"
+                  type={revealed.includes(providerIndex) ? 'text' : 'password'}
+                  value={provider.apiKey}
+                  aria-label="API key"
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) =>
+                    updateProvider(providerIndex, { apiKey: event.target.value })
+                  }
+                />
+                <button
+                  type="button"
+                  className="secret__eye"
+                  title={revealed.includes(providerIndex) ? 'Hide API key' : 'Show API key'}
+                  aria-label={revealed.includes(providerIndex) ? 'Hide API key' : 'Show API key'}
+                  aria-pressed={revealed.includes(providerIndex)}
+                  onClick={() => toggleReveal(providerIndex)}
+                >
+                  {revealed.includes(providerIndex) ? (
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                    >
+                      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />
+                      <circle cx="8" cy="8" r="2" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="15"
+                      height="15"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.4"
+                    >
+                      <path d="M1.5 8S4 3.5 8 3.5c1.2 0 2.2.4 3.1 1M14.5 8S12 12.5 8 12.5c-1.2 0-2.2-.4-3.1-1" />
+                      <path d="M2.5 2.5l11 11" />
+                    </svg>
+                  )}
+                </button>
+              </span>
             </label>
             <label>
               <span>API</span>
@@ -354,32 +459,91 @@ export function ModelsSettings() {
             ))}
           </div>
 
-          <button
-            className="b sm"
-            onClick={() =>
-              update((next) => {
-                next.providers[providerIndex].models.push(emptyModel())
-              })
-            }
-          >
-            ＋ Add model
-          </button>
+          {picker === providerIndex ? (
+            <div className="mpick">
+              <div className="mpick__hd">
+                <input
+                  className="inp"
+                  autoFocus
+                  value={query}
+                  placeholder={`Search ${provider.id} models`}
+                  aria-label={`Search ${provider.id} models`}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Escape') setPicker(null)
+                  }}
+                />
+                <button className="b sm" onClick={() => setPicker(null)}>
+                  Cancel
+                </button>
+              </div>
+
+              {catalogState?.status === 'loading' ? (
+                <p className="hint">Reading {provider.id}’s catalogue…</p>
+              ) : null}
+              {catalogState?.status === 'error' ? (
+                <p className="hint bad">{catalogState.message}</p>
+              ) : null}
+              {catalogState?.status === 'ready' && catalogState.models.length === 0 ? (
+                <p className="hint">
+                  {provider.id} has no published catalogue, so models have to be declared by hand.
+                </p>
+              ) : null}
+
+              <div className="mpick__list">
+                {matches.map((model) => (
+                  <button
+                    key={model.id}
+                    className="mpick__row"
+                    onClick={() => {
+                      update((next) => {
+                        next.providers[providerIndex].models.push({ ...model })
+                      })
+                      setQuery('')
+                    }}
+                  >
+                    <span className="mono mpick__id">{model.id}</span>
+                    <span className="mpick__name">{model.name}</span>
+                    <span className="sp" />
+                    <span className="mpick__meta">
+                      {model.contextWindow ? `${Math.round(model.contextWindow / 1024)}k ctx` : ''}
+                    </span>
+                  </button>
+                ))}
+                {catalogState?.status === 'ready' && matches.length === 0 ? (
+                  <p className="hint">No matching models left to add.</p>
+                ) : null}
+              </div>
+
+              <button
+                className="b sm"
+                onClick={() => {
+                  update((next) => {
+                    next.providers[providerIndex].models.push(emptyModel())
+                  })
+                  setPicker(null)
+                }}
+              >
+                Add a blank model instead
+              </button>
+            </div>
+          ) : (
+            <button className="b sm" onClick={() => openPicker(providerIndex)}>
+              ＋ Add model
+            </button>
+          )}
         </div>
       ))}
 
       <div className="addprov">
         <Select
-          value={preset}
-          options={presetOptions}
-          onChange={setPreset}
-          title="Provider preset"
-          placeholder="Custom"
-        />
-        <button
-          className="b sm"
-          onClick={() =>
+          value={ADD_SENTINEL}
+          options={providerMenuOptions}
+          title="Add a provider"
+          placeholder="＋ Add provider"
+          onChange={(value) =>
             update((next) => {
-              const chosen = PROVIDER_PRESETS.find((entry) => entry.id === preset)
+              const chosen = PROVIDER_PRESETS.find((entry) => entry.id === value)
               next.providers.push(
                 chosen
                   ? presetProvider(chosen, next.providers)
@@ -387,9 +551,7 @@ export function ModelsSettings() {
               )
             })
           }
-        >
-          ＋ Add provider
-        </button>
+        />
       </div>
     </section>
   )
