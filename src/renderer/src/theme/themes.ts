@@ -111,17 +111,18 @@ const LIGHT_SIGNALS = {
 }
 
 /**
- * The general dark surface: plain neutral greys where only the accent carries
- * the theme's colour. Every `<Name> Dark` variant is this plus a family accent.
+ * The general dark surface: near-black neutral greys where only the accent
+ * carries the theme's colour. Every `<Name> Dark` variant is this plus a family
+ * accent, and it always sits visibly darker than the family's normal palette.
  */
 const GENERAL_DARK = {
-  bg: '#131315',
-  panel: '#19191c',
-  raise: '#242428',
-  line: '#2d2d32',
-  text: '#e9e9ec',
-  dim: '#9b9ba4',
-  term: '#0e0e10',
+  bg: '#0a0a0c',
+  panel: '#0f0f12',
+  raise: '#17171b',
+  line: '#202026',
+  text: '#e6e6ea',
+  dim: '#8a8a94',
+  term: '#050506',
   ...DARK_SIGNALS
 }
 
@@ -131,17 +132,17 @@ function darkVariant(accent: AccentPalette): ThemeTokens {
 }
 
 const WISTERIA_DARK: ThemeTokens = {
-  bg: '#141118',
-  panel: '#1a1620',
-  raise: '#262032',
-  line: '#312a3e',
-  text: '#eae7ee',
-  dim: '#9c97a8',
+  bg: '#181322',
+  panel: '#1f1830',
+  raise: '#2b2240',
+  line: '#3a2e55',
+  text: '#ede9f5',
+  dim: '#a79fbc',
   accent: '#BEA4F0',
   accentStrong: '#C9B2F5',
-  accentSoft: 'rgba(190,164,240,.15)',
+  accentSoft: 'rgba(190,164,240,.18)',
   onAccent: '#24153F',
-  term: '#0f0d12',
+  term: '#100c18',
   ...DARK_SIGNALS
 }
 
@@ -161,17 +162,17 @@ const WISTERIA_LIGHT: ThemeTokens = {
 }
 
 const GRAPHITE_DARK: ThemeTokens = {
-  bg: '#15161a',
-  panel: '#1b1d22',
-  raise: '#262931',
-  line: '#2f333c',
-  text: '#e9eaee',
-  dim: '#9a9da6',
+  bg: '#191c21',
+  panel: '#20242b',
+  raise: '#2b313a',
+  line: '#39404b',
+  text: '#edeff3',
+  dim: '#a2a8b2',
   accent: '#A9B1C0',
-  accentStrong: '#C3CBDA',
-  accentSoft: 'rgba(169,177,192,.15)',
+  accentStrong: '#D2D9E5',
+  accentSoft: 'rgba(169,177,192,.18)',
   onAccent: '#1B1F27',
-  term: '#0E0F11',
+  term: '#0f1114',
   ...DARK_SIGNALS
 }
 
@@ -191,17 +192,17 @@ const GRAPHITE_LIGHT: ThemeTokens = {
 }
 
 const OCEAN_DARK: ThemeTokens = {
-  bg: '#0D1420',
-  panel: '#121B2A',
-  raise: '#1B2738',
-  line: '#24344A',
-  text: '#E4ECF7',
-  dim: '#93A4BD',
+  bg: '#0d1a2e',
+  panel: '#122340',
+  raise: '#1a3055',
+  line: '#234070',
+  text: '#e3edfa',
+  dim: '#95aecf',
   accent: '#4F9CF0',
-  accentStrong: '#7DB6F7',
-  accentSoft: 'rgba(79,156,240,.16)',
+  accentStrong: '#8CBEFF',
+  accentSoft: 'rgba(79,156,240,.2)',
   onAccent: '#06172B',
-  term: '#080E18',
+  term: '#08111f',
   ...DARK_SIGNALS
 }
 
@@ -221,17 +222,17 @@ const OCEAN_LIGHT: ThemeTokens = {
 }
 
 const EMBER_DARK: ThemeTokens = {
-  bg: '#16110D',
-  panel: '#1D1611',
-  raise: '#2A2019',
-  line: '#3A2C22',
-  text: '#F2E9E1',
-  dim: '#A89A8C',
+  bg: '#1d1209',
+  panel: '#26180c',
+  raise: '#362310',
+  line: '#4a3016',
+  text: '#f5eadf',
+  dim: '#be9f82',
   accent: '#F08A3C',
-  accentStrong: '#FFA257',
-  accentSoft: 'rgba(240,138,60,.16)',
+  accentStrong: '#FFB067',
+  accentSoft: 'rgba(240,138,60,.2)',
   onAccent: '#2A1508',
-  term: '#100C09',
+  term: '#120c06',
   ...DARK_SIGNALS
 }
 
@@ -251,12 +252,12 @@ const EMBER_LIGHT: ThemeTokens = {
 }
 
 const ROSE_DARK: ThemeTokens = {
-  bg: '#160F14',
-  panel: '#1E151B',
-  raise: '#2A1E26',
-  line: '#3A2A34',
-  text: '#F2E7EE',
-  dim: '#AB95A4',
+  bg: '#1e0f18',
+  panel: '#28141f',
+  raise: '#3a1d2c',
+  line: '#4f2839',
+  text: '#f7e8f0',
+  dim: '#c79eb1',
   accent: '#F072A8',
   accentStrong: '#FF92BD',
   accentSoft: 'rgba(240,114,168,.16)',
@@ -321,18 +322,18 @@ const ACCENTS: Record<string, AccentPalette> = {
 /** Palette families, in the order they appear in Settings. */
 const FAMILIES: ThemeFamily[] = [
   {
-    id: 'wisteria',
-    name: 'Wisteria',
-    accent: ACCENTS.wisteria as AccentPalette,
-    normal: WISTERIA_DARK,
-    light: WISTERIA_LIGHT
-  },
-  {
     id: 'graphite',
     name: 'Graphite',
     accent: ACCENTS.graphite as AccentPalette,
     normal: GRAPHITE_DARK,
     light: GRAPHITE_LIGHT
+  },
+  {
+    id: 'wisteria',
+    name: 'Wisteria',
+    accent: ACCENTS.wisteria as AccentPalette,
+    normal: WISTERIA_DARK,
+    light: WISTERIA_LIGHT
   },
   {
     id: 'ocean',
@@ -359,7 +360,9 @@ const FAMILIES: ThemeFamily[] = [
 
 /**
  * Every theme, three variants per family and in that order, so the settings
- * grid can lay them out three to a row without any grouping logic.
+ * grid can lay them out three to a row without any grouping logic. The variants
+ * go normal, dark, light: the family's own palette, the same accent on the
+ * general near-black surface, then the light palette.
  */
 export const THEMES: Theme[] = FAMILIES.flatMap((family): Theme[] => [
   {
@@ -389,16 +392,16 @@ export const THEMES: Theme[] = FAMILIES.flatMap((family): Theme[] => [
 ])
 
 /** Palette used on first run. */
-export const DEFAULT_THEME_ID = 'wisteria'
+export const DEFAULT_THEME_ID = 'wisteria-dark'
 
 /**
- * Ids from earlier releases. `<family>-dark` used to mean what is now the
- * family's plain variant, and Lilac grew into Wisteria.
+ * Ids from earlier releases, where a family had only a dark and a light
+ * palette. The old `<family>-dark` is today's plain variant for the tinted
+ * families, and the old Lilac was the neutral one that is now Wisteria Dark.
  */
 const LEGACY_THEME_IDS: Record<string, string> = {
-  'lilac-dark': 'wisteria',
+  'lilac-dark': 'wisteria-dark',
   'lilac-light': 'wisteria-light',
-  'graphite-dark': 'graphite',
   'ocean-dark': 'ocean',
   'ember-dark': 'ember',
   'rose-dark': 'rose'

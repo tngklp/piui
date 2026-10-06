@@ -28,6 +28,7 @@ import { listDirectory, readFileText, writeFileText } from './fs-list'
 import { invalidateWorkspaceFiles, listWorkspaceFiles } from './fs-index'
 import { readMonitor } from './monitor'
 import { TerminalManager } from './terminal'
+import { UpdateService } from './update'
 
 export interface IpcContext {
   /** Current main window, used to push agent events to the renderer. */
@@ -76,6 +77,8 @@ export function registerIpcHandlers(context: IpcContext): void {
     (payload) => send(IpcEvent.TerminalData, payload),
     (payload) => send(IpcEvent.TerminalExit, payload)
   )
+
+  const updates = new UpdateService((state) => send(IpcEvent.Update, state))
 
   const approvals = new ApprovalManager(
     join(app.getPath('userData'), 'approval-rules.json'),
@@ -242,6 +245,14 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.ModelsCatalog, async (_event, provider: string) => {
     return (await host()).getProviderModels(provider)
   })
+
+  ipcMain.handle(IpcChannel.UpdateGetState, () => updates.getState())
+  ipcMain.handle(IpcChannel.UpdateCheck, () => updates.check())
+  ipcMain.handle(IpcChannel.UpdateDownload, () => updates.download())
+  ipcMain.handle(IpcChannel.UpdateInstall, () => updates.install())
+
+  // Let an available release announce itself shortly after launch.
+  updates.scheduleStartupCheck()
 
   ipcMain.handle(IpcChannel.TerminalCreate, async (_event, input: TerminalCreateInput) => {
     const cwd = (await host()).getWorkspace().cwd

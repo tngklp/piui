@@ -3,3 +3,9 @@ out
 dist
 release
 package-lock.json
+
+# Generated icon packs (run `npm run icons`)
+src/renderer/public/material-icons
+src/renderer/src/lib/material-icons.json
+src/renderer/public/catppuccin-icons
+src/renderer/src/lib/catppuccin-icons.json

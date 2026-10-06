@@ -5,8 +5,8 @@ import { PackagesSettings } from './settings/PackagesSettings'
 import { ToolsSettings } from './settings/ToolsSettings'
 
 const TABS: { id: SettingsTab; label: string; hint: string }[] = [
-  { id: 'customization', label: 'Customization', hint: 'Theme and appearance' },
   { id: 'models', label: 'Models', hint: 'Providers and models' },
+  { id: 'customization', label: 'Customization', hint: 'Theme and appearance' },
   { id: 'packages', label: 'Packages', hint: 'Skills and extensions' },
   { id: 'tools', label: 'Tools', hint: 'Approval policy' }
 ]

@@ -1,5 +1,7 @@
 import { usePiUi } from '../../store'
+import { ICON_PACKS } from '../../lib/icon-packs'
 import { THEMES, type ThemeVariant } from '../../theme/themes'
+import { Select, type SelectOption } from '../Select'
 
 /** Small caption under each family name in the theme grid. */
 const VARIANT_LABELS: Record<ThemeVariant, string> = {
@@ -45,7 +47,13 @@ export function CustomizationSettings() {
   const themeId = usePiUi((state) => state.themeId)
   const setTheme = usePiUi((state) => state.setTheme)
   const expandThinking = usePiUi((state) => state.prefs.expandThinking)
+  const iconPack = usePiUi((state) => state.prefs.iconPack)
   const setPrefs = usePiUi((state) => state.setPrefs)
+
+  const iconPackOptions: SelectOption<string>[] = ICON_PACKS.map((pack) => ({
+    value: pack.id,
+    label: pack.name
+  }))
 
   return (
     <>
@@ -84,6 +92,19 @@ export function CustomizationSettings() {
 
       <section className="set-section">
         <h3>Interface</h3>
+
+        <div className="set-row">
+          <span className="set-row__label">Icon pack</span>
+          <Select
+            value={iconPack}
+            options={iconPackOptions}
+            title="Icon pack"
+            onChange={(pack) => setPrefs({ iconPack: pack })}
+          />
+          <small className="set-note">
+            Icons used by the file explorer, the editor tabs, and quick open.
+          </small>
+        </div>
 
         <Toggle
           label="Expand reasoning by default"

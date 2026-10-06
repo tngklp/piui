@@ -4,6 +4,7 @@
  * These are all renderer-side and read synchronously on startup, so they use
  * `localStorage` rather than going through the main process.
  */
+import { DEFAULT_ICON_PACK, findIconPack } from './icon-packs'
 
 export interface UiPreferences {
   /** Editor font size in pixels. */
@@ -12,6 +13,8 @@ export interface UiPreferences {
   editorWrap: boolean
   /** Expand reasoning blocks in the transcript by default. */
   expandThinking: boolean
+  /** Icon pack id used by the file explorer and editor tabs. */
+  iconPack: string
 }
 
 const STORAGE_KEY = 'piui.prefs'
@@ -22,7 +25,8 @@ export const EDITOR_FONT_MAX = 24
 export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   editorFontSize: 13,
   editorWrap: false,
-  expandThinking: false
+  expandThinking: false,
+  iconPack: DEFAULT_ICON_PACK
 }
 
 function clampFontSize(value: unknown): number {
@@ -37,7 +41,8 @@ function normalize(value: unknown): UiPreferences {
   return {
     editorFontSize: clampFontSize(raw.editorFontSize),
     editorWrap: typeof raw.editorWrap === 'boolean' ? raw.editorWrap : false,
-    expandThinking: typeof raw.expandThinking === 'boolean' ? raw.expandThinking : false
+    expandThinking: typeof raw.expandThinking === 'boolean' ? raw.expandThinking : false,
+    iconPack: findIconPack(typeof raw.iconPack === 'string' ? raw.iconPack : '').id
   }
 }
 

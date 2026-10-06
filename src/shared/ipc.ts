@@ -61,7 +61,12 @@ export const IpcChannel = {
   PackagesSearch: 'piui:packages:search',
   PackagesInstalled: 'piui:packages:installed',
   PackagesInstall: 'piui:packages:install',
-  PackagesRemove: 'piui:packages:remove'
+  PackagesRemove: 'piui:packages:remove',
+  /** Self-update: state, manual check, download, and install. */
+  UpdateGetState: 'piui:update:get-state',
+  UpdateCheck: 'piui:update:check',
+  UpdateDownload: 'piui:update:download',
+  UpdateInstall: 'piui:update:install'
 } as const
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -77,7 +82,9 @@ export const IpcEvent = {
   /** A terminal session ended. */
   TerminalExit: 'piui:terminal:exit',
   /** Progress from a package install. */
-  PackagesProgress: 'piui:packages:progress'
+  PackagesProgress: 'piui:packages:progress',
+  /** A change in the self-update state. */
+  Update: 'piui:update'
 } as const
 
 export type IpcEvent = (typeof IpcEvent)[keyof typeof IpcEvent]
@@ -519,6 +526,34 @@ export interface MonitorSnapshotDto {
   status: MonitorStatusDto
 }
 
+/** Where the self-updater is in its cycle. */
+export type UpdatePhaseDto =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'up-to-date'
+  | 'unsupported'
+  | 'error'
+
+/** Self-update state, mirrored into the renderer so it can prompt. */
+export interface UpdateStateDto {
+  phase: UpdatePhaseDto
+  /** Version on offer, or the one that was downloaded. */
+  version: string | null
+  /** Version currently running. */
+  currentVersion: string
+  /** Download progress, 0-100. */
+  percent: number | null
+  /** Why updates are unavailable, or what went wrong. */
+  message: string | null
+  /** Release notes for the offered version, when the release carries any. */
+  notes: string | null
+  /** False for portable and development builds, which cannot self-update. */
+  canInstall: boolean
+}
+
 /**
  * The API surface PiUI exposes to the renderer as `window.piui`.
  * Every method is implemented in the preload script and backed by IPC.
@@ -610,4 +645,14 @@ export interface PiUiApi {
   removePackage(source: string): Promise<InstalledPackageDto[]>
   /** Subscribe to install progress. Returns an unsubscribe function. */
   onPackageProgress(listener: (payload: PackageProgressDto) => void): () => void
+  /** Current state of the updater. */
+  getUpdateState(): Promise<UpdateStateDto>
+  /** Ask the release feed whether a newer version exists. */
+  checkForUpdates(): Promise<UpdateStateDto>
+  /** Download the offered version in the background. */
+  downloadUpdate(): Promise<UpdateStateDto>
+  /** Quit, install the downloaded version, and relaunch. */
+  installUpdate(): Promise<void>
+  /** Subscribe to updater state changes. Returns an unsubscribe function. */
+  onUpdate(listener: (state: UpdateStateDto) => void): () => void
 }

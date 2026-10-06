@@ -36,7 +36,7 @@ import {
 import { gotoLine, highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
 import { usePiUi } from '../../store'
 import { EDITOR_FONT_MAX, EDITOR_FONT_MIN } from '../../lib/ui-prefs'
-import { fileIconName, iconUrl } from '../../lib/fileIcon'
+import { fileIconUrl } from '../../lib/icon-packs'
 import { baseName, extensionOf, languageFor } from './languages'
 import { indentGuides } from './indentGuides'
 import { editorHighlight, editorTheme } from './theme'
@@ -94,6 +94,7 @@ export function EditorView() {
   // Editor typography lives in the store so the settings dialog can drive it.
   const editorWrap = usePiUi((state) => state.prefs.editorWrap)
   const editorFontSize = usePiUi((state) => state.prefs.editorFontSize)
+  const iconPack = usePiUi((state) => state.prefs.iconPack)
   const setPrefs = usePiUi((state) => state.setPrefs)
 
   const load = useCallback(async (path: string) => {
@@ -306,7 +307,7 @@ export function EditorView() {
                 title={path}
                 onClick={() => setActiveFile(path)}
               >
-                <img className="ftab__icon" src={iconUrl(fileIconName(baseName(path)))} alt="" />
+                <img className="ftab__icon" src={fileIconUrl(iconPack, baseName(path))} alt="" />
                 {baseName(path)}
                 {isDirty ? <span className="ftab__modified" aria-hidden="true" /> : null}
               </button>

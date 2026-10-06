@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ModelDefDto, ModelsConfigDto, ProviderConfigDto } from '@shared/ipc'
+import { HOSTED_PROVIDERS, isHostedProviderId, type HostedProvider } from '@shared/providers'
 import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
 
@@ -19,67 +20,6 @@ const API_OPTIONS: SelectOption<string>[] = [
 
 /** How long to wait after the last edit before writing `models.json`. */
 const SAVE_DEBOUNCE_MS = 400
-
-/**
- * Ready-made provider entries for hosted APIs.
- *
- * The ids match pi's own provider ids, so the entry overlays the built-in
- * provider: its model catalogue and streaming behaviour are kept and only the
- * credentials come from here. Models are left empty on purpose — "Add model"
- * offers that provider's real catalogue.
- */
-interface ProviderPreset {
-  id: string
-  label: string
-  baseUrl: string
-  api: string
-}
-
-const PROVIDER_PRESETS: ProviderPreset[] = [
-  {
-    id: 'openai',
-    label: 'ChatGPT (OpenAI)',
-    baseUrl: 'https://api.openai.com/v1',
-    api: 'openai-completions'
-  },
-  {
-    id: 'anthropic',
-    label: 'Claude (Anthropic)',
-    baseUrl: 'https://api.anthropic.com/v1',
-    api: 'anthropic-messages'
-  },
-  {
-    id: 'deepseek',
-    label: 'DeepSeek',
-    baseUrl: 'https://api.deepseek.com/v1',
-    api: 'openai-completions'
-  },
-  {
-    id: 'google',
-    label: 'Gemini (Google)',
-    baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-    api: 'google-generative-ai'
-  },
-  { id: 'xai', label: 'Grok (xAI)', baseUrl: 'https://api.x.ai/v1', api: 'openai-completions' },
-  {
-    id: 'mistral',
-    label: 'Mistral',
-    baseUrl: 'https://api.mistral.ai/v1',
-    api: 'mistral-conversations'
-  },
-  {
-    id: 'groq',
-    label: 'Groq',
-    baseUrl: 'https://api.groq.com/openai/v1',
-    api: 'openai-completions'
-  },
-  {
-    id: 'openrouter',
-    label: 'OpenRouter',
-    baseUrl: 'https://openrouter.ai/api/v1',
-    api: 'openai-completions'
-  }
-]
 
 function emptyModel(): ModelDefDto {
   return {
@@ -104,7 +44,7 @@ function emptyProvider(id: string): ProviderConfigDto {
 }
 
 /** Provider entry for a hosted API preset, awaiting an API key. */
-function presetProvider(preset: ProviderPreset, taken: ProviderConfigDto[]): ProviderConfigDto {
+function presetProvider(preset: HostedProvider, taken: ProviderConfigDto[]): ProviderConfigDto {
   const used = new Set(taken.map((provider) => provider.id))
   let id = preset.id
   let suffix = 2
@@ -285,271 +225,292 @@ export function ModelsSettings() {
         </p>
       ) : null}
 
-      {draft.providers.map((provider, providerIndex) => (
-        <div className="prov" key={providerIndex}>
-          <div className="prov__hd">
-            <input
-              className="inp mono"
-              value={provider.id}
-              aria-label="Provider id"
-              placeholder="provider id"
-              onChange={(event) => updateProvider(providerIndex, { id: event.target.value })}
-            />
-            <span className="sp" />
-            <button
-              className="b sm bad"
-              onClick={() =>
-                update((next) => {
-                  next.providers.splice(providerIndex, 1)
-                })
-              }
-            >
-              Remove provider
-            </button>
-          </div>
+      {draft.providers.map((provider, providerIndex) => {
+        // Hosted APIs decide a model's context window, output limit and
+        // capabilities themselves, so those fields are read-only there and only
+        // the models the user added are offered in the app.
+        const hosted = isHostedProviderId(provider.id)
 
-          <div className="prov__row">
-            <label>
-              <span>Base URL</span>
+        return (
+          <div className="prov" key={providerIndex}>
+            <div className="prov__hd">
               <input
                 className="inp mono"
-                value={provider.baseUrl}
-                aria-label="Base URL"
-                onChange={(event) => updateProvider(providerIndex, { baseUrl: event.target.value })}
+                value={provider.id}
+                aria-label="Provider id"
+                placeholder="provider id"
+                onChange={(event) => updateProvider(providerIndex, { id: event.target.value })}
               />
-            </label>
-            <label>
-              <span>API key</span>
-              <span className="secret">
-                <input
-                  className="inp mono"
-                  type={revealed.includes(providerIndex) ? 'text' : 'password'}
-                  value={provider.apiKey}
-                  aria-label="API key"
-                  autoComplete="off"
-                  spellCheck={false}
-                  onChange={(event) =>
-                    updateProvider(providerIndex, { apiKey: event.target.value })
-                  }
-                />
-                <button
-                  type="button"
-                  className="secret__eye"
-                  title={revealed.includes(providerIndex) ? 'Hide API key' : 'Show API key'}
-                  aria-label={revealed.includes(providerIndex) ? 'Hide API key' : 'Show API key'}
-                  aria-pressed={revealed.includes(providerIndex)}
-                  onClick={() => toggleReveal(providerIndex)}
-                >
-                  {revealed.includes(providerIndex) ? (
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                    >
-                      <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />
-                      <circle cx="8" cy="8" r="2" />
-                    </svg>
-                  ) : (
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 16 16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.4"
-                    >
-                      <path d="M1.5 8S4 3.5 8 3.5c1.2 0 2.2.4 3.1 1M14.5 8S12 12.5 8 12.5c-1.2 0-2.2-.4-3.1-1" />
-                      <path d="M2.5 2.5l11 11" />
-                    </svg>
-                  )}
-                </button>
-              </span>
-            </label>
-            <label>
-              <span>API</span>
-              <Select
-                value={provider.api}
-                options={providerApiOptions(provider.api)}
-                title="Provider API"
-                block
-                onChange={(api) => updateProvider(providerIndex, { api })}
-              />
-            </label>
-          </div>
-
-          <div className="models">
-            {provider.models.length > 0 ? (
-              <div className="mrow mrow--head" aria-hidden="true">
-                <span>Model id</span>
-                <span>Display name</span>
-                <span>Context size</span>
-                <span>Max output</span>
-                <span />
-                <span />
-                <span />
-              </div>
-            ) : null}
-
-            {provider.models.map((model, modelIndex) => (
-              <div className="mrow" key={modelIndex}>
-                <input
-                  className="inp mono"
-                  value={model.id}
-                  aria-label="Model id"
-                  onChange={(event) =>
-                    updateModel(providerIndex, modelIndex, { id: event.target.value })
-                  }
-                />
-                <input
-                  className="inp"
-                  value={model.name}
-                  aria-label="Model display name"
-                  onChange={(event) =>
-                    updateModel(providerIndex, modelIndex, { name: event.target.value })
-                  }
-                />
-                <input
-                  className="inp num"
-                  type="number"
-                  min={0}
-                  value={model.contextWindow}
-                  aria-label="Context size in tokens"
-                  title="Context size in tokens"
-                  onChange={(event) =>
-                    updateModel(providerIndex, modelIndex, {
-                      contextWindow: Number(event.target.value) || 0
-                    })
-                  }
-                />
-                <input
-                  className="inp num"
-                  type="number"
-                  min={0}
-                  value={model.maxTokens}
-                  aria-label="Max output size in tokens"
-                  title="Max output size in tokens"
-                  onChange={(event) =>
-                    updateModel(providerIndex, modelIndex, {
-                      maxTokens: Number(event.target.value) || 0
-                    })
-                  }
-                />
-                <label className="chk" title="The model supports reasoning effort">
-                  <input
-                    type="checkbox"
-                    checked={model.reasoning}
-                    onChange={(event) =>
-                      updateModel(providerIndex, modelIndex, { reasoning: event.target.checked })
-                    }
-                  />
-                  think
-                </label>
-                <label className="chk" title="The model accepts images">
-                  <input
-                    type="checkbox"
-                    checked={model.input.includes('image')}
-                    onChange={(event) =>
-                      updateModel(providerIndex, modelIndex, {
-                        input: event.target.checked ? ['text', 'image'] : ['text']
-                      })
-                    }
-                  />
-                  images
-                </label>
-                <button
-                  className="ibtn"
-                  title="Remove model"
-                  aria-label="Remove model"
-                  onClick={() =>
-                    update((next) => {
-                      next.providers[providerIndex].models.splice(modelIndex, 1)
-                    })
-                  }
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-
-          {picker === providerIndex ? (
-            <div className="mpick">
-              <div className="mpick__hd">
-                <input
-                  className="inp"
-                  autoFocus
-                  value={query}
-                  placeholder={`Search ${provider.id} models`}
-                  aria-label={`Search ${provider.id} models`}
-                  onChange={(event) => setQuery(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Escape') setPicker(null)
-                  }}
-                />
-                <button className="b sm" onClick={() => setPicker(null)}>
-                  Cancel
-                </button>
-              </div>
-
-              {catalogState?.status === 'loading' ? (
-                <p className="hint">Reading {provider.id}’s catalogue…</p>
-              ) : null}
-              {catalogState?.status === 'error' ? (
-                <p className="hint bad">{catalogState.message}</p>
-              ) : null}
-              {catalogState?.status === 'ready' && catalogState.models.length === 0 ? (
-                <p className="hint">
-                  {provider.id} has no published catalogue, so models have to be declared by hand.
-                </p>
-              ) : null}
-
-              <div className="mpick__list">
-                {matches.map((model) => (
-                  <button
-                    key={model.id}
-                    className="mpick__row"
-                    onClick={() => {
-                      update((next) => {
-                        next.providers[providerIndex].models.push({ ...model })
-                      })
-                      setQuery('')
-                    }}
-                  >
-                    <span className="mono mpick__id">{model.id}</span>
-                    <span className="mpick__name">{model.name}</span>
-                    <span className="sp" />
-                    <span className="mpick__meta">
-                      {model.contextWindow ? `${Math.round(model.contextWindow / 1024)}k ctx` : ''}
-                    </span>
-                  </button>
-                ))}
-                {catalogState?.status === 'ready' && matches.length === 0 ? (
-                  <p className="hint">No matching models left to add.</p>
-                ) : null}
-              </div>
-
+              <span className="sp" />
               <button
-                className="b sm"
-                onClick={() => {
+                className="b sm bad"
+                onClick={() =>
                   update((next) => {
-                    next.providers[providerIndex].models.push(emptyModel())
+                    next.providers.splice(providerIndex, 1)
                   })
-                  setPicker(null)
-                }}
+                }
               >
-                Add a blank model instead
+                Remove provider
               </button>
             </div>
-          ) : (
-            <button className="b sm" onClick={() => openPicker(providerIndex)}>
-              ＋ Add model
-            </button>
-          )}
-        </div>
-      ))}
+
+            <div className="prov__row">
+              <label>
+                <span>Base URL</span>
+                <input
+                  className="inp mono"
+                  value={provider.baseUrl}
+                  aria-label="Base URL"
+                  onChange={(event) =>
+                    updateProvider(providerIndex, { baseUrl: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                <span>API key</span>
+                <span className="secret">
+                  <input
+                    className="inp mono"
+                    type={revealed.includes(providerIndex) ? 'text' : 'password'}
+                    value={provider.apiKey}
+                    aria-label="API key"
+                    autoComplete="off"
+                    spellCheck={false}
+                    onChange={(event) =>
+                      updateProvider(providerIndex, { apiKey: event.target.value })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="secret__eye"
+                    title={revealed.includes(providerIndex) ? 'Hide API key' : 'Show API key'}
+                    aria-label={revealed.includes(providerIndex) ? 'Hide API key' : 'Show API key'}
+                    aria-pressed={revealed.includes(providerIndex)}
+                    onClick={() => toggleReveal(providerIndex)}
+                  >
+                    {revealed.includes(providerIndex) ? (
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                      >
+                        <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8Z" />
+                        <circle cx="8" cy="8" r="2" />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                      >
+                        <path d="M1.5 8S4 3.5 8 3.5c1.2 0 2.2.4 3.1 1M14.5 8S12 12.5 8 12.5c-1.2 0-2.2-.4-3.1-1" />
+                        <path d="M2.5 2.5l11 11" />
+                      </svg>
+                    )}
+                  </button>
+                </span>
+              </label>
+              <label>
+                <span>API</span>
+                <Select
+                  value={provider.api}
+                  options={providerApiOptions(provider.api)}
+                  title="Provider API"
+                  block
+                  onChange={(api) => updateProvider(providerIndex, { api })}
+                />
+              </label>
+            </div>
+
+            <div className={`models${hosted ? ' models--hosted' : ''}`}>
+              {provider.models.length > 0 ? (
+                <div className="mrow mrow--head" aria-hidden="true">
+                  <span>Model id</span>
+                  <span>Display name</span>
+                  {hosted ? null : (
+                    <>
+                      <span>Context size</span>
+                      <span>Max output</span>
+                      <span />
+                      <span />
+                    </>
+                  )}
+                  <span />
+                </div>
+              ) : null}
+
+              {provider.models.map((model, modelIndex) => (
+                <div className="mrow" key={modelIndex}>
+                  <input
+                    className="inp mono"
+                    value={model.id}
+                    aria-label="Model id"
+                    onChange={(event) =>
+                      updateModel(providerIndex, modelIndex, { id: event.target.value })
+                    }
+                  />
+                  <input
+                    className="inp"
+                    value={model.name}
+                    aria-label="Model display name"
+                    onChange={(event) =>
+                      updateModel(providerIndex, modelIndex, { name: event.target.value })
+                    }
+                  />
+                  {hosted ? null : (
+                    <>
+                      <input
+                        className="inp num"
+                        type="number"
+                        min={0}
+                        value={model.contextWindow}
+                        aria-label="Context size in tokens"
+                        title="Context size in tokens"
+                        onChange={(event) =>
+                          updateModel(providerIndex, modelIndex, {
+                            contextWindow: Number(event.target.value) || 0
+                          })
+                        }
+                      />
+                      <input
+                        className="inp num"
+                        type="number"
+                        min={0}
+                        value={model.maxTokens}
+                        aria-label="Max output size in tokens"
+                        title="Max output size in tokens"
+                        onChange={(event) =>
+                          updateModel(providerIndex, modelIndex, {
+                            maxTokens: Number(event.target.value) || 0
+                          })
+                        }
+                      />
+                      <label className="chk" title="The model supports reasoning effort">
+                        <input
+                          type="checkbox"
+                          checked={model.reasoning}
+                          onChange={(event) =>
+                            updateModel(providerIndex, modelIndex, {
+                              reasoning: event.target.checked
+                            })
+                          }
+                        />
+                        think
+                      </label>
+                      <label className="chk" title="The model accepts images">
+                        <input
+                          type="checkbox"
+                          checked={model.input.includes('image')}
+                          onChange={(event) =>
+                            updateModel(providerIndex, modelIndex, {
+                              input: event.target.checked ? ['text', 'image'] : ['text']
+                            })
+                          }
+                        />
+                        images
+                      </label>
+                    </>
+                  )}
+                  <button
+                    className="ibtn"
+                    title="Remove model"
+                    aria-label="Remove model"
+                    onClick={() =>
+                      update((next) => {
+                        next.providers[providerIndex].models.splice(modelIndex, 1)
+                      })
+                    }
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {picker === providerIndex ? (
+              <div className="mpick">
+                <div className="mpick__hd">
+                  <input
+                    className="inp"
+                    autoFocus
+                    value={query}
+                    placeholder={`Search ${provider.id} models`}
+                    aria-label={`Search ${provider.id} models`}
+                    onChange={(event) => setQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Escape') setPicker(null)
+                    }}
+                  />
+                  <button className="b sm" onClick={() => setPicker(null)}>
+                    Cancel
+                  </button>
+                </div>
+
+                {catalogState?.status === 'loading' ? (
+                  <p className="hint">Reading {provider.id}’s catalogue…</p>
+                ) : null}
+                {catalogState?.status === 'error' ? (
+                  <p className="hint bad">{catalogState.message}</p>
+                ) : null}
+                {catalogState?.status === 'ready' && catalogState.models.length === 0 ? (
+                  <p className="hint">
+                    {provider.id} has no published catalogue, so models have to be declared by hand.
+                  </p>
+                ) : null}
+
+                <div className="mpick__list">
+                  {matches.map((model) => (
+                    <button
+                      key={model.id}
+                      className="mpick__row"
+                      onClick={() => {
+                        update((next) => {
+                          next.providers[providerIndex].models.push({ ...model })
+                        })
+                        setQuery('')
+                      }}
+                    >
+                      <span className="mono mpick__id">{model.id}</span>
+                      <span className="mpick__name">{model.name}</span>
+                      <span className="sp" />
+                      <span className="mpick__meta">
+                        {model.contextWindow
+                          ? `${Math.round(model.contextWindow / 1024)}k ctx`
+                          : ''}
+                      </span>
+                    </button>
+                  ))}
+                  {catalogState?.status === 'ready' && matches.length === 0 ? (
+                    <p className="hint">No matching models left to add.</p>
+                  ) : null}
+                </div>
+
+                <button
+                  className="b sm"
+                  onClick={() => {
+                    update((next) => {
+                      next.providers[providerIndex].models.push(emptyModel())
+                    })
+                    setPicker(null)
+                  }}
+                >
+                  Add a blank model instead
+                </button>
+              </div>
+            ) : (
+              <button className="b sm" onClick={() => openPicker(providerIndex)}>
+                ＋ Add model
+              </button>
+            )}
+          </div>
+        )
+      })}
 
       <div className="addprov" ref={addRef}>
         <button
@@ -564,7 +525,7 @@ export function ModelsSettings() {
 
         {adding ? (
           <div className="admenu" role="menu">
-            {PROVIDER_PRESETS.map((preset) => (
+            {HOSTED_PROVIDERS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"

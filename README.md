@@ -39,9 +39,32 @@ npm run format       # Prettier
 Packaging:
 
 ```sh
-npm run build:win     # Windows installer (NSIS)
+npm run build:win     # Windows setup + portable builds
 npm run build:linux   # AppImage + deb
 ```
+
+## Releasing
+
+Releases are built by hand for now — nothing is published by pushing a tag.
+
+1. Bump `version` in `package.json` and commit it.
+2. Run **Release** from the Actions tab and pick the branch.
+3. The run uploads the setup and portable `.exe` files, the Linux packages, and the
+   `latest.yml` metadata to a **draft** GitHub release.
+4. Review the draft and publish it. Publishing is what makes installed copies offer the
+   update, since the app reads the releases feed on launch.
+
+Installed builds then show an in-app prompt with a Download button, and a restart to
+install once the download finishes. Portable builds cannot patch themselves, so they are
+pointed at the releases page instead. Locally, `npm run release` does the same build and
+upload without CI.
+
+## Icon packs
+
+The file explorer, editor tabs, and quick open use a selectable icon pack
+(**Settings → Customization → Icon pack**): Material Icons and Catppuccin Icons. Both are
+generated into `src/renderer/public/` by `npm run icons`, which `predev` and
+`pretypecheck` call, so the generated files are never committed.
 
 ## Architecture
 

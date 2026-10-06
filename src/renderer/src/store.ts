@@ -14,6 +14,7 @@ import type {
   ThinkingLevelDto,
   UiRequestDto,
   UiResponseDto,
+  UpdateStateDto,
   WorkspaceDto
 } from '@shared/ipc'
 import { loadThemeId, saveThemeId } from './theme/preference'
@@ -103,6 +104,8 @@ interface PiUiState {
   modelsConfig: ModelsConfigDto | null
   /** Why `models.json` could not be used, if it could not. */
   modelsError: string | null
+  /** Self-update state, or null before it has been read. */
+  update: UpdateStateDto | null
   /** Increments whenever a global shortcut asks for the session search box. */
   searchFocusSeq: number
   /** Saved sessions for the current workspace, newest first. */
@@ -146,6 +149,10 @@ interface PiUiState {
   saveApprovalConfig: (config: ApprovalConfig) => Promise<void>
   loadModelsConfig: () => Promise<void>
   saveModelsConfig: (config: ModelsConfigDto) => Promise<void>
+  /** Read the updater state and download or install an offered release. */
+  checkForUpdates: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => void
   loadSessions: () => Promise<void>
   loadCommands: () => Promise<void>
   switchSession: (path: string) => Promise<void>
@@ -208,9 +215,10 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   dialog: null,
   approvalConfig: null,
   settingsOpen: false,
-  settingsTab: 'customization',
+  settingsTab: 'models',
   modelsConfig: null,
   modelsError: null,
+  update: null,
   searchFocusSeq: 0,
   sessions: [],
   workspace: null,
@@ -239,6 +247,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
       set((state) => ({ notices: [...state.notices, { ...notice, id: noticeId }].slice(-4) }))
     })
     window.piui.onUiRequest((request) => set({ dialog: request }))
+    window.piui.onUpdate((update) => set({ update }))
     set({ initialized: true })
 
     try {
@@ -266,6 +275,10 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
       })
       void get().loadAllSessions()
       void get().loadModelsConfig()
+      void window.piui
+        .getUpdateState()
+        .then((update) => set({ update }))
+        .catch(() => undefined)
     } catch (cause) {
       set({ error: describeError(cause) })
     }
@@ -445,6 +458,27 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     } catch (cause) {
       set({ error: describeError(cause) })
     }
+  },
+
+  checkForUpdates: async () => {
+    try {
+      set({ update: await window.piui.checkForUpdates() })
+    } catch (cause) {
+      // An update check is never important enough to surface as an app error.
+      console.warn('update check failed', cause)
+    }
+  },
+
+  downloadUpdate: async () => {
+    try {
+      set({ update: await window.piui.downloadUpdate() })
+    } catch (cause) {
+      console.warn('update download failed', cause)
+    }
+  },
+
+  installUpdate: () => {
+    void window.piui.installUpdate()
   },
 
   saveModelsConfig: async (config) => {

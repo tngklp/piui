@@ -21,6 +21,8 @@ import type {
 } from '@shared/ipc'
 import { listAllSessions, listSessions, workspaceName } from './session-store'
 import { sdk, type PiSdk } from './sdk'
+import { readModelsConfig } from './models-store'
+import { isHostedProviderId } from '@shared/providers'
 import { createUiHost, type UiTransport } from './ui-context'
 
 /** The model shape PiUI reads from the SDK. */
@@ -461,10 +463,36 @@ export class AgentHost {
 
   async getModels(): Promise<ModelDto[]> {
     const models = await this.session.modelRuntime.getAvailable()
+    const allow = await this.hostedModelAllowList()
+
     return models
       .map((model) => toModelDto(model))
       .filter((model): model is ModelDto => model !== null)
+      .filter((model) => {
+        const permitted = allow.get(model.provider)
+        // Providers that are not hosted APIs keep their full catalogue.
+        return permitted === undefined || permitted.has(model.id)
+      })
       .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  /**
+   * Model ids the user explicitly added, per hosted provider.
+   *
+   * A hosted provider overlays pi's built-in one, so it would otherwise keep
+   * that provider's entire catalogue — a user who added one OpenAI model would
+   * still be offered all 44. Providers missing from the map are left alone.
+   */
+  private async hostedModelAllowList(): Promise<Map<string, Set<string>>> {
+    const config = await readModelsConfig(sdk().getAgentDir())
+    const allow = new Map<string, Set<string>>()
+
+    for (const provider of config.providers) {
+      if (!isHostedProviderId(provider.id)) continue
+      allow.set(provider.id, new Set(provider.models.map((model) => model.id)))
+    }
+
+    return allow
   }
 
   /** Re-read `models.json` from disk and return the newly available models. */

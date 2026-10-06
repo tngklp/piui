@@ -6,6 +6,7 @@ import { RightPanel } from './components/RightPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { StatusFooter } from './components/StatusFooter'
+import { UpdateToast } from './components/UpdateToast'
 import { Welcome } from './components/Welcome'
 import { usePiUi } from './store'
 
@@ -99,6 +100,7 @@ export default function App() {
       <DialogHost />
       <SettingsDialog />
       <QuickOpen />
+      <UpdateToast />
     </>
   )
 }

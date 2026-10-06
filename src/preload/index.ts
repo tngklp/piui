@@ -14,7 +14,8 @@ import {
   type TerminalExitDto,
   type ThinkingLevelDto,
   type UiRequestDto,
-  type UiResponseDto
+  type UiResponseDto,
+  type UpdateStateDto
 } from '@shared/ipc'
 
 /** Bridge an ipcRenderer event channel to a listener, returning an unsubscribe function. */
@@ -87,7 +88,12 @@ const api: PiUiApi = {
   installPackage: (source: string) => ipcRenderer.invoke(IpcChannel.PackagesInstall, source),
   removePackage: (source: string) => ipcRenderer.invoke(IpcChannel.PackagesRemove, source),
   onPackageProgress: (listener) =>
-    subscribe<PackageProgressDto>(IpcEvent.PackagesProgress, listener)
+    subscribe<PackageProgressDto>(IpcEvent.PackagesProgress, listener),
+  getUpdateState: () => ipcRenderer.invoke(IpcChannel.UpdateGetState),
+  checkForUpdates: () => ipcRenderer.invoke(IpcChannel.UpdateCheck),
+  downloadUpdate: () => ipcRenderer.invoke(IpcChannel.UpdateDownload),
+  installUpdate: () => ipcRenderer.invoke(IpcChannel.UpdateInstall),
+  onUpdate: (listener) => subscribe<UpdateStateDto>(IpcEvent.Update, listener)
 }
 
 if (process.contextIsolated) {

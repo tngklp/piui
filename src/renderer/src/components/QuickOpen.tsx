@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { usePiUi } from '../store'
-import { fileIconName, iconUrl } from '../lib/fileIcon'
+import { fileIconUrl } from '../lib/icon-packs'
 import { baseName } from './editor/languages'
 
 /** How many matches to render at once. */
@@ -53,6 +53,7 @@ export function QuickOpen() {
   const open = usePiUi((state) => state.quickOpen)
   const close = usePiUi((state) => state.closeQuickOpen)
   const openFile = usePiUi((state) => state.openFile)
+  const iconPack = usePiUi((state) => state.prefs.iconPack)
 
   const [query, setQuery] = useState('')
   const [cursor, setCursor] = useState(0)
@@ -171,7 +172,7 @@ export function QuickOpen() {
             >
               <img
                 className="ftab__icon"
-                src={iconUrl(fileIconName(baseName(match.name)))}
+                src={fileIconUrl(iconPack, baseName(match.name))}
                 alt=""
               />
               <span className="qo__name">{match.name}</span>

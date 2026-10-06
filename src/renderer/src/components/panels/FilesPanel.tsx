@@ -1,18 +1,20 @@
 import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { FsEntryDto, FsListingDto } from '@shared/ipc'
-import { fileIconName, folderIconName, iconUrl } from '../../lib/fileIcon'
+import { fileIconUrl, folderIconUrl } from '../../lib/icon-packs'
 import { usePiUi } from '../../store'
 
 const REFRESH_MS = 3000
 
 /**
- * File explorer for the active workspace. Uses Material Icon Theme and polls
- * the directories it has opened so the tree tracks changes on disk.
+ * File explorer for the active workspace. Uses the icon pack chosen in
+ * Settings and polls the directories it has opened so the tree tracks changes
+ * on disk.
  */
 export function FilesPanel() {
   const workspace = usePiUi((state) => state.workspace)
   const selectedFile = usePiUi((state) => state.selectedFile)
   const openFile = usePiUi((state) => state.openFile)
+  const iconPack = usePiUi((state) => state.prefs.iconPack)
 
   const [listings, setListings] = useState<Record<string, FsListingDto>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -88,10 +90,10 @@ export function FilesPanel() {
             {entry.kind === 'directory' ? (
               <>
                 <span className={`chev${isOpen ? ' o' : ''}`}>›</span>
-                <img className="fd" src={iconUrl(folderIconName(entry.name, isOpen))} alt="" />
+                <img className="fd" src={folderIconUrl(iconPack, entry.name, isOpen)} alt="" />
               </>
             ) : (
-              <img className="fd" src={iconUrl(fileIconName(entry.name))} alt="" />
+              <img className="fd" src={fileIconUrl(iconPack, entry.name)} alt="" />
             )}
             <span className="nm">{entry.name}</span>
             {entry.status ? <span className={`gs ${entry.status}`}>{entry.status}</span> : null}
