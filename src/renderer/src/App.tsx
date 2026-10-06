@@ -5,7 +5,6 @@ import { RightPanel } from './components/RightPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
 import { StatusFooter } from './components/StatusFooter'
-import { TitleBar } from './components/TitleBar'
 import { Welcome } from './components/Welcome'
 import { usePiUi } from './store'
 
@@ -14,12 +13,44 @@ export default function App() {
   const rightOpen = usePiUi((state) => state.rightOpen)
   const rightWidth = usePiUi((state) => state.rightWidth)
   const setRightWidth = usePiUi((state) => state.setRightWidth)
+  const newSession = usePiUi((state) => state.newSession)
+  const focusSearch = usePiUi((state) => state.focusSearch)
+  const closeWelcome = usePiUi((state) => state.closeWelcome)
+  const settingsOpen = usePiUi((state) => state.settingsOpen)
 
   const [dragging, setDragging] = useState(false)
 
   useEffect(() => {
     void initialize()
   }, [initialize])
+
+  /**
+   * Application shortcuts. The native menu is removed in the main process, so
+   * nothing else claims these accelerators.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (!event.ctrlKey && !event.metaKey) return
+      // Let the settings dialog own its own keyboard handling.
+      if (settingsOpen) return
+      const key = event.key.toLowerCase()
+
+      if (key === 'n') {
+        event.preventDefault()
+        closeWelcome()
+        void newSession()
+        return
+      }
+      if (key === 'k') {
+        event.preventDefault()
+        closeWelcome()
+        focusSearch()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [closeWelcome, focusSearch, newSession, settingsOpen])
 
   useEffect(() => {
     if (!dragging) return
@@ -48,16 +79,17 @@ export default function App() {
   return (
     <>
       <div className={className} style={style}>
-        <TitleBar />
         <Sidebar />
         <MainPane />
-        <RightPanel onGripDown={onGripDown} />
+        {rightOpen ? <RightPanel onGripDown={onGripDown} /> : null}
         <StatusFooter />
       </div>
 
+      {/* The welcome overlay comes first in the DOM and sits below the dialogs
+          in the stacking order, so Settings opened from it is visible. */}
+      <Welcome />
       <DialogHost />
       <SettingsDialog />
-      <Welcome />
     </>
   )
 }

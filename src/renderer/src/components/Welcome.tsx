@@ -88,7 +88,7 @@ export function Welcome() {
               <span className="ic">⚙</span>
               <span className="tx">
                 Settings
-                <small>Theme and tool approval rules</small>
+                <small>Themes, models, and tool approval</small>
               </span>
             </button>
           </section>

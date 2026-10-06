@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatBlockDto, ChatItemDto } from '@shared/ipc'
-import { summarizeToolArguments } from '../lib/format'
+import { formatDuration, summarizeToolArguments } from '../lib/format'
 import { usePiUi } from '../store'
 import { Collapsible } from './Collapsible'
 import { DiffView } from './DiffView'
@@ -50,14 +50,20 @@ function ToolCard({ item }: { item: Extract<ChatItemDto, { kind: 'tool' }> }) {
           </button>
         ) : null}
 
-        <span className="sp" />
-        {item.addedLines ? <span className="ok">+{item.addedLines}</span> : null}
-        {item.removedLines ? (
-          <span style={{ color: 'var(--del)' }}>−{item.removedLines}</span>
-        ) : null}
-        {item.running ? <span className="spinner" /> : null}
-        {!item.running && item.isError ? <span style={{ color: 'var(--del)' }}>failed</span> : null}
-        {!item.running && !item.isError ? <span className="ok">✓</span> : null}
+        <span className="hd__end">
+          {item.addedLines ? <span className="ok">+{item.addedLines}</span> : null}
+          {item.removedLines ? <span className="del">−{item.removedLines}</span> : null}
+          {item.running ? (
+            <span className="spinner" />
+          ) : (
+            <>
+              <span className={item.isError ? 'del' : 'ok'}>{item.isError ? '✕' : '✓'}</span>
+              {item.durationMs ? (
+                <span className="took">{formatDuration(item.durationMs)}</span>
+              ) : null}
+            </>
+          )}
+        </span>
       </div>
 
       {showCommand && command ? <pre className="cmd__full">{command}</pre> : null}
@@ -113,9 +119,10 @@ function TranscriptItem({ item }: { item: ChatItemDto }) {
           <div className="hd">
             <span className="tag">bash</span>
             <span className="cmd__text mono">{item.command}</span>
-            <span className="sp" />
-            <span className={item.exitCode === 0 ? 'ok' : ''}>
-              {item.exitCode === 0 ? '✓' : `exit ${item.exitCode ?? '?'}`}
+            <span className="hd__end">
+              <span className={item.exitCode === 0 ? 'ok' : 'del'}>
+                {item.exitCode === 0 ? '✓' : `exit ${item.exitCode ?? '?'}`}
+              </span>
             </span>
           </div>
           <pre className="out">{item.output || '(no output)'}</pre>
@@ -170,8 +177,9 @@ export function Transcript() {
               <div className="hd">
                 <span className="tag">{tool.name}</span>
                 <span className="cmd__text mono">{summarizeToolArguments(tool.argsText)}</span>
-                <span className="sp" />
-                <span className="spinner" />
+                <span className="hd__end">
+                  <span className="spinner" />
+                </span>
               </div>
             </div>
           ))}

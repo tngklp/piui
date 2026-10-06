@@ -16,6 +16,7 @@ asarUnpack:
   - '**/node_modules/@silvia-odwyer/**'
 
 win:
+  icon: build/icon.png
   target:
     - nsis
   artifactName: ${productName}-${version}-${arch}-setup.${ext}

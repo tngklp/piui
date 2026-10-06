@@ -43,6 +43,7 @@ interface SdkMessage {
   exitCode?: number
   stopReason?: string
   errorMessage?: string
+  timestamp?: number
 }
 
 interface SdkContentBlock {
@@ -140,6 +141,8 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
   const items: ChatItemDto[] = []
   /** Tool items by call id, so a later result merges into its own call. */
   const toolIndex = new Map<string, Extract<ChatItemDto, { kind: 'tool' }>>()
+  /** When each tool call was issued, so the result can carry a duration. */
+  const callStartedAt = new Map<string, number>()
 
   messages.forEach((raw, index) => {
     const message = raw as SdkMessage
@@ -187,6 +190,9 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
               running: true
             }
             toolIndex.set(block.id, tool)
+            if (typeof message.timestamp === 'number') {
+              callStartedAt.set(block.id, message.timestamp)
+            }
             items.push(tool)
           }
         }
@@ -210,6 +216,12 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
         target.isError = message.isError ?? false
         target.running = false
 
+        const startedAt = callStartedAt.get(message.toolCallId ?? '')
+        if (typeof startedAt === 'number' && typeof message.timestamp === 'number') {
+          const elapsed = message.timestamp - startedAt
+          if (elapsed >= 0) target.durationMs = elapsed
+        }
+
         const filePath = args.path ?? args.file_path
         if (typeof filePath === 'string') target.filePath = filePath
         if (typeof details?.patch === 'string') target.patch = details.patch
@@ -218,6 +230,16 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
           const counts = countDiffLines(details.diff)
           target.addedLines = counts.added
           target.removedLines = counts.removed
+        } else if (target.name === 'write' && typeof args.content === 'string') {
+          // The write tool reports no diff, so show the written text as one
+          // fully-added hunk, the same way the edit tool presents its changes.
+          const lines = args.content.replace(/\n$/, '').split('\n')
+          const label = typeof filePath === 'string' ? filePath : 'file'
+          target.diff = `--- ${label}\n+++ ${label}\n@@\n${lines
+            .map((line) => `+${line}`)
+            .join('\n')}`
+          target.addedLines = lines.length
+          target.removedLines = 0
         }
 
         if (!existing) {
@@ -391,6 +413,12 @@ export class AgentHost {
       .map((model) => toModelDto(model))
       .filter((model): model is ModelDto => model !== null)
       .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  /** Re-read `models.json` from disk and return the newly available models. */
+  async refreshModels(): Promise<ModelDto[]> {
+    await this.session.modelRuntime.refresh()
+    return this.getModels()
   }
 
   async prompt(input: PromptInput): Promise<void> {

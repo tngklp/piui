@@ -19,6 +19,7 @@
     "dev": "electron-vite dev",
     "start": "electron-vite preview",
     "icons": "node scripts/sync-material-icons.mjs",
+    "icons:app": "node scripts/make-icon.mjs",
     "predev": "npm run icons",
     "pretypecheck": "npm run icons",
     "build": "npm run typecheck && electron-vite build",

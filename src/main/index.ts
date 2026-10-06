@@ -1,5 +1,6 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow, Menu, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
+import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
 
 const preloadPath = fileURLToPath(new URL('../preload/index.mjs', import.meta.url))
@@ -28,6 +29,7 @@ function createWindow(): BrowserWindow {
     autoHideMenuBar: true,
     backgroundColor: '#0f0f13',
     title: 'PiUI',
+    icon,
     webPreferences: {
       preload: preloadPath,
       // ESM preload scripts must be unsandboxed (Electron requirement).
@@ -63,6 +65,10 @@ function createWindow(): BrowserWindow {
 let mainWindow: BrowserWindow | null = null
 
 app.whenReady().then(() => {
+  // Removing the application menu also unbinds its accelerators, which lets the
+  // renderer own shortcuts such as Ctrl+N and Ctrl+K.
+  Menu.setApplicationMenu(null)
+
   if (app.isPackaged) {
     app.on('web-contents-created', (_event, contents) => {
       contents.session.webRequest.onHeadersReceived((details, callback) => {

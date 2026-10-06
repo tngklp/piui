@@ -4,6 +4,7 @@ import type {
   ApprovalConfig,
   ChatItemDto,
   ModelDto,
+  ModelsConfigDto,
   MonitorSnapshotDto,
   NoticeDto,
   RuntimeInfoDto,
@@ -21,6 +22,8 @@ import { applyTheme, resolveTheme } from './theme/themes'
 export type RightTab = 'files' | 'term' | 'mon'
 /** Main column views. */
 export type MainTab = 'chat' | 'editor'
+/** Settings sections. */
+export type SettingsTab = 'customization' | 'models' | 'tools'
 /** Sidebar session filters. */
 export type SessionFilter = 'all' | 'running' | 'starred'
 
@@ -88,6 +91,12 @@ interface PiUiState {
   approvalConfig: ApprovalConfig | null
   /** Whether the approval-rules panel is open. */
   settingsOpen: boolean
+  /** Settings section currently showing. */
+  settingsTab: SettingsTab
+  /** Provider/model catalogue from `models.json`. */
+  modelsConfig: ModelsConfigDto | null
+  /** Increments whenever a global shortcut asks for the session search box. */
+  searchFocusSeq: number
   /** Saved sessions for the current workspace, newest first. */
   sessions: SessionSummaryDto[]
   /** The working directory the agent is operating on. */
@@ -120,7 +129,11 @@ interface PiUiState {
   respondToDialog: (response: UiResponseDto) => Promise<void>
   openSettings: () => void
   closeSettings: () => void
+  setSettingsTab: (tab: SettingsTab) => void
+  focusSearch: () => void
   saveApprovalConfig: (config: ApprovalConfig) => Promise<void>
+  loadModelsConfig: () => Promise<void>
+  saveModelsConfig: (config: ModelsConfigDto) => Promise<void>
   loadSessions: () => Promise<void>
   switchSession: (path: string) => Promise<void>
   renameSession: (name: string) => Promise<void>
@@ -177,6 +190,9 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   dialog: null,
   approvalConfig: null,
   settingsOpen: false,
+  settingsTab: 'customization',
+  modelsConfig: null,
+  searchFocusSeq: 0,
   sessions: [],
   workspace: null,
   allSessions: [],
@@ -226,6 +242,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
         error: null
       })
       void get().loadAllSessions()
+      void get().loadModelsConfig()
     } catch (cause) {
       set({ error: describeError(cause) })
     }
@@ -381,6 +398,29 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   openSettings: () => set({ settingsOpen: true }),
 
   closeSettings: () => set({ settingsOpen: false }),
+
+  setSettingsTab: (tab) => set({ settingsTab: tab }),
+
+  focusSearch: () => set((state) => ({ searchFocusSeq: state.searchFocusSeq + 1 })),
+
+  loadModelsConfig: async () => {
+    try {
+      set({ modelsConfig: await window.piui.getModelsConfig() })
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    }
+  },
+
+  saveModelsConfig: async (config) => {
+    // Show the edit immediately; the write is idempotent and cheap.
+    set({ modelsConfig: config })
+    try {
+      const result = await window.piui.setModelsConfig(config)
+      set({ modelsConfig: result.config, models: result.models })
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    }
+  },
 
   loadSessions: async () => {
     try {

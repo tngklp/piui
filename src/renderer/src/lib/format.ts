@@ -17,6 +17,15 @@ export function formatPercent(value: number | null): string {
   return `${Math.round(value)}%`
 }
 
+/** Format a wall-clock duration for the tool-card header. */
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.max(1, Math.round(ms))}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  const minutes = Math.floor(ms / 60_000)
+  const seconds = Math.round((ms % 60_000) / 1000)
+  return `${minutes}m ${seconds}s`
+}
+
 /** Shorten a filesystem path for display without losing the file name. */
 export function shortenPath(path: string, maxLength = 48): string {
   if (path.length <= maxLength) return path

@@ -73,7 +73,7 @@ kbd {
   display: grid;
   height: 100%;
   grid-template-columns: 272px minmax(0, 1fr) var(--rw);
-  grid-template-rows: 42px minmax(0, 1fr) 30px;
+  grid-template-rows: minmax(0, 1fr) 30px;
   transition: grid-template-columns 0.32s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
@@ -81,30 +81,6 @@ kbd {
   user-select: none;
   cursor: col-resize;
   transition: none;
-}
-
-.title {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 10px;
-  border-bottom: 1px solid var(--line);
-  background: var(--panel);
-}
-
-.logo {
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  background: var(--lilac);
-  color: var(--on-lilac);
-  display: grid;
-  place-items: center;
-  font-weight: 600;
-  font-size: 16px;
-  padding: 0;
-  cursor: pointer;
 }
 
 .ibtn {
@@ -240,6 +216,54 @@ kbd {
   outline: none;
 }
 
+.sbox kbd {
+  flex: none;
+  font-size: 10.5px;
+  opacity: 0.75;
+}
+
+.sidefoot {
+  margin: auto 10px 10px;
+  display: flex;
+  gap: 6px;
+  align-items: stretch;
+  flex: none;
+}
+
+.sidefoot__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  color: var(--dim);
+  font-size: 13px;
+  flex: none;
+}
+
+.sidefoot__btn.grow {
+  flex: 1;
+  min-width: 0;
+}
+
+.sidefoot__btn:hover {
+  background: var(--raise);
+  color: var(--text);
+}
+
+.sidefoot__mark {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--lilac);
+  color: var(--on-lilac);
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .filters {
   display: flex;
   gap: 4px;
@@ -313,24 +337,6 @@ details.g[open] > :not(summary) {
 
 .sess.on {
   background: var(--lilac-soft);
-}
-
-.sess .st {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  margin-top: 7px;
-  background: var(--line);
-  flex: none;
-}
-
-.sess.on .st {
-  background: var(--lilac-strong);
-}
-
-.sess .st.run {
-  background: var(--lilac-strong);
-  animation: pl 1.4s ease-in-out infinite;
 }
 
 .sess .tx {
@@ -485,6 +491,9 @@ details.g[open] > :not(summary) {
 .scroll {
   flex: 1;
   overflow: auto;
+  /* Reserve the scrollbar track so the transcript does not shift sideways
+     when a long conversation starts scrolling. */
+  scrollbar-gutter: stable;
   padding: 22px 20px 8px;
 }
 
@@ -1680,7 +1689,7 @@ select.pick {
 .welcome {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 30;
   background: var(--bg);
   overflow: auto;
   display: grid;
@@ -1993,9 +2002,11 @@ select.pick {
 /* ---------- tool command ---------- */
 
 .cmd {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   padding: 0;
+  text-align: left;
+  overflow: hidden;
 }
 
 .cmd__text {
@@ -2239,5 +2250,229 @@ select.pick {
 
   .wcol h1 {
     font-size: 32px;
+  }
+}
+
+/* ---------- tool card header ---------- */
+
+/* The status cluster keeps its natural width so the command can use every
+   remaining pixel before it is ellipsised. */
+.hd__end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  font-size: 12px;
+}
+
+.hd__end .took {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.del {
+  color: var(--del);
+}
+
+.card .diff {
+  max-height: 340px;
+  overflow: auto;
+}
+
+/* ---------- select palette swatch ---------- */
+
+.select__swatch {
+  display: inline-flex;
+  gap: 2px;
+  flex: none;
+}
+
+.select__swatch i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  display: block;
+  box-shadow: inset 0 0 0 1px rgba(128, 128, 128, 0.4);
+}
+
+.select__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+/* ---------- settings ---------- */
+
+.settings.modal__panel {
+  width: min(880px, 100%);
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+}
+
+.settings__nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 16px 12px;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+}
+
+.settings__title {
+  margin: 0 6px 12px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings__tab {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 9px;
+  color: var(--dim);
+}
+
+.settings__tab b {
+  font-weight: 500;
+  font-size: 13.5px;
+}
+
+.settings__tab small {
+  font-size: 11.5px;
+  opacity: 0.75;
+}
+
+.settings__tab:hover {
+  background: var(--raise);
+}
+
+.settings__tab.on {
+  background: var(--lilac-soft);
+  color: var(--lilac-strong);
+}
+
+.settings__tab.on b {
+  font-weight: 600;
+}
+
+.settings__body {
+  padding: 18px;
+  overflow: auto;
+  min-height: 0;
+  max-height: min(640px, 78vh);
+}
+
+/* ---------- model catalogue ---------- */
+
+.prov {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+  background: var(--bg);
+}
+
+.prov__hd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.prov__row {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr 165px;
+  gap: 8px;
+}
+
+.prov__row label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.prov__row label > span {
+  font-size: 11.5px;
+  color: var(--dim);
+}
+
+.mrow {
+  display: grid;
+  grid-template-columns: 1.05fr 1.05fr 82px 82px auto auto 28px;
+  gap: 6px;
+  align-items: center;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}
+
+.inp {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+
+.inp:focus {
+  border-color: var(--lilac-strong);
+}
+
+.inp.num {
+  text-align: right;
+}
+
+.chk {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--dim);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.b.sm {
+  padding: 5px 10px;
+  font-size: 12.5px;
+  border-radius: 8px;
+  justify-self: start;
+}
+
+@media (max-width: 900px) {
+  .settings.modal__panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .settings__nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .settings__title {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+
+  .settings__tab small {
+    display: none;
+  }
+
+  .prov__row,
+  .mrow {
+    grid-template-columns: minmax(0, 1fr);
   }
 }

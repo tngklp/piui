@@ -4,6 +4,7 @@ import {
   IpcEvent,
   type AgentEventDto,
   type ApprovalConfig,
+  type ModelsConfigDto,
   type NoticeDto,
   type PiUiApi,
   type PromptInput,
@@ -61,7 +62,9 @@ const api: PiUiApi = {
   writeFile: (path: string, content: string) =>
     ipcRenderer.invoke(IpcChannel.FsWrite, path, content),
   deleteSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsDelete, path),
-  getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet)
+  getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet),
+  getModelsConfig: () => ipcRenderer.invoke(IpcChannel.ModelsGet),
+  setModelsConfig: (config: ModelsConfigDto) => ipcRenderer.invoke(IpcChannel.ModelsSet, config)
 }
 
 if (process.contextIsolated) {

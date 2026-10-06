@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactElement } from 'react'
 
 export interface SelectOption<T extends string> {
   value: T
   label: string
+  /** Colours rendered as a small swatch before the label. */
+  swatch?: string[]
 }
 
 interface SelectProps<T extends string> {
@@ -52,6 +54,14 @@ export function Select<T extends string>({
 
   const current = options.find((option) => option.value === value)
 
+  const renderSwatch = (colors: string[]): ReactElement => (
+    <span className="select__swatch" aria-hidden="true">
+      {colors.map((color) => (
+        <i key={color} style={{ background: color }} />
+      ))}
+    </span>
+  )
+
   return (
     <div className="select" ref={rootRef} style={block ? { width: '100%' } : undefined}>
       <button
@@ -63,6 +73,7 @@ export function Select<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
       >
+        {current?.swatch ? renderSwatch(current.swatch) : null}
         <span className="select__label">{current?.label ?? placeholder ?? '—'}</span>
         <span className="select__caret" aria-hidden="true">
           ⌄
@@ -83,7 +94,10 @@ export function Select<T extends string>({
                 if (option.value !== value) onChange(option.value)
               }}
             >
-              <span className="select__option">{option.label}</span>
+              <span className="select__option">
+                {option.swatch ? renderSwatch(option.swatch) : null}
+                {option.label}
+              </span>
               {option.value === value ? <span className="check">✓</span> : null}
             </button>
           ))}

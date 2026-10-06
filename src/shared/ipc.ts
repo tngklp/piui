@@ -42,7 +42,10 @@ export const IpcChannel = {
   FsRead: 'piui:fs:read',
   FsWrite: 'piui:fs:write',
   SessionsDelete: 'piui:sessions:delete',
-  MonitorGet: 'piui:monitor:get'
+  MonitorGet: 'piui:monitor:get',
+  /** Read or replace the provider/model definitions in `models.json`. */
+  ModelsGet: 'piui:models:get',
+  ModelsSet: 'piui:models:set'
 } as const
 
 export type IpcChannel = (typeof IpcChannel)[keyof typeof IpcChannel]
@@ -176,6 +179,8 @@ export type ChatItemDto =
       filePath?: string
       addedLines?: number
       removedLines?: number
+      /** Wall-clock execution time in milliseconds, when known. */
+      durationMs?: number
     }
   | { kind: 'bash'; id: string; command: string; output: string; exitCode: number | null }
 
@@ -231,6 +236,40 @@ export const APPROVAL_TOOLS = [
 export interface ApprovalConfig {
   defaultPolicy: ApprovalAction
   tools: Record<string, ApprovalAction>
+}
+
+/** One model definition inside a provider entry of `models.json`. */
+export interface ModelDefDto {
+  id: string
+  name: string
+  reasoning: boolean
+  /** Modalities the model accepts, e.g. `text` and `image`. */
+  input: string[]
+  contextWindow: number
+  maxTokens: number
+  cost: { input: number; output: number; cacheRead: number; cacheWrite: number }
+}
+
+/** One provider entry of `models.json`. */
+export interface ProviderConfigDto {
+  id: string
+  baseUrl: string
+  api: string
+  apiKey: string
+  models: ModelDefDto[]
+}
+
+/** The provider/model catalogue PiUI edits, persisted as `<agentDir>/models.json`. */
+export interface ModelsConfigDto {
+  /** Absolute path of the file the catalogue is read from. */
+  path: string
+  providers: ProviderConfigDto[]
+}
+
+/** Result of saving the catalogue: the reloaded definitions and model list. */
+export interface ModelsUpdateResultDto {
+  config: ModelsConfigDto
+  models: ModelDto[]
 }
 
 /** One saved session, flattened for the session browser. */
@@ -390,4 +429,8 @@ export interface PiUiApi {
   deleteSession(path: string): Promise<void>
   /** Read the current monitor snapshot. */
   getMonitor(): Promise<MonitorSnapshotDto>
+  /** Read the provider and model definitions PiUI can edit. */
+  getModelsConfig(): Promise<ModelsConfigDto>
+  /** Replace the provider and model definitions and reload the agent catalogue. */
+  setModelsConfig(config: ModelsConfigDto): Promise<ModelsUpdateResultDto>
 }

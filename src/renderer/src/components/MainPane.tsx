@@ -16,6 +16,8 @@ export function MainPane() {
   const status = usePiUi((state) => state.status)
   const items = usePiUi((state) => state.items)
   const openFiles = usePiUi((state) => state.openFiles)
+  const rightOpen = usePiUi((state) => state.rightOpen)
+  const toggleRight = usePiUi((state) => state.toggleRight)
 
   const firstUser = items.find(
     (item): item is Extract<ChatItemDto, { kind: 'user' }> => item.kind === 'user'
@@ -50,6 +52,19 @@ export function MainPane() {
         <h1>{title}</h1>
         <span className="sp" />
         <span className="chip lil">{running ? 'Running' : 'Idle'}</span>
+        {rightOpen ? null : (
+          <button
+            className="ibtn"
+            onClick={toggleRight}
+            title="Show right panel"
+            aria-label="Show right panel"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+              <rect x="1.5" y="2.5" width="13" height="11" rx="2" />
+              <path d="M10 2.5v11" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {mainTab === 'editor' && openFiles.length > 0 ? <EditorView /> : <ChatView />}

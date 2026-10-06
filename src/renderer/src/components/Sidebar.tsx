@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SessionSummaryDto } from '@shared/ipc'
 import { usePiUi } from '../store'
 
@@ -45,6 +45,18 @@ export function Sidebar() {
   const setQuery = usePiUi((state) => state.setSessionQuery)
   const setFilter = usePiUi((state) => state.setSessionFilter)
   const toggleStar = usePiUi((state) => state.toggleStar)
+  const openSettings = usePiUi((state) => state.openSettings)
+  const openWelcome = usePiUi((state) => state.openWelcome)
+  const searchFocusSeq = usePiUi((state) => state.searchFocusSeq)
+
+  const searchRef = useRef<HTMLInputElement | null>(null)
+
+  // Ctrl+K asks for the search box; select-all so typing replaces the query.
+  useEffect(() => {
+    if (searchFocusSeq === 0) return
+    searchRef.current?.focus()
+    searchRef.current?.select()
+  }, [searchFocusSeq])
 
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -101,8 +113,6 @@ export function Sidebar() {
           if (event.key === 'Enter') void switchSession(session.path)
         }}
       >
-        <span className={`st${isRunning ? ' run' : ''}`} />
-
         {editing === session.path ? (
           <span className="tx">
             <input
@@ -208,11 +218,13 @@ export function Sidebar() {
       <label className="sbox">
         <span aria-hidden="true">⌕</span>
         <input
+          ref={searchRef}
           value={query}
           placeholder="Search sessions"
           aria-label="Search sessions"
           onChange={(event) => setQuery(event.target.value)}
         />
+        <kbd>Ctrl K</kbd>
       </label>
 
       <div className="filters">
@@ -247,6 +259,23 @@ export function Sidebar() {
             {sessions.length === 0 ? 'No saved sessions yet.' : 'No sessions match.'}
           </p>
         ) : null}
+      </div>
+
+      <div className="sidefoot">
+        <button
+          className="sidefoot__btn"
+          onClick={openWelcome}
+          title="Welcome screen"
+          aria-label="Welcome screen"
+        >
+          <span className="sidefoot__mark" aria-hidden="true">
+            π
+          </span>
+        </button>
+        <button className="sidefoot__btn grow" onClick={openSettings} title="Settings">
+          <span aria-hidden="true">⚙</span>
+          <span>Settings</span>
+        </button>
       </div>
 
       {pendingDelete ? (
