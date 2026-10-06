@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CatalogPackageDto, InstalledPackageDto } from '@shared/ipc'
+import type { CatalogPackageDto, InstalledPackageDto, PackageProgressDto } from '@shared/ipc'
 import { usePiUi } from '../../store'
 import { Select, type SelectOption } from '../Select'
 
@@ -16,6 +16,23 @@ const TYPE_OPTIONS: SelectOption<TypeFilter>[] = [
 
 /** How long to wait after typing before hitting the catalogue. */
 const SEARCH_DEBOUNCE_MS = 350
+
+/** Lines kept in the install log. */
+const MAX_LOG_LINES = 150
+
+interface LogLine extends PackageProgressDto {
+  id: number
+}
+
+let logId = 0
+
+/** One line of install output. */
+function logText(line: LogLine): string {
+  const prefix = `${line.action}: `
+  const body = line.message.trim()
+  if (body.length === 0) return `${prefix}${line.phase} (${line.source})`
+  return `${prefix}${body}`
+}
 
 function formatDownloads(value: number): string {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M/mo`
@@ -52,8 +69,10 @@ export function PackagesSettings() {
   const [busy, setBusy] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [log, setLog] = useState<LogLine[]>([])
 
   const requestRef = useRef(0)
+  const logRef = useRef<HTMLDivElement | null>(null)
 
   const refreshInstalled = useCallback(async () => {
     try {
@@ -65,11 +84,21 @@ export function PackagesSettings() {
 
   useEffect(() => {
     void refreshInstalled()
-    const off = window.piui.onPackageProgress((payload) =>
-      setStatus(`${payload.source}: ${payload.message}`)
-    )
+    const off = window.piui.onPackageProgress((payload) => {
+      logId += 1
+      setLog((current) => [...current, { ...payload, id: logId }].slice(-MAX_LOG_LINES))
+      setStatus(
+        `${payload.source} · ${payload.action}${payload.message ? `: ${payload.message}` : ''}`
+      )
+    })
     return off
   }, [refreshInstalled])
+
+  // Keep the newest log line visible.
+  useEffect(() => {
+    const host = logRef.current
+    if (host) host.scrollTop = host.scrollHeight
+  }, [log])
 
   // Debounced catalogue search.
   useEffect(() => {
@@ -104,6 +133,7 @@ export function PackagesSettings() {
   const install = async (source: string): Promise<void> => {
     setBusy(source)
     setError(null)
+    setLog([])
     setStatus(`Installing ${source}…`)
     try {
       setInstalled(await window.piui.installPackage(source))
@@ -122,6 +152,8 @@ export function PackagesSettings() {
   const uninstall = async (source: string): Promise<void> => {
     setBusy(source)
     setError(null)
+    setLog([])
+    setStatus(`Removing ${source}…`)
     try {
       setInstalled(await window.piui.removePackage(source))
       setStatus(`${source} removed.`)
@@ -191,6 +223,16 @@ export function PackagesSettings() {
 
       {error ? <p className="hint bad">{error}</p> : null}
       {!error && status ? <p className="hint">{status}</p> : null}
+
+      {log.length > 0 ? (
+        <div className="pkg-log" ref={logRef}>
+          {log.map((line) => (
+            <div className={`pkg-log__line ${line.phase}`} key={line.id}>
+              {logText(line)}
+            </div>
+          ))}
+        </div>
+      ) : null}
 
       <div className="pkg-list">
         {items.map((item) => {

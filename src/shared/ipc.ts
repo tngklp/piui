@@ -113,6 +113,10 @@ export interface InstalledPackageDto {
 /** Progress from a package install. */
 export interface PackageProgressDto {
   source: string
+  /** Lifecycle stage the event belongs to. */
+  phase: 'start' | 'progress' | 'complete' | 'error'
+  /** What the package manager is doing, e.g. `install` or `clone`. */
+  action: string
   message: string
 }
 

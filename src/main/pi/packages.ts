@@ -9,7 +9,12 @@
  * Installation goes through the SDK's own package manager, which writes the
  * source into `settings.json` and installs into the agent directory.
  */
-import type { CatalogPackageDto, CatalogPageDto, InstalledPackageDto } from '@shared/ipc'
+import type {
+  CatalogPackageDto,
+  CatalogPageDto,
+  InstalledPackageDto,
+  PackageProgressDto
+} from '@shared/ipc'
 import { sdk, type PiSdk } from './sdk'
 
 const CATALOG_ORIGIN = 'https://pi.dev'
@@ -111,11 +116,16 @@ export async function listInstalledPackages(cwd: string): Promise<InstalledPacka
 export async function installPackage(
   cwd: string,
   source: string,
-  onProgress: (message: string) => void
+  onProgress: (event: PackageProgressDto) => void
 ): Promise<void> {
   const manager = await managerFor(cwd)
   manager.setProgressCallback((event) => {
-    if (event.message) onProgress(event.message)
+    onProgress({
+      source: event.source,
+      phase: event.type,
+      action: event.action,
+      message: event.message ?? ''
+    })
   })
   try {
     await manager.installAndPersist(source)

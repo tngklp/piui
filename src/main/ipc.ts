@@ -269,9 +269,7 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.PackagesInstall, async (_event, source: string) => {
     const agent = await host()
     const cwd = agent.getWorkspace().cwd
-    await installPackage(cwd, source, (message) =>
-      send(IpcEvent.PackagesProgress, { source, message })
-    )
+    await installPackage(cwd, source, (progress) => send(IpcEvent.PackagesProgress, progress))
     // Extensions are only instantiated when a session is created, so the
     // session is rebuilt to make the new package live immediately.
     await agent.restartSession()
