@@ -1,8 +1,8 @@
 import { execFile } from 'node:child_process'
-import { readdir } from 'node:fs/promises'
+import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { join, relative, resolve } from 'node:path'
 import { promisify } from 'node:util'
-import type { FsEntryDto, FsListingDto } from '@shared/ipc'
+import type { FsEntryDto, FsFileDto, FsListingDto } from '@shared/ipc'
 
 const execFileAsync = promisify(execFile)
 
@@ -16,7 +16,7 @@ let gitCache: GitCache | null = null
 
 /** Working-tree status keyed by workspace-relative path, cached briefly. */
 async function readGitStatus(workspaceRoot: string): Promise<Map<string, 'M' | 'U'>> {
-  if (gitCache && gitCache.root === workspaceRoot && Date.now() - gitCache.at < 3000) {
+  if (gitCache && gitCache.root === workspaceRoot && Date.now() - gitCache.at < 5000) {
     return gitCache.map
   }
 
@@ -78,4 +78,20 @@ export async function listDirectory(target: string, workspaceRoot: string): Prom
       error: cause instanceof Error ? cause.message : String(cause)
     }
   }
+}
+
+/** Read a file as UTF-8 text for the editor. */
+export async function readFileText(target: string): Promise<FsFileDto> {
+  const path = resolve(target)
+  try {
+    return { path, content: await readFile(path, 'utf8'), error: null }
+  } catch (cause) {
+    return { path, content: '', error: cause instanceof Error ? cause.message : String(cause) }
+  }
+}
+
+/** Write UTF-8 text to a file and drop the cached git status. */
+export async function writeFileText(target: string, content: string): Promise<void> {
+  await writeFile(resolve(target), content, 'utf8')
+  gitCache = null
 }

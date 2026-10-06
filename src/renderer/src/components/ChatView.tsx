@@ -2,26 +2,15 @@ import { usePiUi } from '../store'
 import { Composer } from './Composer'
 import { Transcript } from './Transcript'
 
-/** Session header, banners, transcript, and composer. */
+/** Chat body: banners, notices, transcript, and composer. */
 export function ChatView() {
-  const status = usePiUi((state) => state.status)
   const runtime = usePiUi((state) => state.runtime)
   const error = usePiUi((state) => state.error)
   const notices = usePiUi((state) => state.notices)
   const dismissNotice = usePiUi((state) => state.dismissNotice)
 
-  const title =
-    status?.sessionName ?? (status?.sessionId ? status.sessionId.slice(0, 8) : 'New session')
-  const running = Boolean(status?.isStreaming)
-
   return (
-    <main className="main">
-      <div className="head">
-        <h1>{title}</h1>
-        <span className="sp" />
-        <span className="chip lil">{running ? 'Running' : 'Idle'}</span>
-      </div>
-
+    <>
       {runtime && !runtime.versionMatch ? (
         <div className="banner warn">
           PiUI embeds pi <b>{runtime.sdkVersion}</b>
@@ -58,6 +47,6 @@ export function ChatView() {
       </div>
 
       <Composer />
-    </main>
+    </>
   )
 }

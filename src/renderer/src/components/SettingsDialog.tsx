@@ -1,20 +1,16 @@
 import { useEffect, useState } from 'react'
-import type { ApprovalAction, ApprovalConfig, ApprovalRule } from '@shared/ipc'
+import { APPROVAL_TOOLS, type ApprovalAction, type ApprovalConfig } from '@shared/ipc'
 import { usePiUi } from '../store'
-import { AUTO_THEME_ID, THEMES } from '../theme/themes'
+import { THEMES } from '../theme/themes'
+import { Select, type SelectOption } from './Select'
 
-const ACTIONS: ApprovalAction[] = ['allow', 'ask', 'deny']
+const ACTION_OPTIONS: SelectOption<ApprovalAction>[] = [
+  { value: 'allow', label: 'Allow' },
+  { value: 'ask', label: 'Ask' },
+  { value: 'deny', label: 'Deny' }
+]
 
-function newRule(): ApprovalRule {
-  return {
-    id: `rule-${Math.random().toString(36).slice(2, 9)}`,
-    tool: 'bash',
-    pattern: '*',
-    action: 'ask'
-  }
-}
-
-/** Appearance and tool-approval settings. */
+/** Theme picker and per-tool approval policy. */
 export function SettingsDialog() {
   const open = usePiUi((state) => state.settingsOpen)
   const close = usePiUi((state) => state.closeSettings)
@@ -26,26 +22,23 @@ export function SettingsDialog() {
   const [draft, setDraft] = useState<ApprovalConfig | null>(null)
 
   useEffect(() => {
-    setDraft(
-      config
-        ? { defaultPolicy: config.defaultPolicy, rules: config.rules.map((rule) => ({ ...rule })) }
-        : null
-    )
+    setDraft(config ? { defaultPolicy: config.defaultPolicy, tools: { ...config.tools } } : null)
   }, [config, open])
 
   if (!open) return null
 
-  const light = THEMES.find((theme) => theme.appearance === 'light') ?? THEMES[0]
-  const dark = THEMES.find((theme) => theme.appearance === 'dark') ?? THEMES[1] ?? THEMES[0]
+  const themeOptions: SelectOption<string>[] = THEMES.map((theme) => ({
+    value: theme.id,
+    label: theme.name
+  }))
 
-  const update = (index: number, patch: Partial<ApprovalRule>): void => {
+  const tools: string[] = Array.from(
+    new Set<string>([...APPROVAL_TOOLS, ...Object.keys(draft?.tools ?? {})])
+  )
+
+  const setTool = (tool: string, action: ApprovalAction): void => {
     if (!draft) return
-    setDraft({
-      ...draft,
-      rules: draft.rules.map((rule, position) =>
-        position === index ? { ...rule, ...patch } : rule
-      )
-    })
+    setDraft({ ...draft, tools: { ...draft.tools, [tool]: action } })
   }
 
   return (
@@ -55,143 +48,30 @@ export function SettingsDialog() {
         <h2 className="modal__title">Settings</h2>
 
         <section className="set-section">
-          <h3>Appearance</h3>
-          <div className="theme-grid">
-            <button
-              className={`theme-opt${themeId === AUTO_THEME_ID ? ' on' : ''}`}
-              onClick={() => setTheme(AUTO_THEME_ID)}
-            >
-              <span className="nm">Match system</span>
-              <span className="sw">
-                {light ? (
-                  <>
-                    <i style={{ background: light.tokens.bg }} />
-                    <i style={{ background: light.tokens.accent }} />
-                    <i style={{ background: light.tokens.accentStrong }} />
-                  </>
-                ) : null}
-                {dark ? (
-                  <>
-                    <i style={{ background: dark.tokens.bg }} />
-                    <i style={{ background: dark.tokens.accent }} />
-                    <i style={{ background: dark.tokens.accentStrong }} />
-                  </>
-                ) : null}
-              </span>
-            </button>
-
-            {THEMES.map((theme) => (
-              <button
-                className={`theme-opt${themeId === theme.id ? ' on' : ''}`}
-                key={theme.id}
-                onClick={() => setTheme(theme.id)}
-              >
-                <span className="nm">{theme.name}</span>
-                <span className="sw">
-                  <i style={{ background: theme.tokens.bg }} />
-                  <i style={{ background: theme.tokens.panel }} />
-                  <i style={{ background: theme.tokens.accent }} />
-                  <i style={{ background: theme.tokens.accentStrong }} />
-                  <i style={{ background: theme.tokens.text }} />
-                </span>
-              </button>
-            ))}
-          </div>
-          <p className="modal__hint">
-            Adding a palette to <code>theme/themes.ts</code> makes it available here — no CSS
-            changes needed.
-          </p>
+          <h3>Theme</h3>
+          <Select value={themeId} options={themeOptions} onChange={setTheme} block title="Theme" />
         </section>
 
         <section className="set-section">
           <h3>Tool approval</h3>
-
-          {draft ? (
-            <>
-              <p className="modal__hint">
-                Rules are evaluated in order and the first match wins. <code>tool</code> is a tool
-                name or <code>*</code>; <code>pattern</code> is a glob matched against the shell
-                command for <code>bash</code> and the file path for <code>edit</code>/
-                <code>write</code>.
-              </p>
-
-              <div className="rule-row default">
-                <span className="label">When no rule matches</span>
-                <select
-                  className="pick"
-                  value={draft.defaultPolicy}
-                  onChange={(event) =>
-                    setDraft({ ...draft, defaultPolicy: event.target.value as ApprovalAction })
-                  }
-                >
-                  {ACTIONS.map((action) => (
-                    <option key={action} value={action}>
-                      {action}
-                    </option>
-                  ))}
-                </select>
+          <p className="modal__hint">PiUI pauses and asks before running a tool set to Ask.</p>
+          <div className="rules">
+            {tools.map((tool) => (
+              <div className="rule-row" key={tool}>
+                <span className="label mono">{tool}</span>
+                <span className="sp" />
+                <Select
+                  value={draft?.tools[tool] ?? draft?.defaultPolicy ?? 'allow'}
+                  options={ACTION_OPTIONS}
+                  onChange={(action) => setTool(tool, action)}
+                  title={`${tool} approval`}
+                />
               </div>
-
-              <div className="rules">
-                {draft.rules.map((rule, index) => (
-                  <div className="rule-row" key={rule.id}>
-                    <input
-                      className="modal__input mono tool"
-                      value={rule.tool}
-                      placeholder="tool"
-                      onChange={(event) => update(index, { tool: event.target.value })}
-                    />
-                    <input
-                      className="modal__input mono pattern"
-                      value={rule.pattern}
-                      placeholder="pattern"
-                      onChange={(event) => update(index, { pattern: event.target.value })}
-                    />
-                    <select
-                      className="pick"
-                      value={rule.action}
-                      onChange={(event) =>
-                        update(index, { action: event.target.value as ApprovalAction })
-                      }
-                    >
-                      {ACTIONS.map((action) => (
-                        <option key={action} value={action}>
-                          {action}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      className="b"
-                      onClick={() =>
-                        setDraft({
-                          ...draft,
-                          rules: draft.rules.filter((_, position) => position !== index)
-                        })
-                      }
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                {draft.rules.length === 0 ? (
-                  <p className="modal__hint">No rules yet — the fallback policy applies.</p>
-                ) : null}
-              </div>
-            </>
-          ) : (
-            <p className="modal__hint">The agent has not started yet, so rules are unavailable.</p>
-          )}
+            ))}
+          </div>
         </section>
 
         <div className="modal__actions">
-          {draft ? (
-            <button
-              className="b"
-              onClick={() => setDraft({ ...draft, rules: [...draft.rules, newRule()] })}
-            >
-              Add rule
-            </button>
-          ) : null}
           <span className="sp" />
           <button className="b" onClick={close}>
             Close
@@ -204,7 +84,7 @@ export function SettingsDialog() {
                 close()
               }}
             >
-              Save rules
+              Save
             </button>
           ) : null}
         </div>

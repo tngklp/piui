@@ -3,7 +3,6 @@ import { usePiUi } from '../store'
 /** Application chrome: brand, workspace chip, settings, and panel toggle. */
 export function TitleBar() {
   const runtime = usePiUi((state) => state.runtime)
-  const workspace = usePiUi((state) => state.workspace)
   const rightOpen = usePiUi((state) => state.rightOpen)
   const toggleRight = usePiUi((state) => state.toggleRight)
   const openSettings = usePiUi((state) => state.openSettings)
@@ -20,11 +19,6 @@ export function TitleBar() {
         π
       </button>
       <strong>PiUI</strong>
-      {workspace ? (
-        <span className="chip lil" title={workspace.cwd}>
-          {workspace.name}
-        </span>
-      ) : null}
       {runtime ? (
         <span className="chip" title={`Embedded pi SDK ${runtime.sdkVersion}`}>
           pi {runtime.sdkVersion}

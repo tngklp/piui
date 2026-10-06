@@ -117,12 +117,6 @@ export function Welcome() {
             </div>
           </section>
         </div>
-
-        <p style={{ marginTop: 26, fontSize: 13 }}>
-          <button className="b" onClick={close}>
-            Continue to app
-          </button>
-        </p>
       </div>
     </div>
   )

@@ -27,16 +27,6 @@ function relative(iso: string): string {
   return new Date(iso).toLocaleDateString()
 }
 
-function initials(name: string): string {
-  const letters = name
-    .split(/[\s\-_.]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0] ?? '')
-    .join('')
-  return letters.length > 0 ? letters : name.slice(0, 2)
-}
-
 /** Workspace switcher, session search/filter, and the grouped session list. */
 export function Sidebar() {
   const workspace = usePiUi((state) => state.workspace)
@@ -46,19 +36,19 @@ export function Sidebar() {
   const starred = usePiUi((state) => state.starred)
   const query = usePiUi((state) => state.sessionQuery)
   const filter = usePiUi((state) => state.sessionFilter)
-  const runtime = usePiUi((state) => state.runtime)
   const newSession = usePiUi((state) => state.newSession)
   const switchSession = usePiUi((state) => state.switchSession)
   const renameSession = usePiUi((state) => state.renameSession)
   const forkSession = usePiUi((state) => state.forkSession)
+  const deleteSession = usePiUi((state) => state.deleteSession)
   const changeWorkspace = usePiUi((state) => state.changeWorkspace)
   const setQuery = usePiUi((state) => state.setSessionQuery)
   const setFilter = usePiUi((state) => state.setSessionFilter)
   const toggleStar = usePiUi((state) => state.toggleStar)
-  const openSettings = usePiUi((state) => state.openSettings)
 
   const [editing, setEditing] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
+  const [pendingDelete, setPendingDelete] = useState<SessionSummaryDto | null>(null)
 
   const activePath = status?.sessionFile ?? null
   const running = Boolean(status?.isStreaming)
@@ -76,7 +66,7 @@ export function Sidebar() {
 
   const pinned = visible.filter((session) => starred.includes(session.path))
   const rest = visible.filter((session) => !starred.includes(session.path))
-  const groups: { label: string; items: SessionSummaryDto[] }[] = [
+  const groups = [
     { label: 'Today', items: rest.filter((session) => bucketOf(session.modified) === 'Today') },
     {
       label: 'Yesterday',
@@ -104,12 +94,11 @@ export function Sidebar() {
         key={session.path}
         role="button"
         tabIndex={0}
+        onClick={() => {
+          if (editing !== session.path) void switchSession(session.path)
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter') void switchSession(session.path)
-        }}
-        onClick={() => {
-          if (editing === session.path) return
-          void switchSession(session.path)
         }}
       >
         <span className={`st${isRunning ? ' run' : ''}`} />
@@ -174,6 +163,25 @@ export function Sidebar() {
             >
               ⑂
             </button>
+            <button
+              title="Delete session"
+              aria-label="Delete session"
+              onClick={(event) => {
+                event.stopPropagation()
+                setPendingDelete(session)
+              }}
+            >
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.4"
+              >
+                <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.2h5.8l.6-8.2" />
+              </svg>
+            </button>
           </span>
         ) : null}
       </div>
@@ -183,7 +191,6 @@ export function Sidebar() {
   return (
     <aside className="side">
       <button className="proj" onClick={() => void changeWorkspace()} title={workspace?.cwd ?? ''}>
-        <span className="av">{initials(workspace?.name ?? 'pi')}</span>
         <span className="tx">
           <b>{workspace?.name ?? 'No workspace'}</b>
           <small>{sessions.length} saved sessions</small>
@@ -242,16 +249,33 @@ export function Sidebar() {
         ) : null}
       </div>
 
-      <nav className="snav">
-        <button onClick={openSettings}>Settings</button>
-        <button onClick={openSettings} title="Approval rules">
-          Rules
-        </button>
-        <span className="ver">
-          <span className={runtime?.versionMatch ? 'dot' : 'dot off'} />
-          {runtime ? `pi ${runtime.sdkVersion}` : 'offline'}
-        </span>
-      </nav>
+      {pendingDelete ? (
+        <div className="modal" role="dialog" aria-modal="true">
+          <div className="modal__backdrop" onClick={() => setPendingDelete(null)} />
+          <div className="modal__panel">
+            <h2 className="modal__title">Delete session?</h2>
+            <p className="modal__hint">
+              <b>{pendingDelete.name ?? pendingDelete.firstMessage ?? 'Untitled session'}</b> and
+              its transcript will be deleted from disk. This cannot be undone.
+            </p>
+            <div className="modal__actions">
+              <button className="b" onClick={() => setPendingDelete(null)}>
+                Cancel
+              </button>
+              <button
+                className="b bad"
+                onClick={() => {
+                  const target = pendingDelete
+                  setPendingDelete(null)
+                  void deleteSession(target.path)
+                }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </aside>
   )
 }

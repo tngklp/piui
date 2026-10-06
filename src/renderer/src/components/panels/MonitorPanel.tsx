@@ -38,6 +38,10 @@ function timeOf(iso: string): string {
 export function MonitorPanel() {
   const monitor = usePiUi((state) => state.monitor)
   const setMonitor = usePiUi((state) => state.setMonitor)
+  // Re-poll immediately when the active model changes.
+  const modelKey = usePiUi((state) =>
+    state.status?.model ? `${state.status.model.provider}/${state.status.model.id}` : ''
+  )
 
   useEffect(() => {
     let cancelled = false
@@ -57,7 +61,7 @@ export function MonitorPanel() {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [setMonitor])
+  }, [setMonitor, modelKey])
 
   if (!monitor) {
     return (

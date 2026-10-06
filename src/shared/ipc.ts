@@ -39,6 +39,9 @@ export const IpcChannel = {
   WorkspacePick: 'piui:workspace:pick',
   WorkspaceSet: 'piui:workspace:set',
   FsList: 'piui:fs:list',
+  FsRead: 'piui:fs:read',
+  FsWrite: 'piui:fs:write',
+  SessionsDelete: 'piui:sessions:delete',
   MonitorGet: 'piui:monitor:get'
 } as const
 
@@ -155,19 +158,22 @@ export type ChatItemDto =
       stopped?: boolean
     }
   | {
-      kind: 'toolResult'
+      kind: 'tool'
       id: string
       toolCallId: string
-      toolName: string
-      text: string
-      isError: boolean
+      name: string
+      arguments: unknown
+      /** Result text, once the tool has finished. */
+      text?: string
+      isError?: boolean
+      /** True while the call is still executing. */
+      running?: boolean
       /** Display diff produced by the edit tool. */
       diff?: string
       /** Unified patch produced by the edit tool. */
       patch?: string
       /** Absolute or relative path the tool acted on, when known. */
       filePath?: string
-      /** Line counts for diff badges. */
       addedLines?: number
       removedLines?: number
     }
@@ -203,25 +209,28 @@ export type UiResponseDto =
   | { id: string; value: string }
   | { id: string; confirmed: boolean }
 
-/** What PiUI does when a tool call matches a rule. */
+/** What PiUI does before running a tool. */
 export type ApprovalAction = 'allow' | 'ask' | 'deny'
 
-/**
- * One approval rule. Rules are evaluated in order and the first match wins.
- * `tool` is a tool name or `*`; `pattern` is a glob matched against the tool's
- * subject (a shell command for `bash`, a file path for `edit`/`write`/`read`).
- */
-export interface ApprovalRule {
-  id: string
-  tool: string
-  pattern: string
-  action: ApprovalAction
-}
+/** Tools the approval list shows, in display order. */
+export const APPROVAL_TOOLS = [
+  'read',
+  'bash',
+  'powershell',
+  'edit',
+  'write',
+  'grep',
+  'find',
+  'ls'
+] as const
 
-/** The complete approval policy: ordered rules plus a fallback. */
+/**
+ * Approval policy: one action per tool name. A `*` entry covers any tool not
+ * listed, and `defaultPolicy` covers the rest.
+ */
 export interface ApprovalConfig {
   defaultPolicy: ApprovalAction
-  rules: ApprovalRule[]
+  tools: Record<string, ApprovalAction>
 }
 
 /** One saved session, flattened for the session browser. */
@@ -261,6 +270,14 @@ export interface FsListingDto {
   path: string
   entries: FsEntryDto[]
   /** Set when the path is outside the workspace or unreadable. */
+  error: string | null
+}
+
+/** File contents for the editor. */
+export interface FsFileDto {
+  path: string
+  content: string
+  /** Set when the file could not be read as text. */
   error: string | null
 }
 
@@ -365,6 +382,12 @@ export interface PiUiApi {
   setWorkspace(path: string): Promise<WorkspaceDto>
   /** List a directory for the file explorer. */
   listDirectory(path: string): Promise<FsListingDto>
+  /** Read a file as text for the editor. */
+  readFile(path: string): Promise<FsFileDto>
+  /** Write file contents back to disk. */
+  writeFile(path: string, content: string): Promise<void>
+  /** Delete a saved session file. */
+  deleteSession(path: string): Promise<void>
   /** Read the current monitor snapshot. */
   getMonitor(): Promise<MonitorSnapshotDto>
 }

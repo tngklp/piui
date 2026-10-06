@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties, type PointerEvent } from 'react'
-import { ChatView } from './components/ChatView'
 import { DialogHost } from './components/DialogHost'
+import { MainPane } from './components/MainPane'
 import { RightPanel } from './components/RightPanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Sidebar } from './components/Sidebar'
@@ -8,11 +8,9 @@ import { StatusFooter } from './components/StatusFooter'
 import { TitleBar } from './components/TitleBar'
 import { Welcome } from './components/Welcome'
 import { usePiUi } from './store'
-import { applyStoredTheme, watchSystemTheme } from './theme/preference'
 
 export default function App() {
   const initialize = usePiUi((state) => state.initialize)
-  const themeId = usePiUi((state) => state.themeId)
   const rightOpen = usePiUi((state) => state.rightOpen)
   const rightWidth = usePiUi((state) => state.rightWidth)
   const setRightWidth = usePiUi((state) => state.setRightWidth)
@@ -22,12 +20,6 @@ export default function App() {
   useEffect(() => {
     void initialize()
   }, [initialize])
-
-  // Re-resolve `auto` whenever the OS preference changes.
-  useEffect(() => {
-    applyStoredTheme(themeId)
-    return watchSystemTheme(() => applyStoredTheme(themeId))
-  }, [themeId])
 
   useEffect(() => {
     if (!dragging) return
@@ -58,7 +50,7 @@ export default function App() {
       <div className={className} style={style}>
         <TitleBar />
         <Sidebar />
-        <ChatView />
+        <MainPane />
         <RightPanel onGripDown={onGripDown} />
         <StatusFooter />
       </div>

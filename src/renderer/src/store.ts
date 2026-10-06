@@ -14,11 +14,13 @@ import type {
   UiResponseDto,
   WorkspaceDto
 } from '@shared/ipc'
-import { loadThemeId, saveThemeId, systemPrefersDark } from './theme/preference'
+import { loadThemeId, saveThemeId } from './theme/preference'
 import { applyTheme, resolveTheme } from './theme/themes'
 
 /** Right-hand panel views. */
-export type RightTab = 'files' | 'term' | 'tree' | 'mon'
+export type RightTab = 'files' | 'term' | 'mon'
+/** Main column views. */
+export type MainTab = 'chat' | 'editor'
 /** Sidebar session filters. */
 export type SessionFilter = 'all' | 'running' | 'starred'
 
@@ -96,7 +98,7 @@ interface PiUiState {
   starred: string[]
   sessionQuery: string
   sessionFilter: SessionFilter
-  /** Theme id from the theme registry, or `auto`. */
+  /** Theme id from the theme registry. */
   themeId: string
   rightOpen: boolean
   rightTab: RightTab
@@ -104,6 +106,12 @@ interface PiUiState {
   welcomeOpen: boolean
   /** File selected in the explorer. */
   selectedFile: string | null
+  /** Which main column view is showing. */
+  mainTab: MainTab
+  /** Files open in the editor, in tab order. */
+  openFiles: string[]
+  /** File the editor is showing. */
+  activeFile: string | null
   monitor: MonitorSnapshotDto | null
   initialize: () => Promise<void>
   refresh: () => Promise<void>
@@ -131,6 +139,11 @@ interface PiUiState {
   loadAllSessions: () => Promise<void>
   selectFile: (path: string | null) => void
   setMonitor: (snapshot: MonitorSnapshotDto | null) => void
+  setMainTab: (tab: MainTab) => void
+  openFile: (path: string) => void
+  closeFile: (path: string) => void
+  setActiveFile: (path: string) => void
+  deleteSession: (path: string) => Promise<void>
   send: (text: string, mode?: 'prompt' | 'steer' | 'followUp') => Promise<void>
   abort: () => Promise<void>
   newSession: () => Promise<void>
@@ -176,6 +189,9 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   rightWidth: 360,
   welcomeOpen: true,
   selectedFile: null,
+  mainTab: 'chat',
+  openFiles: [],
+  activeFile: null,
   monitor: null,
 
   initialize: async () => {
@@ -434,7 +450,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
 
   setTheme: (id) => {
     saveThemeId(id)
-    applyTheme(resolveTheme(id, systemPrefersDark()))
+    applyTheme(resolveTheme(id))
     set({ themeId: id })
   },
 
@@ -471,6 +487,43 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   selectFile: (path) => set({ selectedFile: path }),
 
   setMonitor: (snapshot) => set({ monitor: snapshot }),
+
+  setMainTab: (tab) => set({ mainTab: tab }),
+
+  openFile: (path) =>
+    set((state) => ({
+      openFiles: state.openFiles.includes(path) ? state.openFiles : [...state.openFiles, path],
+      activeFile: path,
+      selectedFile: path,
+      mainTab: 'editor'
+    })),
+
+  closeFile: (path) =>
+    set((state) => {
+      const openFiles = state.openFiles.filter((file) => file !== path)
+      return {
+        openFiles,
+        activeFile:
+          state.activeFile === path ? (openFiles[openFiles.length - 1] ?? null) : state.activeFile,
+        mainTab: openFiles.length === 0 ? 'chat' : state.mainTab
+      }
+    }),
+
+  setActiveFile: (path) => set({ activeFile: path, selectedFile: path }),
+
+  deleteSession: async (path) => {
+    set({ busy: true })
+    try {
+      await window.piui.deleteSession(path)
+      await get().refresh()
+      await get().loadSessions()
+      await get().loadAllSessions()
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    } finally {
+      set({ busy: false })
+    }
+  },
 
   saveApprovalConfig: async (config) => {
     try {

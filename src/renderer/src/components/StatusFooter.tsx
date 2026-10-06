@@ -28,11 +28,6 @@ export function StatusFooter() {
       {status && status.pendingMessageCount > 0 ? (
         <span className="stat">{status.pendingMessageCount} queued</span>
       ) : null}
-      <span className="stat">{status?.model?.name ?? 'no model'}</span>
-      <span className="stat">
-        <span className={status?.isStreaming ? 'dot' : 'dot off'} />
-        {status?.isStreaming ? 'Agent running' : 'Idle'}
-      </span>
     </footer>
   )
 }

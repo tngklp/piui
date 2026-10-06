@@ -1,52 +1,56 @@
-import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import type { FsEntryDto, FsListingDto } from '@shared/ipc'
 import { fileIconName, folderIconName, iconUrl } from '../../lib/fileIcon'
 import { usePiUi } from '../../store'
 
-/** File explorer backed by the real workspace directory, using Material Icon Theme. */
+const REFRESH_MS = 3000
+
+/**
+ * File explorer for the active workspace. Uses Material Icon Theme and polls
+ * the directories it has opened so the tree tracks changes on disk.
+ */
 export function FilesPanel() {
   const workspace = usePiUi((state) => state.workspace)
   const selectedFile = usePiUi((state) => state.selectedFile)
-  const selectFile = usePiUi((state) => state.selectFile)
+  const openFile = usePiUi((state) => state.openFile)
 
   const [listings, setListings] = useState<Record<string, FsListingDto>>({})
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
-  const [openEditors, setOpenEditors] = useState<string[]>([])
   const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
 
   const root = workspace?.cwd ?? ''
+  const loadedPaths = useRef<Set<string>>(new Set())
 
   const load = useCallback(async (path: string) => {
-    setLoading(true)
+    loadedPaths.current.add(path)
     try {
       const listing = await window.piui.listDirectory(path)
       setListings((current) => ({ ...current, [path]: listing }))
       setError(listing.error)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
-    } finally {
-      setLoading(false)
     }
   }, [])
 
+  // Reset when the workspace changes.
   useEffect(() => {
+    loadedPaths.current = new Set()
     setListings({})
     setExpanded(new Set())
-    setOpenEditors([])
     if (root.length > 0) void load(root)
   }, [root, load])
 
-  const openFile = (entry: FsEntryDto): void => {
-    selectFile(entry.path)
-    setOpenEditors((current) =>
-      [entry.path, ...current.filter((path) => path !== entry.path)].slice(0, 5)
-    )
-  }
+  // Poll every opened directory so new and deleted files appear.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      for (const path of loadedPaths.current) void load(path)
+    }, REFRESH_MS)
+    return () => window.clearInterval(timer)
+  }, [load])
 
   const activate = (entry: FsEntryDto): void => {
     if (entry.kind === 'file') {
-      openFile(entry)
+      openFile(entry.path)
       return
     }
 
@@ -98,68 +102,15 @@ export function FilesPanel() {
     })
   }
 
-  const rootName = workspace?.name ?? 'workspace'
-
   return (
     <div>
       <div className="xh">
-        <span>Explorer</span>
-        <span className="sp" />
-        <button title="Refresh" aria-label="Refresh" onClick={() => root && void load(root)}>
-          ↻
-        </button>
-        <button
-          title="Collapse all"
-          aria-label="Collapse all"
-          onClick={() => setExpanded(new Set())}
-        >
-          ⊟
-        </button>
-      </div>
-
-      {openEditors.length > 0 ? (
-        <div className="xs" style={{ borderTop: 0 }}>
-          <span className="chev o">›</span>Open editors
-          <span className="n">{openEditors.length}</span>
-        </div>
-      ) : null}
-      {openEditors.map((path) => {
-        const name = path.split(/[\\/]/).pop() ?? path
-        return (
-          <button
-            className={`r${selectedFile === path ? ' sel' : ''}`}
-            key={path}
-            style={{ paddingLeft: 22 }}
-            title={path}
-            onClick={() => selectFile(path)}
-          >
-            <img className="fd" src={iconUrl(fileIconName(name))} alt="" />
-            <span className="nm">{name}</span>
-          </button>
-        )
-      })}
-
-      <div className="xs" style={{ borderTop: openEditors.length > 0 ? undefined : 0 }}>
-        <span className="chev o">›</span>
-        {rootName}
+        <span>{workspace?.name ?? 'No folder'}</span>
       </div>
 
       <div className="xt">
-        {root.length === 0 ? (
-          <p style={{ color: 'var(--dim)', fontSize: 12.5, padding: '8px 12px', margin: 0 }}>
-            No workspace folder selected.
-          </p>
-        ) : null}
-        {error ? (
-          <p style={{ color: 'var(--del)', fontSize: 12.5, padding: '8px 12px', margin: 0 }}>
-            {error}
-          </p>
-        ) : null}
-        {loading && Object.keys(listings).length === 0 ? (
-          <p style={{ color: 'var(--dim)', fontSize: 12.5, padding: '8px 12px', margin: 0 }}>
-            Loading…
-          </p>
-        ) : null}
+        {root.length === 0 ? <p className="hint">No workspace folder selected.</p> : null}
+        {error ? <p className="hint bad">{error}</p> : null}
         {renderEntries(root, 0)}
       </div>
     </div>

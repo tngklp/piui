@@ -1,6 +1,5 @@
 import type { PointerEvent } from 'react'
 import { usePiUi, type RightTab } from '../store'
-import { BranchesPanel } from './panels/BranchesPanel'
 import { FilesPanel } from './panels/FilesPanel'
 import { MonitorPanel } from './panels/MonitorPanel'
 import { TerminalPanel } from './panels/TerminalPanel'
@@ -8,7 +7,6 @@ import { TerminalPanel } from './panels/TerminalPanel'
 const TABS: { id: RightTab; label: string }[] = [
   { id: 'files', label: 'Files' },
   { id: 'term', label: 'Terminal' },
-  { id: 'tree', label: 'Branches' },
   { id: 'mon', label: 'Monitor' }
 ]
 
@@ -16,11 +14,10 @@ interface RightPanelProps {
   onGripDown: (event: PointerEvent<HTMLDivElement>) => void
 }
 
-/** Tabbed, resizable, collapsible side panel. */
+/** Tabbed, resizable side panel. Collapsing is driven from the title bar. */
 export function RightPanel({ onGripDown }: RightPanelProps) {
   const tab = usePiUi((state) => state.rightTab)
   const setTab = usePiUi((state) => state.setRightTab)
-  const toggleRight = usePiUi((state) => state.toggleRight)
   const monitor = usePiUi((state) => state.monitor)
 
   const live = tab === 'mon' && monitor?.engine.available
@@ -48,23 +45,11 @@ export function RightPanel({ onGripDown }: RightPanelProps) {
             {entry.id === 'mon' && live ? <i className="lv" /> : null}
           </button>
         ))}
-        <span className="sp" />
-        <button
-          className="ibtn"
-          onClick={toggleRight}
-          title="Collapse panel"
-          aria-label="Collapse panel"
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
-            <path d="M6 3.5 10.5 8 6 12.5" />
-          </svg>
-        </button>
       </div>
 
       <div className="pane">
         {tab === 'files' ? <FilesPanel /> : null}
         {tab === 'term' ? <TerminalPanel /> : null}
-        {tab === 'tree' ? <BranchesPanel /> : null}
         {tab === 'mon' ? <MonitorPanel /> : null}
       </div>
     </aside>

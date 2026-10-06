@@ -18,7 +18,7 @@ import { getRuntimeInfo } from './pi/runtime-info'
 import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
 import { WorkspaceStore } from './pi/workspace-store'
-import { listDirectory } from './fs-list'
+import { listDirectory, readFileText, writeFileText } from './fs-list'
 import { readMonitor } from './monitor'
 
 export interface IpcContext {
@@ -179,6 +179,16 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.FsList, async (_event, target: string) => {
     const root = (await host()).getWorkspace().cwd
     return listDirectory(target, root)
+  })
+
+  ipcMain.handle(IpcChannel.FsRead, async (_event, target: string) => readFileText(target))
+
+  ipcMain.handle(IpcChannel.FsWrite, async (_event, target: string, content: string) => {
+    await writeFileText(target, content)
+  })
+
+  ipcMain.handle(IpcChannel.SessionsDelete, async (_event, sessionPath: string) => {
+    await (await host()).deleteSession(sessionPath)
   })
 
   ipcMain.handle(IpcChannel.MonitorGet, async () => {

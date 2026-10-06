@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises'
 import {
   createAgentSession,
   DefaultResourceLoader,
@@ -137,18 +138,8 @@ function countDiffLines(diff: string): { added: number; removed: number } {
 /** Convert persisted agent messages into renderer-friendly items. */
 export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
   const items: ChatItemDto[] = []
-
-  // First pass: index tool-call arguments so results can show paths and diffs.
-  const toolCalls = new Map<string, Record<string, unknown>>()
-  for (const raw of messages) {
-    const message = raw as SdkMessage
-    if (message.role !== 'assistant' || !Array.isArray(message.content)) continue
-    for (const block of message.content as SdkContentBlock[]) {
-      if (block.type === 'toolCall' && typeof block.id === 'string') {
-        toolCalls.set(block.id, (block.arguments as Record<string, unknown>) ?? {})
-      }
-    }
-  }
+  /** Tool items by call id, so a later result merges into its own call. */
+  const toolIndex = new Map<string, Extract<ChatItemDto, { kind: 'tool' }>>()
 
   messages.forEach((raw, index) => {
     const message = raw as SdkMessage
@@ -165,42 +156,74 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
         break
 
       case 'assistant': {
-        const item: Extract<ChatItemDto, { kind: 'assistant' }> = {
-          kind: 'assistant',
-          id,
-          blocks: blocksFromContent(message.content)
+        const blocks = blocksFromContent(message.content).filter(
+          (block) => block.type !== 'toolCall'
+        )
+
+        if (blocks.length > 0 || message.errorMessage || message.stopReason === 'error') {
+          const item: Extract<ChatItemDto, { kind: 'assistant' }> = {
+            kind: 'assistant',
+            id,
+            blocks
+          }
+          if (message.stopReason === 'aborted') item.stopped = true
+          if (message.stopReason === 'error' || message.errorMessage) {
+            item.error = message.errorMessage ?? 'The model request failed.'
+          }
+          items.push(item)
         }
-        if (message.stopReason === 'aborted') item.stopped = true
-        if (message.stopReason === 'error' || message.errorMessage) {
-          item.error = message.errorMessage ?? 'The model request failed.'
+
+        if (Array.isArray(message.content)) {
+          let callCount = 0
+          for (const block of message.content as SdkContentBlock[]) {
+            if (block.type !== 'toolCall' || typeof block.id !== 'string') continue
+            callCount += 1
+            const tool: Extract<ChatItemDto, { kind: 'tool' }> = {
+              kind: 'tool',
+              id: `${id}-t${callCount}`,
+              toolCallId: block.id,
+              name: block.name ?? 'tool',
+              arguments: block.arguments ?? {},
+              running: true
+            }
+            toolIndex.set(block.id, tool)
+            items.push(tool)
+          }
         }
-        items.push(item)
         break
       }
 
       case 'toolResult': {
-        const args = toolCalls.get(message.toolCallId ?? '')
         const details = message.details as { diff?: string; patch?: string } | undefined
-        const item: Extract<ChatItemDto, { kind: 'toolResult' }> = {
-          kind: 'toolResult',
+        const existing = toolIndex.get(message.toolCallId ?? '')
+        const args = (existing?.arguments ?? {}) as Record<string, unknown>
+
+        const target: Extract<ChatItemDto, { kind: 'tool' }> = existing ?? {
+          kind: 'tool',
           id,
           toolCallId: message.toolCallId ?? '',
-          toolName: message.toolName ?? 'tool',
-          text: textFromContent(message.content),
-          isError: message.isError ?? false
+          name: message.toolName ?? 'tool',
+          arguments: args
         }
 
-        const filePath = args?.path ?? args?.file_path
-        if (typeof filePath === 'string') item.filePath = filePath
-        if (typeof details?.patch === 'string') item.patch = details.patch
+        target.text = textFromContent(message.content)
+        target.isError = message.isError ?? false
+        target.running = false
+
+        const filePath = args.path ?? args.file_path
+        if (typeof filePath === 'string') target.filePath = filePath
+        if (typeof details?.patch === 'string') target.patch = details.patch
         if (typeof details?.diff === 'string') {
-          item.diff = details.diff
+          target.diff = details.diff
           const counts = countDiffLines(details.diff)
-          item.addedLines = counts.added
-          item.removedLines = counts.removed
+          target.addedLines = counts.added
+          target.removedLines = counts.removed
         }
 
-        items.push(item)
+        if (!existing) {
+          toolIndex.set(target.toolCallId, target)
+          items.push(target)
+        }
         break
       }
 
@@ -498,6 +521,13 @@ export class AgentHost {
     }
 
     return requests.slice(-limit).reverse()
+  }
+
+  /** Delete a saved session file, starting a fresh session if it was active. */
+  async deleteSession(sessionPath: string): Promise<void> {
+    const wasActive = this.session.sessionFile === sessionPath
+    await rm(sessionPath, { force: true })
+    if (wasActive) await this.newSession()
   }
 
   dispose(): void {

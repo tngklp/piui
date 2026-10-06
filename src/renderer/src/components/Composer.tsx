@@ -1,6 +1,7 @@
 import { useMemo, useState, type KeyboardEvent } from 'react'
 import type { ThinkingLevelDto } from '@shared/ipc'
 import { usePiUi } from '../store'
+import { Select, type SelectOption } from './Select'
 
 interface Command {
   name: string
@@ -35,10 +36,21 @@ export function Composer() {
     [compact, forkSession, newSession]
   )
 
-  const slashOpen = text.startsWith('/') && !/[\s]/.test(text)
+  const slashOpen = text.startsWith('/') && !/\s/.test(text)
   const matches = slashOpen
     ? commands.filter((command) => command.name.startsWith(text.toLowerCase()))
     : []
+
+  const modelKey = status?.model ? `${status.model.provider}/${status.model.id}` : ''
+  const modelOptions: SelectOption<string>[] = models.map((model) => ({
+    value: `${model.provider}/${model.id}`,
+    label: model.name
+  }))
+
+  const thinking = status?.thinkingLevel ?? 'off'
+  const thinkingOptions: SelectOption<ThinkingLevelDto>[] = (
+    status?.availableThinkingLevels ?? ['off']
+  ).map((level) => ({ value: level, label: level }))
 
   const submit = async (mode: 'prompt' | 'steer' | 'followUp'): Promise<void> => {
     const value = text
@@ -94,16 +106,6 @@ export function Composer() {
     void submit(streaming ? 'steer' : 'prompt')
   }
 
-  const modelKey = status?.model ? `${status.model.provider}/${status.model.id}` : ''
-  const thinking = status?.thinkingLevel ?? 'off'
-  const thinkingLevels = status?.availableThinkingLevels ?? ['off']
-
-  const onModelChange = (value: string): void => {
-    const separator = value.indexOf('/')
-    if (separator <= 0) return
-    void selectModel(value.slice(0, separator), value.slice(separator + 1))
-  }
-
   return (
     <div className="comp">
       {slashOpen ? (
@@ -146,34 +148,29 @@ export function Composer() {
         />
 
         <div className="tools">
-          <select
-            className="pick"
+          <Select
             value={modelKey}
-            onChange={(event) => onModelChange(event.target.value)}
+            options={modelOptions}
+            onChange={(value) => {
+              const separator = value.indexOf('/')
+              if (separator > 0)
+                void selectModel(value.slice(0, separator), value.slice(separator + 1))
+            }}
             disabled={models.length === 0}
+            direction="up"
             title="Model"
-          >
-            {modelKey === '' ? <option value="">No model</option> : null}
-            {models.map((model) => (
-              <option key={`${model.provider}/${model.id}`} value={`${model.provider}/${model.id}`}>
-                {model.name}
-              </option>
-            ))}
-          </select>
+            placeholder="No model"
+          />
 
-          <select
-            className="pick"
+          <Select
             value={thinking}
-            onChange={(event) => void selectThinking(event.target.value as ThinkingLevelDto)}
+            options={thinkingOptions}
+            onChange={(value) => void selectThinking(value)}
             disabled={!status?.supportsThinking}
-            title="Thinking level"
-          >
-            {thinkingLevels.map((level) => (
-              <option key={level} value={level}>
-                Thinking: {level}
-              </option>
-            ))}
-          </select>
+            direction="up"
+            title="Reasoning level"
+            placeholder="off"
+          />
 
           <span className="sp" />
 

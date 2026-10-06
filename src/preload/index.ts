@@ -57,6 +57,10 @@ const api: PiUiApi = {
   pickWorkspace: () => ipcRenderer.invoke(IpcChannel.WorkspacePick),
   setWorkspace: (path: string) => ipcRenderer.invoke(IpcChannel.WorkspaceSet, path),
   listDirectory: (path: string) => ipcRenderer.invoke(IpcChannel.FsList, path),
+  readFile: (path: string) => ipcRenderer.invoke(IpcChannel.FsRead, path),
+  writeFile: (path: string, content: string) =>
+    ipcRenderer.invoke(IpcChannel.FsWrite, path, content),
+  deleteSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsDelete, path),
   getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet)
 }
 
