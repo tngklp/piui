@@ -45,13 +45,13 @@ npm run build:linux   # AppImage + deb
 
 ## Architecture
 
-| Area | Location |
-| --- | --- |
-| Electron main process, window lifecycle, IPC | `src/main` |
-| Pi agent host (SDK wrapper, sessions, models, tools) | `src/main/pi` |
-| Preload bridge (`window.piui`) | `src/preload` |
-| React renderer | `src/renderer` |
-| Shared IPC contract and DTO types | `src/shared` |
+| Area                                                 | Location       |
+| ---------------------------------------------------- | -------------- |
+| Electron main process, window lifecycle, IPC         | `src/main`     |
+| Pi agent host (SDK wrapper, sessions, models, tools) | `src/main/pi`  |
+| Preload bridge (`window.piui`)                       | `src/preload`  |
+| React renderer                                       | `src/renderer` |
+| Shared IPC contract and DTO types                    | `src/shared`   |
 
 The renderer never touches Node or the SDK directly: the main process owns the agent and
 streams typed events over IPC.

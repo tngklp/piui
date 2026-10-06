@@ -1,0 +1,350 @@
+import {
+  createAgentSession,
+  type AgentSession,
+  type PromptOptions
+} from '@earendil-works/pi-coding-agent'
+import type {
+  ChatBlockDto,
+  ChatItemDto,
+  ModelDto,
+  PromptInput,
+  SessionStatsDto,
+  SessionStatusDto,
+  ThinkingLevelDto
+} from '@shared/ipc'
+import { createUiHost, type UiTransport } from './ui-context'
+
+/** The model shape PiUI reads from the SDK. */
+type SdkModel = NonNullable<AgentSession['model']>
+/** A thinking level accepted by the SDK. */
+type SdkThinkingLevel = Parameters<AgentSession['setThinkingLevel']>[0]
+/** Image attachments accepted by the SDK prompt API. */
+type SdkPromptImages = NonNullable<PromptOptions['images']>
+
+/** Loose view of a persisted agent message, used only for rendering. */
+interface SdkMessage {
+  role: string
+  content?: unknown
+  toolCallId?: string
+  toolName?: string
+  isError?: boolean
+  command?: string
+  output?: string
+  exitCode?: number
+  stopReason?: string
+  errorMessage?: string
+}
+
+interface SdkContentBlock {
+  type: string
+  text?: string
+  thinking?: string
+  id?: string
+  name?: string
+  arguments?: unknown
+}
+
+interface SdkContextUsage {
+  tokens: number | null
+  contextWindow: number
+  percent?: number | null
+}
+
+export interface AgentHostOptions {
+  cwd: string
+  /** Called for every session event with a JSON-safe payload. */
+  emitEvent: (event: unknown) => void
+  transport: UiTransport
+}
+
+function toModelDto(model: SdkModel | undefined): ModelDto | null {
+  if (!model) return null
+  const cost = model.cost as
+    { input?: number; output?: number; cacheRead?: number; cacheWrite?: number } | undefined
+  return {
+    provider: model.provider,
+    id: model.id,
+    name: model.name ?? model.id,
+    reasoning: model.reasoning ?? false,
+    contextWindow: model.contextWindow ?? 0,
+    input: [...(model.input ?? ['text'])],
+    cost: {
+      input: cost?.input ?? 0,
+      output: cost?.output ?? 0,
+      cacheRead: cost?.cacheRead ?? 0,
+      cacheWrite: cost?.cacheWrite ?? 0
+    }
+  }
+}
+
+function blocksFromContent(content: unknown): ChatBlockDto[] {
+  if (typeof content === 'string') return [{ type: 'text', text: content }]
+  if (!Array.isArray(content)) return []
+
+  const blocks: ChatBlockDto[] = []
+  for (const raw of content) {
+    const block = raw as SdkContentBlock
+    if (block.type === 'text' && typeof block.text === 'string') {
+      blocks.push({ type: 'text', text: block.text })
+    } else if (block.type === 'thinking' && typeof block.thinking === 'string') {
+      blocks.push({ type: 'thinking', text: block.thinking })
+    } else if (
+      block.type === 'toolCall' &&
+      typeof block.id === 'string' &&
+      typeof block.name === 'string'
+    ) {
+      blocks.push({ type: 'toolCall', id: block.id, name: block.name, arguments: block.arguments })
+    }
+  }
+  return blocks
+}
+
+function textFromContent(content: unknown): string {
+  return blocksFromContent(content)
+    .filter((block): block is Extract<ChatBlockDto, { type: 'text' }> => block.type === 'text')
+    .map((block) => block.text)
+    .join('')
+}
+
+function countImages(content: unknown): number {
+  if (!Array.isArray(content)) return 0
+  return content.filter((block) => (block as { type?: string }).type === 'image').length
+}
+
+/** Convert persisted agent messages into renderer-friendly items. */
+export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
+  const items: ChatItemDto[] = []
+
+  messages.forEach((raw, index) => {
+    const message = raw as SdkMessage
+    const id = `m${index}`
+
+    switch (message.role) {
+      case 'user':
+        items.push({
+          kind: 'user',
+          id,
+          text: textFromContent(message.content),
+          imageCount: countImages(message.content)
+        })
+        break
+
+      case 'assistant': {
+        const item: Extract<ChatItemDto, { kind: 'assistant' }> = {
+          kind: 'assistant',
+          id,
+          blocks: blocksFromContent(message.content)
+        }
+        if (message.stopReason === 'aborted') item.stopped = true
+        if (message.stopReason === 'error' || message.errorMessage) {
+          item.error = message.errorMessage ?? 'The model request failed.'
+        }
+        items.push(item)
+        break
+      }
+
+      case 'toolResult':
+        items.push({
+          kind: 'toolResult',
+          id,
+          toolCallId: message.toolCallId ?? '',
+          toolName: message.toolName ?? 'tool',
+          text: textFromContent(message.content),
+          isError: message.isError ?? false
+        })
+        break
+
+      case 'bashExecution':
+        items.push({
+          kind: 'bash',
+          id,
+          command: message.command ?? '',
+          output: message.output ?? '',
+          exitCode: message.exitCode ?? null
+        })
+        break
+
+      default:
+        // System, custom, and summary messages are not rendered as chat items yet.
+        break
+    }
+  })
+
+  return items
+}
+
+/** JSON-safe copy so events survive structured clone across IPC. */
+function sanitize(value: unknown): unknown {
+  try {
+    return JSON.parse(JSON.stringify(value)) as unknown
+  } catch {
+    return { type: 'unserializable_event' }
+  }
+}
+
+/**
+ * Owns the Pi agent session for the GUI.
+ *
+ * One AgentSession is live at a time. Its events are forwarded to the renderer,
+ * and every mutation the UI can request is exposed as an explicit method so the
+ * IPC layer stays a thin pass-through.
+ */
+export class AgentHost {
+  private session: AgentSession
+  private unsubscribe: (() => void) | undefined
+  private readonly cwd: string
+  private readonly options: AgentHostOptions
+  private readonly uiHost: ReturnType<typeof createUiHost>
+
+  private constructor(session: AgentSession, options: AgentHostOptions) {
+    this.session = session
+    this.cwd = options.cwd
+    this.options = options
+    this.uiHost = createUiHost(options.transport)
+  }
+
+  static async create(options: AgentHostOptions): Promise<AgentHost> {
+    const session = await AgentHost.openSession(options)
+    const host = new AgentHost(session, options)
+    host.attach(session)
+    return host
+  }
+
+  private static async openSession(options: AgentHostOptions): Promise<AgentSession> {
+    const { session } = await createAgentSession({ cwd: options.cwd })
+    return session
+  }
+
+  /** Subscribe to session events and bind extensions to the Gui host. */
+  private attach(session: AgentSession): void {
+    this.unsubscribe = session.subscribe((event) => {
+      this.options.emitEvent(sanitize(event))
+    })
+
+    void session.bindExtensions({ uiContext: this.uiHost, mode: 'rpc' }).catch((error: unknown) => {
+      this.options.emitEvent({ type: 'piui_bind_error', message: String(error) })
+    })
+  }
+
+  async getStatus(): Promise<SessionStatusDto> {
+    const session = this.session
+    const stats = session.getSessionStats()
+    const usage = session.getContextUsage() as SdkContextUsage | undefined
+
+    return {
+      cwd: this.cwd,
+      model: toModelDto(session.model),
+      thinkingLevel: session.thinkingLevel as ThinkingLevelDto,
+      availableThinkingLevels: session.getAvailableThinkingLevels() as ThinkingLevelDto[],
+      supportsThinking: session.supportsThinking(),
+      isStreaming: session.isStreaming,
+      isCompacting: session.isCompacting,
+      isRetrying: session.isRetrying,
+      sessionId: session.sessionId,
+      sessionFile: session.sessionFile ?? null,
+      sessionName: session.sessionName ?? null,
+      messageCount: session.messages.length,
+      pendingMessageCount: session.pendingMessageCount,
+      steering: [...session.getSteeringMessages()],
+      followUp: [...session.getFollowUpMessages()],
+      contextUsage: usage
+        ? {
+            tokens: usage.tokens,
+            contextWindow: usage.contextWindow,
+            percent: typeof usage.percent === 'number' ? usage.percent : null
+          }
+        : null,
+      cost: stats.cost,
+      tokens: { ...stats.tokens }
+    }
+  }
+
+  getMessages(): ChatItemDto[] {
+    return toChatItems(this.session.messages)
+  }
+
+  async getStats(): Promise<SessionStatsDto> {
+    const stats = this.session.getSessionStats()
+    return {
+      sessionFile: stats.sessionFile ?? null,
+      sessionId: stats.sessionId,
+      userMessages: stats.userMessages,
+      assistantMessages: stats.assistantMessages,
+      toolCalls: stats.toolCalls,
+      toolResults: stats.toolResults,
+      totalMessages: stats.totalMessages,
+      tokens: { ...stats.tokens },
+      cost: stats.cost
+    }
+  }
+
+  async getModels(): Promise<ModelDto[]> {
+    const models = await this.session.modelRuntime.getAvailable()
+    return models
+      .map((model) => toModelDto(model))
+      .filter((model): model is ModelDto => model !== null)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }
+
+  async prompt(input: PromptInput): Promise<void> {
+    const options: PromptOptions = {}
+    if (input.images && input.images.length > 0) {
+      options.images = input.images as SdkPromptImages
+    }
+    if (input.streamingBehavior) {
+      options.streamingBehavior = input.streamingBehavior
+    }
+    await this.session.prompt(input.text, options)
+  }
+
+  async steer(text: string): Promise<void> {
+    await this.session.steer(text)
+  }
+
+  async followUp(text: string): Promise<void> {
+    await this.session.followUp(text)
+  }
+
+  async abort(): Promise<void> {
+    await this.session.abort()
+  }
+
+  clearQueue(): { steering: string[]; followUp: string[] } {
+    return this.session.clearQueue()
+  }
+
+  async setModel(provider: string, id: string): Promise<void> {
+    const model = this.session.modelRuntime.getModel(provider, id)
+    if (!model) throw new Error(`Unknown model: ${provider}/${id}`)
+    await this.session.setModel(model)
+  }
+
+  async cycleModel(): Promise<void> {
+    await this.session.cycleModel()
+  }
+
+  setThinkingLevel(level: ThinkingLevelDto): void {
+    this.session.setThinkingLevel(level as SdkThinkingLevel)
+  }
+
+  async compact(customInstructions?: string): Promise<void> {
+    await this.session.compact(customInstructions)
+  }
+
+  /** Replace the current session with a brand new one. */
+  async newSession(): Promise<void> {
+    this.unsubscribe?.()
+    this.unsubscribe = undefined
+    this.session.dispose()
+
+    const session = await AgentHost.openSession(this.options)
+    this.session = session
+    this.attach(session)
+  }
+
+  dispose(): void {
+    this.unsubscribe?.()
+    this.unsubscribe = undefined
+    this.session.dispose()
+  }
+}

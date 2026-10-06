@@ -1,6 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
-import { IpcChannel, type AppInfo } from '@shared/ipc'
+import { registerIpcHandlers } from './ipc'
 
 const preloadPath = fileURLToPath(new URL('../preload/index.mjs', import.meta.url))
 const rendererEntry = fileURLToPath(new URL('../renderer/index.html', import.meta.url))
@@ -52,25 +52,15 @@ function createWindow(): BrowserWindow {
     void window.loadFile(rendererEntry)
   }
 
+  mainWindow = window
+  window.on('closed', () => {
+    if (mainWindow === window) mainWindow = null
+  })
+
   return window
 }
 
-function registerIpcHandlers(): void {
-  ipcMain.handle(
-    IpcChannel.AppInfo,
-    (): AppInfo => ({
-      name: app.getName(),
-      version: app.getVersion(),
-      platform: process.platform,
-      versions: {
-        electron: process.versions.electron ?? '',
-        chrome: process.versions.chrome ?? '',
-        node: process.versions.node ?? '',
-        v8: process.versions.v8 ?? ''
-      }
-    })
-  )
-}
+let mainWindow: BrowserWindow | null = null
 
 app.whenReady().then(() => {
   if (app.isPackaged) {
@@ -86,7 +76,7 @@ app.whenReady().then(() => {
     })
   }
 
-  registerIpcHandlers()
+  registerIpcHandlers({ getWindow: () => mainWindow })
   createWindow()
 
   app.on('activate', () => {

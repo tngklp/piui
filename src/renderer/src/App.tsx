@@ -1,55 +1,119 @@
-import { useEffect, useState } from 'react'
-import type { AppInfo } from '@shared/ipc'
+import { useEffect } from 'react'
+import type { ThinkingLevelDto } from '@shared/ipc'
+import { Composer } from './components/Composer'
+import { StatusBar } from './components/StatusBar'
+import { Transcript } from './components/Transcript'
+import { usePiUi } from './store'
 
 export default function App() {
-  const [info, setInfo] = useState<AppInfo | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const initialize = usePiUi((state) => state.initialize)
+  const error = usePiUi((state) => state.error)
+  const runtime = usePiUi((state) => state.runtime)
+  const status = usePiUi((state) => state.status)
+  const models = usePiUi((state) => state.models)
+  const notices = usePiUi((state) => state.notices)
+  const dismissNotice = usePiUi((state) => state.dismissNotice)
+  const selectModel = usePiUi((state) => state.selectModel)
+  const selectThinking = usePiUi((state) => state.selectThinking)
+  const newSession = usePiUi((state) => state.newSession)
+  const compact = usePiUi((state) => state.compact)
 
   useEffect(() => {
-    window.piui
-      .getAppInfo()
-      .then(setInfo)
-      .catch((cause: unknown) => setError(String(cause)))
-  }, [])
+    void initialize()
+  }, [initialize])
+
+  const currentModelKey = status?.model ? `${status.model.provider}/${status.model.id}` : ''
+
+  const onModelChange = (value: string): void => {
+    const separator = value.indexOf('/')
+    if (separator <= 0) return
+    void selectModel(value.slice(0, separator), value.slice(separator + 1))
+  }
 
   return (
-    <div className="shell">
-      <header className="shell__header">
-        <span className="shell__logo">π</span>
-        <div>
-          <h1 className="shell__title">PiUI</h1>
-          <p className="shell__subtitle">Desktop GUI for the Pi coding agent</p>
+    <div className="app">
+      <header className="topbar">
+        <div className="topbar__brand">
+          <span className="topbar__logo">π</span>
+          <span className="topbar__name">PiUI</span>
+        </div>
+
+        <div className="topbar__controls">
+          <select
+            className="control"
+            value={currentModelKey}
+            onChange={(event) => onModelChange(event.target.value)}
+            disabled={models.length === 0}
+            title="Model"
+          >
+            {currentModelKey === '' ? <option value="">No model selected</option> : null}
+            {models.map((model) => (
+              <option key={`${model.provider}/${model.id}`} value={`${model.provider}/${model.id}`}>
+                {model.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            className="control"
+            value={status?.thinkingLevel ?? 'off'}
+            onChange={(event) => void selectThinking(event.target.value as ThinkingLevelDto)}
+            disabled={!status?.supportsThinking}
+            title="Thinking level"
+          >
+            {(status?.availableThinkingLevels ?? ['off']).map((level) => (
+              <option key={level} value={level}>
+                {level}
+              </option>
+            ))}
+          </select>
+
+          <button className="button" onClick={() => void newSession()}>
+            New
+          </button>
+          <button className="button" onClick={() => void compact()} disabled={status?.isStreaming}>
+            Compact
+          </button>
         </div>
       </header>
 
-      <main className="shell__main">
-        {error ? <p className="shell__error">Failed to load app info: {error}</p> : null}
-        {info ? (
-          <dl className="facts">
-            <div className="facts__row">
-              <dt>Version</dt>
-              <dd>{info.version}</dd>
-            </div>
-            <div className="facts__row">
-              <dt>Platform</dt>
-              <dd>{info.platform}</dd>
-            </div>
-            <div className="facts__row">
-              <dt>Electron</dt>
-              <dd>{info.versions.electron}</dd>
-            </div>
-            <div className="facts__row">
-              <dt>Chromium</dt>
-              <dd>{info.versions.chrome}</dd>
-            </div>
-            <div className="facts__row">
-              <dt>Node</dt>
-              <dd>{info.versions.node}</dd>
-            </div>
-          </dl>
-        ) : null}
-        {!info && !error ? <p className="shell__muted">Starting…</p> : null}
+      {runtime && !runtime.versionMatch ? (
+        <div className="banner banner--warning">
+          PiUI embeds pi <strong>{runtime.sdkVersion}</strong>
+          {runtime.cliVersion
+            ? `, but the installed CLI is ${runtime.cliVersion}`
+            : ' and no installed CLI was detected'}
+          . Keep both on the same version so sessions and settings stay compatible.
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="banner banner--error" role="alert">
+          {error}
+        </div>
+      ) : null}
+
+      {notices.length > 0 ? (
+        <div className="notices">
+          {notices.map((notice) => (
+            <button
+              key={notice.id}
+              className={`notice notice--${notice.level}`}
+              onClick={() => dismissNotice(notice.id)}
+              title="Dismiss"
+            >
+              {notice.message}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <main className="main">
+        <Transcript />
       </main>
+
+      <StatusBar />
+      <Composer />
     </div>
   )
 }
