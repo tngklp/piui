@@ -95,6 +95,12 @@ export function EditorView() {
   const [dirty, setDirty] = useState<Record<string, boolean>>(() =>
     Object.fromEntries([...dirtyFiles].map((path) => [path, true]))
   )
+
+  // The module-scope set is the truth and outlives this component, so re-read it
+  // whenever the open tabs change rather than trusting the mount-time snapshot.
+  useEffect(() => {
+    setDirty(Object.fromEntries([...dirtyFiles].map((path) => [path, true])))
+  }, [openFiles])
   const [cursor, setCursor] = useState<CursorInfo>(EMPTY_CURSOR)
   /**
    * The rendered/source choice for the file on screen. The map remembers it per
@@ -408,25 +414,46 @@ export function EditorView() {
   /** Bumped when files are rewritten behind the editor's back, such as by an undo. */
   const filesVersion = usePiUi((state) => state.filesVersion)
 
-  // An undo rewrites files on disk. Put the new contents into the live buffer, so
-  // the editor stops disagreeing with the disk — unless the buffer has unsaved
-  // edits, which are the user's and not ours to discard.
+  /**
+   * Files changed on disk — the agent wrote one, or an undo rewrote one.
+   *
+   * `states` is the cache that matters here: a remembered EditorState is what made
+   * a reopened file show what it used to say while the disk held something else.
+   * Buffers with unsaved edits are the user's work and are left alone.
+   */
   useEffect(() => {
     if (filesVersion === 0) return
-    const view = viewRef.current
-    const path = usePiUi.getState().activeFile
-    if (!view || !path || dirtyFiles.has(path)) return
+
+    const current = usePiUi.getState().activeFile
+    for (const path of [...contents.keys()]) {
+      if (path === current || dirtyFiles.has(path)) continue
+      contents.delete(path)
+      states.delete(path)
+    }
+
+    if (!current || dirtyFiles.has(current)) return
+    // Images and PDFs are streamed through the file protocol, not read as text.
+    const kind = viewKind(current)
+    if (kind === 'image' || kind === 'pdf') return
 
     void (async () => {
-      const file = await window.piui.readFile(path)
-      if (file.error || viewRef.current !== view) return
+      const file = await window.piui.readFile(current)
+      if (file.error) return
+      contents.set(current, file.content)
+
+      const view = viewRef.current
+      if (!view) {
+        // Nothing is showing it, so drop the remembered state and let the next
+        // open read the fresh contents.
+        states.delete(current)
+        return
+      }
       if (view.state.doc.toString() === file.content) return
 
       view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: file.content } })
-      contents.set(path, file.content)
-      // The dispatch above marks the buffer dirty; it is not an edit of theirs.
-      dirtyFiles.delete(path)
-      setDirty((current) => ({ ...current, [path]: false }))
+      // That dispatch marks the buffer dirty; it is not an edit of theirs.
+      dirtyFiles.delete(current)
+      setDirty((state) => ({ ...state, [current]: false }))
     })()
   }, [filesVersion])
 

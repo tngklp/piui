@@ -514,6 +514,17 @@ export interface PendingChangeDto {
   removed: number
 }
 
+/** The files the agent changed, and a counter that moves whenever they do. */
+export interface ChangesStateDto {
+  changes: PendingChangeDto[]
+  /**
+   * Increments when a reviewed file may have changed on disk. The editor watches
+   * it so an open buffer is re-read rather than quietly showing what the file
+   * used to say.
+   */
+  revision: number
+}
+
 /** One GPU as reported by nvidia-smi. */
 export interface MonitorGpuDto {
   name: string
@@ -698,9 +709,9 @@ export interface PiUiApi {
   /** Take back the last file operation the explorer performed. */
   undoFileOperation(): Promise<FsResultDto>
   /** Files the agent has changed, still awaiting Keep or Undo. */
-  getChanges(): Promise<PendingChangeDto[]>
+  getChanges(): Promise<ChangesStateDto>
   /** Accept one change, or every change when the path is null. */
-  keepChanges(path: string | null): Promise<PendingChangeDto[]>
+  keepChanges(path: string | null): Promise<ChangesStateDto>
   /** Revert one change, or every change when the path is null. */
   undoChanges(path: string | null): Promise<FsResultDto>
   /** Delete a saved session file. */

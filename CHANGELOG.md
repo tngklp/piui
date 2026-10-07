@@ -10,6 +10,8 @@ published without an entry here.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-07
+
 ### Added
 
 - **A Changes tab**, next to the editor, listing every file the agent has written. Each file shows
@@ -34,6 +36,16 @@ published without an entry here.
 
 ### Fixed
 
+- **The Changes tab stayed empty.** The agent addresses files the way a person does — `hello.py`,
+  not an absolute path — and those paths were read relative to the wrong directory, so the tracker
+  never found the file it was supposed to be watching. Tool paths now resolve against the workspace.
+- **An open file kept showing its old contents** after the agent changed it on disk. The editor's
+  buffer and its remembered editor state both outlive the tab, and nothing was dropping them. A file
+  that changes underneath is now re-read, and buffers with unsaved edits are still left alone.
+- **Right-clicking empty space in the file explorer** opened nothing, because the pane did not extend
+  past the tree it contained, so there was no empty space to hit.
+- The unsaved dot next to an open file now re-reads its source of truth when the tab set changes,
+  rather than trusting a snapshot taken when the editor mounted.
 - Deleting a file that is open in the editor no longer leaves a tab complaining about
   `ENOENT: no such file or directory`. The tab closes instead, which is also what happens when the
   agent or another program removes the file.
@@ -154,6 +166,7 @@ to both. Anything you change in one shows up in the other.
 - Windows: an installer that supports in-app updates, a portable executable, and a no-install zip.
 - Linux: an AppImage that supports in-app updates, and a `.deb`.
 
-[Unreleased]: https://github.com/tngklp/piui/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tngklp/piui/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tngklp/piui/releases/tag/v0.3.0
 [0.2.0]: https://github.com/tngklp/piui/releases/tag/v0.2.0
 [0.1.0]: https://github.com/tngklp/piui/releases/tag/v0.1.0

@@ -122,6 +122,8 @@ interface PiUiState {
   runningTools: RunningTool[]
   /** Files the agent changed and nobody has reviewed yet. */
   changes: PendingChangeDto[]
+  /** The revision the change list was read at, to notice when it moves. */
+  changesRevision: number
   /**
    * Bumped when files are rewritten behind the editor's back, so an open buffer
    * can be re-read instead of quietly disagreeing with the disk.
@@ -259,6 +261,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   streaming: null,
   runningTools: [],
   changes: [],
+  changesRevision: 0,
   filesVersion: 0,
   notices: [],
   busy: false,
@@ -702,7 +705,15 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
 
   loadChanges: async () => {
     try {
-      set({ changes: await window.piui.getChanges() })
+      const { changes, revision } = await window.piui.getChanges()
+      set((state) => ({
+        changes,
+        changesRevision: revision,
+        // The revision moves when a reviewed file may have changed on disk, which
+        // is what tells the editor its open buffer is now out of date.
+        filesVersion:
+          revision === state.changesRevision ? state.filesVersion : state.filesVersion + 1
+      }))
     } catch (cause) {
       set({ error: describeError(cause) })
     }
@@ -710,7 +721,8 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
 
   keepChanges: async (path) => {
     try {
-      set({ changes: await window.piui.keepChanges(path) })
+      const { changes, revision } = await window.piui.keepChanges(path)
+      set({ changes, changesRevision: revision })
     } catch (cause) {
       set({ error: describeError(cause) })
     }
@@ -720,9 +732,8 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     try {
       const result = await window.piui.undoChanges(path)
       if (result.error) set({ error: result.error })
-      // Files were rewritten on disk, so any buffer showing one is now stale.
-      set((state) => ({ changes: state.changes, filesVersion: state.filesVersion + 1 }))
-      set({ changes: await window.piui.getChanges() })
+      // Undo moves the revision, so this also refreshes any open buffer.
+      await get().loadChanges()
     } catch (cause) {
       set({ error: describeError(cause) })
     }

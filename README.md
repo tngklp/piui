@@ -2,7 +2,6 @@
 
 ![PiUI](assets/banner2x.png)
 
-[![CI](https://github.com/tngklp/piui/actions/workflows/ci.yml/badge.svg)](https://github.com/tngklp/piui/actions/workflows/ci.yml)
 [![Latest release](https://img.shields.io/github/v/release/tngklp/piui?sort=semver)](https://github.com/tngklp/piui/releases/latest)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -30,6 +29,7 @@ in the CLI and vice versa.
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Known issues and roadmap](#known-issues-and-roadmap)
+- [Contributing](CONTRIBUTING.md)
 
 ## Features
 
@@ -37,7 +37,12 @@ in the CLI and vice versa.
 
 - Streaming transcript with markdown, syntax highlighting, KaTeX maths, and collapsible reasoning
   blocks.
-- Tool calls render as cards showing the command, the diff, or the output, with a duration.
+- Tool calls stream their output as they run, and collapse to a single line — chevron, description,
+  and outcome — once they finish. Expanding one shows the command, the diff, or the output, with a
+  duration.
+- **A Changes tab** lists every file the agent wrote, with the diff and a **Keep** or **Undo** for
+  each. Undo returns a file to how it was before the agent first touched it, so it still does the
+  right thing after several edits have landed.
 - Model and reasoning-effort pickers in the composer, plus a slash menu for commands, skills, and
   prompt templates.
 - Attach images (sent as image blocks) or text files (inlined into the prompt).
@@ -78,8 +83,9 @@ in the CLI and vice versa.
 ## Requirements
 
 - **Node.js >= 22.19** - required by Pi's SDK, and by the build.
-- **The `pi` CLI**, installed and on `PATH`. PiUI loads the SDK from your installed release, so the
-  app and the CLI always agree on behaviour.
+- **The `pi` CLI for PiUI to run.** PiUI offers to install it on first launch if it cannot find
+  one; it loads the SDK from your installed release, so the app and the CLI always agree on
+  behaviour.
 - **A model to talk to.** Either a hosted API (OpenAI, Anthropic, DeepSeek, Gemini, xAI, Mistral,
   Groq, OpenRouter - add one under **Settings → Models**), or a local
   [llama.cpp](https://github.com/ggerganov/llama.cpp) server:
@@ -175,10 +181,9 @@ local shell - `docker exec -it pi bash`, `wsl.exe -d Ubuntu`, `ssh devbox`.
 
 ## Troubleshooting
 
-**PiUI cannot find `pi`.** PiUI loads the agent SDK from your installed `pi` release, so `pi` has to
-be on `PATH` for the shells PiUI spawns. Install it with the command in
-[Requirements](#requirements) and restart PiUI. If `pi` is installed somewhere unusual, point PiUI
-straight at the agent directory with `PI_CODING_AGENT_DIR`.
+**PiUI cannot find `pi`.** It offers to install the CLI itself on first launch, and that is the
+quickest fix. The install goes on `PATH` for the shells PiUI spawns. If `pi` already exists
+somewhere unusual, point PiUI straight at the agent directory with `PI_CODING_AGENT_DIR`.
 
 **The Monitor tab says the endpoint publishes no telemetry.** It reads a local llama.cpp server, and
 that server only reports metrics when it is started with `--metrics`:
@@ -218,4 +223,5 @@ button to cancel the turn.
 - MCP server support, so PiUI can drive external tool servers.
 - Exporting and importing sessions, for moving a conversation between machines.
 - Authoring skills and prompt templates from inside the app rather than only installing them.
-- Showing release notes in the in-app update prompt.
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to build and run it.

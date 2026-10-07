@@ -112,6 +112,9 @@ export function registerIpcHandlers(context: IpcContext): void {
     hostPromise ??= (async () => {
       await ensureApprovalsLoaded()
       const cwd = await ensureWorkspaceLoaded()
+      // Tools address files the way a person writes them, so the tracker needs to
+      // know what those paths are relative to.
+      changes.setWorkspaceRoot(cwd)
       return AgentHost.create({
         cwd,
         emitEvent: (event) => send(IpcEvent.AgentEvent, event),
@@ -200,6 +203,8 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IpcChannel.WorkspaceSet, async (_event, cwd: string): Promise<WorkspaceDto> => {
     await workspaceStore.set(cwd)
+    // Relative tool paths resolve against this, so it has to follow the switch.
+    changes.setWorkspaceRoot(cwd)
     return (await host()).setWorkspace(cwd)
   })
 
@@ -263,11 +268,14 @@ export function registerIpcHandlers(context: IpcContext): void {
     return result
   })
 
-  ipcMain.handle(IpcChannel.ChangesGet, async () => changes.list((await host()).getWorkspace().cwd))
+  ipcMain.handle(IpcChannel.ChangesGet, () => ({
+    changes: changes.list(),
+    revision: changes.getRevision()
+  }))
 
-  ipcMain.handle(IpcChannel.ChangesKeep, async (_event, path: string | null) => {
+  ipcMain.handle(IpcChannel.ChangesKeep, (_event, path: string | null) => {
     changes.keep(path)
-    return changes.list((await host()).getWorkspace().cwd)
+    return { changes: changes.list(), revision: changes.getRevision() }
   })
 
   ipcMain.handle(IpcChannel.ChangesUndo, async (_event, path: string | null) => {

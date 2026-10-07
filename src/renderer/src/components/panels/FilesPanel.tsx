@@ -453,7 +453,17 @@ export function FilesPanel() {
   }
 
   return (
-    <div className="fpane" tabIndex={0} onKeyDown={onKeyDown}>
+    <div
+      className="fpane"
+      tabIndex={0}
+      onKeyDown={onKeyDown}
+      // Anywhere that is not a row is empty space. Rows stop the event themselves,
+      // so this only fires for the gaps and the area below the tree.
+      onContextMenu={(event) => {
+        event.preventDefault()
+        setMenu({ x: event.clientX, y: event.clientY, entry: null })
+      }}
+    >
       <div className="xh">
         <span className="xh__name">{workspace?.name ?? 'No folder'}</span>
 
@@ -516,13 +526,7 @@ export function FilesPanel() {
         </button>
       </div>
 
-      <div
-        className="xt"
-        onContextMenu={(event) => {
-          event.preventDefault()
-          setMenu({ x: event.clientX, y: event.clientY, entry: null })
-        }}
-      >
+      <div className="xt">
         {root.length === 0 ? <p className="hint">No workspace folder selected.</p> : null}
         {error ? <p className="hint bad">{error}</p> : null}
         {notice ? <p className="hint">{notice}</p> : null}

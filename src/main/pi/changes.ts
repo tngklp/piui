@@ -10,7 +10,7 @@
  * offer once several edits have landed.
  */
 import { readFile, rm, writeFile } from 'node:fs/promises'
-import { relative } from 'node:path'
+import { isAbsolute, relative, resolve } from 'node:path'
 import type {
   ExtensionAPI,
   ExtensionFactory,
@@ -85,6 +85,19 @@ export class ChangeTracker {
   private readonly changes = new Map<string, PendingChange>()
 
   /**
+   * The workspace the agent works in.
+   *
+   * Tools are given paths the way a person would write them — `hello.py`, not
+   * `C:\\...\\hello.py` — so every path has to be resolved before it is read.
+   * Reading a relative path without this resolved against the process directory
+   * instead, missed the file entirely, and left the Changes tab empty.
+   */
+  private root = ''
+
+  /** Bumped whenever the reviewed set changes, so the editor can re-read files. */
+  private revision = 0
+
+  /**
    * Which file each running tool call is writing.
    *
    * `tool_execution_end` carries no arguments — only `tool_execution_start` and
@@ -92,6 +105,20 @@ export class ChangeTracker {
    * arrives.
    */
   private readonly inFlight = new Map<string, string>()
+
+  setWorkspaceRoot(root: string): void {
+    this.root = root
+  }
+
+  /** Absolute form of a path the agent supplied. */
+  private absolute(path: string): string {
+    if (isAbsolute(path) || this.root.length === 0) return path
+    return resolve(this.root, path)
+  }
+
+  getRevision(): number {
+    return this.revision
+  }
 
   /** The file a tool is about to write, from its arguments. */
   private static pathOf(args: unknown): string | null {
@@ -102,41 +129,48 @@ export class ChangeTracker {
 
   /** Remember a file's contents before the agent rewrites it. */
   async capture(path: string): Promise<void> {
+    const target = this.absolute(path)
     // The first capture wins: that is the baseline an undo returns to.
-    if (this.changes.has(path)) return
+    if (this.changes.has(target)) return
 
     try {
-      const before = await readFile(path, 'utf8')
-      this.changes.set(path, { path, before, after: before })
+      const before = await readFile(target, 'utf8')
+      this.changes.set(target, { path: target, before, after: before })
     } catch {
       // Missing means the tool is about to create it.
-      this.changes.set(path, { path, before: null, after: '' })
+      this.changes.set(target, { path: target, before: null, after: '' })
     }
+    this.revision += 1
   }
 
   /** Re-read the file once the tool has finished, and drop changes that are not one. */
   async settle(path: string): Promise<void> {
-    const change = this.changes.get(path)
+    const change = this.changes.get(this.absolute(path))
     if (!change) return
 
     try {
-      change.after = await readFile(path, 'utf8')
+      change.after = await readFile(change.path, 'utf8')
     } catch {
       // Gone again: there is nothing left to review.
-      this.changes.delete(path)
+      this.changes.delete(change.path)
+      this.revision += 1
       return
     }
 
-    if (change.before !== null && change.before === change.after) this.changes.delete(path)
+    if (change.before !== null && change.before === change.after) {
+      this.changes.delete(change.path)
+    }
+    // The file on disk may have just changed, which is what the revision is for.
+    this.revision += 1
   }
 
-  list(workspaceRoot: string): PendingChangeDto[] {
+  list(): PendingChangeDto[] {
     return [...this.changes.values()]
       .map((change) => {
         const { diff, added, removed } = buildDiff(change.before ?? '', change.after)
         return {
           path: change.path,
-          relative: relative(workspaceRoot, change.path).replace(/\\/g, '/'),
+          relative: relative(this.root, change.path).replace(/\\/g, '/'),
           created: change.before === null,
           diff,
           added,
@@ -149,12 +183,13 @@ export class ChangeTracker {
   /** Accept changes: they stay on disk and leave the review list. */
   keep(path: string | null): void {
     if (path === null) this.changes.clear()
-    else this.changes.delete(path)
+    else this.changes.delete(this.absolute(path))
   }
 
   /** Put files back the way they were before the agent touched them. */
   async undo(path: string | null): Promise<FsResultDto> {
-    const targets = path === null ? [...this.changes.values()] : [this.changes.get(path)]
+    const key = path === null ? null : this.absolute(path)
+    const targets = key === null ? [...this.changes.values()] : [this.changes.get(key)]
     const work = targets.filter((change): change is PendingChange => change !== undefined)
     if (work.length === 0) return { ok: false, error: 'Nothing to undo.' }
 
@@ -165,6 +200,7 @@ export class ChangeTracker {
         else await writeFile(change.path, change.before, 'utf8')
         this.changes.delete(change.path)
       }
+      this.revision += 1
       return { ok: true, error: null }
     } catch (cause) {
       return { ok: false, error: cause instanceof Error ? cause.message : String(cause) }

@@ -1206,12 +1206,18 @@ select.pick {
 
 .xt {
   padding: 2px 0;
+  flex: 1;
 }
 
 /* The explorer is focusable so Delete and F2 act on the selected row; binding
-   those on the window would make Delete while typing a prompt destructive. */
+   those on the window would make Delete while typing a prompt destructive. It
+   also fills its column, so the gap below the tree belongs to the pane and a
+   right-click there opens the menu for the folder rather than nothing. */
 .fpane {
   outline: none;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
 }
 
 .fpane:focus-visible {
@@ -1223,6 +1229,7 @@ select.pick {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: none;
 }
 
 .xh__name {
