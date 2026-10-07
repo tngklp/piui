@@ -16,7 +16,7 @@ import type {
   ExtensionFactory,
   InlineExtension
 } from '@earendil-works/pi-coding-agent'
-import type { FsResultDto, PendingChangeDto } from '@shared/ipc'
+import type { FsResultDto, LineChangeDto, PendingChangeDto } from '@shared/ipc'
 
 /** Tools that write to a file the user may want to review. */
 const WRITING_TOOLS = new Set(['write', 'edit'])
@@ -79,6 +79,126 @@ function buildDiff(
     added: arrived.length,
     removed: gone.length
   }
+}
+
+/**
+ * Above this many cells the LCS table is not worth building: the product of the
+ * two changed regions is the table size, and a whole-file rewrite would allocate
+ * hundreds of megabytes to say "all of it changed".
+ */
+const DIFF_CELL_LIMIT = 4_000_000
+
+/**
+ * Which lines of the current file the agent touched.
+ *
+ * The display diff above is enough to read but carries no line numbers, and the
+ * gutter needs them: an editor marks a line *in the file you are looking at*.
+ * So this runs a real longest-common-subsequence over the lines, on the changed
+ * region only — the unchanged head and tail can never contain a marked line and
+ * trimming them keeps the table small.
+ *
+ * A replacement is reported as `modified` and a pure insertion as `added`,
+ * because that is the distinction an editor draws: added lines get a green bar,
+ * rewritten ones a different colour. When a hunk replaces three lines with five,
+ * the first three are paired off as modified and the last two are added; the
+ * pairing is arbitrary but stable, and any split of "some changed, some new"
+ * would be.
+ */
+export function diffLines(before: string, after: string): LineChangeDto {
+  const from = splitLines(before)
+  const to = splitLines(after)
+
+  const empty: LineChangeDto = { added: [], modified: [], removed: [] }
+
+  let head = 0
+  while (head < from.length && head < to.length && from[head] === to[head]) head += 1
+
+  let tail = 0
+  while (
+    tail < from.length - head &&
+    tail < to.length - head &&
+    from[from.length - 1 - tail] === to[to.length - 1 - tail]
+  ) {
+    tail += 1
+  }
+
+  const a = from.slice(head, from.length - tail)
+  const b = to.slice(head, to.length - tail)
+  /** Where the changed region starts in the new file, 0-based. */
+  const offset = head
+
+  // Nothing in the middle on one side: a pure insertion or a pure deletion, which
+  // need no table at all.
+  if (a.length === 0) {
+    return { ...empty, added: b.map((_line, index) => offset + index + 1) }
+  }
+  if (b.length === 0) {
+    // A deletion has no line of its own to sit on, so the marker goes on the line
+    // above it — which is what an editor shows. 1 when there is no line above.
+    return { ...empty, removed: [Math.max(1, offset)] }
+  }
+
+  if (a.length * b.length > DIFF_CELL_LIMIT) {
+    return { ...empty, modified: b.map((_line, index) => offset + index + 1) }
+  }
+
+  // LCS lengths, computed backwards so the walk below can go forwards.
+  const width = b.length + 1
+  const table = new Int32Array((a.length + 1) * width)
+  for (let i = a.length - 1; i >= 0; i -= 1) {
+    for (let j = b.length - 1; j >= 0; j -= 1) {
+      table[i * width + j] =
+        a[i] === b[j]
+          ? table[(i + 1) * width + j + 1] + 1
+          : Math.max(table[(i + 1) * width + j], table[i * width + j + 1])
+    }
+  }
+
+  const added: number[] = []
+  const modified: number[] = []
+  const removed: number[] = []
+
+  let i = 0
+  let j = 0
+  while (i < a.length || j < b.length) {
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      i += 1
+      j += 1
+      continue
+    }
+
+    // Consume one hunk: everything up to the next line the two sides agree on.
+    const deletedFrom = i
+    const insertedFrom = j
+    while (i < a.length || j < b.length) {
+      if (i < a.length && j < b.length && a[i] === b[j]) break
+      const canDescend = i < a.length
+      const descend =
+        canDescend && j < b.length
+          ? table[(i + 1) * width + j] >= table[i * width + j + 1]
+          : canDescend
+      if (descend) i += 1
+      else j += 1
+    }
+
+    const deleted = i - deletedFrom
+    const inserted = j - insertedFrom
+    // New-file line numbers for the inserted side of the hunk, 1-based.
+    for (let index = 0; index < inserted; index += 1) {
+      const line = offset + insertedFrom + index + 1
+      if (index < deleted) modified.push(line)
+      else added.push(line)
+    }
+    // More lines went than came, so after the paired ones there is a deletion
+    // with nothing on the other side. A removed line has no line of its own, so
+    // it is anchored on the line it sits below — which is the last line the hunk
+    // inserted, not the line before the hunk.
+    if (deleted > inserted) {
+      removed.push(Math.max(1, offset + insertedFrom + inserted))
+    }
+  }
+
+  return { added, modified, removed }
 }
 
 export class ChangeTracker {
@@ -173,6 +293,7 @@ export class ChangeTracker {
           relative: relative(this.root, change.path).replace(/\\/g, '/'),
           created: change.before === null,
           diff,
+          lines: diffLines(change.before ?? '', change.after),
           added,
           removed
         }

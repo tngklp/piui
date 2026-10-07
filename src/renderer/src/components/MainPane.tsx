@@ -31,9 +31,8 @@ export function MainPane() {
             className={`t${mainTab === 'editor' ? ' on' : ''}`}
             role="tab"
             aria-selected={mainTab === 'editor'}
-            disabled={openFiles.length === 0}
-            title={openFiles.length === 0 ? 'Open a file from the Files tab' : undefined}
             onClick={() => setMainTab('editor')}
+            title={openFiles.length === 0 ? 'No file is open yet' : undefined}
           >
             Editor
           </button>

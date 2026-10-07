@@ -2578,7 +2578,7 @@ select.pick {
   align-items: flex-end;
 }
 
-.acts {
+.macts {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -2586,7 +2586,9 @@ select.pick {
   color: var(--dim);
 }
 
-.act {
+/* Deliberately not `.act`: that name already belongs to the welcome screen's
+   action rows, which are two-line tiles and were collapsed to 25px by this. */
+.mact {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -2597,21 +2599,21 @@ select.pick {
   font-size: 12px;
 }
 
-.act:hover {
+.mact:hover {
   background: var(--raise);
   color: var(--text);
 }
 
-.act.done {
+.mact.done {
   color: var(--add);
 }
 
-.act:disabled {
+.mact:disabled {
   opacity: 0.45;
   cursor: default;
 }
 
-.act:disabled:hover {
+.mact:disabled:hover {
   background: none;
   color: var(--dim);
 }

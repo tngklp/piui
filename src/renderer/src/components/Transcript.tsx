@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatBlockDto, ChatItemDto, UiRequestDto } from '@shared/ipc'
 import { answerMarkdown, copyText } from '../lib/clipboard'
-import { formatDuration, summarizeToolArguments, toolDescription } from '../lib/format'
+import { formatDuration, toolDescription } from '../lib/format'
+import { streamedPreview, streamedToolDescription } from '../lib/partial-args'
 import { usePiUi, type RunningTool } from '../store'
 import { Collapsible } from './Collapsible'
 import { DiffView } from './DiffView'
@@ -85,6 +86,39 @@ function ToolCard({ item }: { item: Extract<ChatItemDto, { kind: 'tool' }> }) {
         {!item.diff && item.text ? <pre className="out">{item.text}</pre> : null}
         {!item.diff && !item.text && item.running ? <pre className="out">running…</pre> : null}
       </Collapsible>
+    </div>
+  )
+}
+
+/**
+ * A tool call the model is still writing out.
+ *
+ * The arguments are not valid JSON yet, so the header has to be built from a
+ * tolerant read of the text rather than from parsed arguments. For a `write` or
+ * an `edit` there is no result to stream — the file only lands at the end — so
+ * the body previews the content being produced, which is the part that is
+ * actually arriving. Showing the raw argument text instead, as this used to, left
+ * a card reading `{"edits":`.
+ */
+function StreamingToolCard({ tool }: { tool: { id: string; name: string; argsText: string } }) {
+  const [open, setOpen] = useState(true)
+  const description = streamedToolDescription(tool.name, tool.argsText)
+  const preview = streamedPreview(tool.name, tool.argsText)
+
+  return (
+    <div className="card">
+      <button className="hd" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
+        <span className={`chev${open ? ' o' : ''}`}>›</span>
+        <span className="tool__desc" title={description}>
+          {description}
+        </span>
+        <span className="tag">{tool.name}</span>
+        <span className="hd__end">
+          <span className="spinner" />
+        </span>
+      </button>
+
+      <Collapsible open={open}>{preview ? <pre className="out">{preview}</pre> : null}</Collapsible>
     </div>
   )
 }
@@ -179,9 +213,9 @@ function MessageActions({
   }, [copied])
 
   return (
-    <div className="acts">
+    <div className="macts">
       <button
-        className={`act${copied ? ' done' : ''}`}
+        className={`mact${copied ? ' done' : ''}`}
         onClick={() => void copy()}
         title="Copy as markdown"
       >
@@ -191,7 +225,7 @@ function MessageActions({
 
       {onEdit ? (
         <button
-          className="act"
+          className="mact"
           disabled={disabled}
           onClick={onEdit}
           title="Edit and resend this message"
@@ -202,7 +236,7 @@ function MessageActions({
       ) : null}
 
       {onRetry ? (
-        <button className="act" disabled={disabled} onClick={onRetry} title="Run this turn again">
+        <button className="mact" disabled={disabled} onClick={onRetry} title="Run this turn again">
           <ActionIcon path={ICONS.retry} />
           Try again
         </button>
@@ -404,20 +438,25 @@ export function Transcript() {
   const isEmpty = items.length === 0 && !streaming && runningTools.length === 0
 
   /**
-   * A tool call that already has a card of its own — running, or finished and
-   * therefore in `items` — must not also be drawn from `streaming.tools`. That
-   * overlap is what showed the same call twice: once while the model was emitting
-   * it and again once it was executing. A call with no id yet has neither, so it
-   * is still shown as pending.
+   * A tool call that already has a card of its own must not also be drawn from
+   * `streaming.tools`. That overlap is what showed the same call twice: once
+   * while the model was emitting it and again once it was executing.
+   *
+   * Counted rather than looked up in a set, because a provider is free to omit
+   * tool-call ids and several of them then share the same empty one. A set would
+   * collapse those into a single entry and suppress the wrong cards; counting
+   * pairs each live card off against one pending call.
    */
-  const ownedToolCalls = new Set([
-    ...runningTools.map((tool) => tool.id),
-    ...items
-      .filter((item): item is Extract<ChatItemDto, { kind: 'tool' }> => item.kind === 'tool')
-      .map((item) => item.toolCallId)
-  ])
-  const pendingTools =
-    streaming?.tools.filter((tool) => tool.id.length === 0 || !ownedToolCalls.has(tool.id)) ?? []
+  const liveCalls = new Map<string, number>()
+  for (const tool of runningTools) {
+    liveCalls.set(tool.id, (liveCalls.get(tool.id) ?? 0) + 1)
+  }
+  const pendingTools = (streaming?.tools ?? []).filter((tool) => {
+    const remaining = liveCalls.get(tool.id) ?? 0
+    if (remaining === 0) return true
+    liveCalls.set(tool.id, remaining - 1)
+    return false
+  })
 
   /**
    * A tool that is executing has a live card at the end of the transcript, so the
@@ -453,15 +492,7 @@ export function Transcript() {
           ) : null}
           {streaming.text ? <Markdown text={streaming.text} /> : null}
           {pendingTools.map((tool) => (
-            <div className="card" key={tool.id || tool.name}>
-              <div className="hd">
-                <span className="tag">{tool.name}</span>
-                <span className="tool__desc">{summarizeToolArguments(tool.argsText)}</span>
-                <span className="hd__end">
-                  <span className="spinner" />
-                </span>
-              </div>
-            </div>
+            <StreamingToolCard tool={tool} key={tool.id || tool.name} />
           ))}
           <p className="stream" />
         </div>

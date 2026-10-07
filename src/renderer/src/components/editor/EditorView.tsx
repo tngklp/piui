@@ -40,6 +40,7 @@ import { fileIconUrl } from '../../lib/icon-packs'
 import { fileUrl } from '../../lib/file-url'
 import { Markdown } from '../Markdown'
 import { baseName, extensionOf, languageFor, viewKind } from './languages'
+import { changeMarkers } from './change-markers'
 import { indentGuides } from './indentGuides'
 import { editorHighlight, editorTheme } from './theme'
 
@@ -81,6 +82,8 @@ export function EditorView() {
   const setActiveFile = usePiUi((state) => state.setActiveFile)
   const closeFile = usePiUi((state) => state.closeFile)
   const themeId = usePiUi((state) => state.themeId)
+  /** Drives the gutter marks for the agent's unreviewed edits. */
+  const changes = usePiUi((state) => state.changes)
 
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<CodeMirror | null>(null)
@@ -89,6 +92,8 @@ export function EditorView() {
   const themeCompartment = useRef(new Compartment()).current
   const layoutCompartment = useRef(new Compartment()).current
   const languageCompartment = useRef(new Compartment()).current
+  /** Holds the gutter marks for the agent's pending change to this file. */
+  const changeCompartment = useRef(new Compartment()).current
 
   const [loadedFor, setLoadedFor] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -259,6 +264,9 @@ export function EditorView() {
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightActiveLine(),
+        // Empty here; the effect below fills it in for the file on screen, so a
+        // change to another file does not rebuild the editor.
+        changeCompartment.of([]),
         highlightSpecialChars(),
         history(),
         foldGutter(),
@@ -338,7 +346,7 @@ export function EditorView() {
     },
     // The compartments are stable, and the commands only read refs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [themeCompartment, languageCompartment, layoutCompartment]
+    [themeCompartment, languageCompartment, layoutCompartment, changeCompartment]
   )
 
   // Build the editor, reusing the cached state so undo history survives.
@@ -410,6 +418,22 @@ export function EditorView() {
     themeCompartment,
     layoutCompartment
   ])
+
+  /**
+   * Mark the lines the agent changed, while the change is still pending.
+   *
+   * The marks describe the file the agent wrote, so keeping or undoing the change
+   * takes them away — which is the honest thing for them to do, since after that
+   * there is no longer a baseline to compare against. Declared after the effect
+   * that builds the editor, so the view already exists on the first pass.
+   */
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view || !activeFile) return
+
+    const pending = changes.find((change) => change.path === activeFile)
+    view.dispatch({ effects: changeCompartment.reconfigure(changeMarkers(pending?.lines)) })
+  }, [changes, activeFile, loadedFor, showSource, changeCompartment])
 
   /** Bumped when files are rewritten behind the editor's back, such as by an undo. */
   const filesVersion = usePiUi((state) => state.filesVersion)

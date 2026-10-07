@@ -518,6 +518,19 @@ export interface PiInstallResultDto {
   error: string | null
 }
 
+/** Lines of the current file an edit touched, for the editor's gutter. */
+export interface LineChangeDto {
+  /** 1-based line numbers inserted. */
+  added: number[]
+  /** 1-based line numbers that replaced something. */
+  modified: number[]
+  /**
+   * 1-based line numbers a deletion sits above, since a removed line has no line
+   * of its own to mark. 1 when the deletion is above the first line.
+   */
+  removed: number[]
+}
+
 /** A file the agent changed, and what it would take to put it back. */
 export interface PendingChangeDto {
   path: string
@@ -529,6 +542,8 @@ export interface PendingChangeDto {
   diff: string
   added: number
   removed: number
+  /** Where those lines are, so the editor can mark them in the gutter. */
+  lines: LineChangeDto
 }
 
 /** The files the agent changed, and a counter that moves whenever they do. */

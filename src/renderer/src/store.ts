@@ -83,6 +83,27 @@ interface AssistantUpdate {
   toolName?: string
   toolCall?: { id?: string; name?: string; arguments?: unknown }
   reason?: string
+  /** Index into the partial message's content blocks. */
+  contentIndex?: number
+  /** The message as it stands, used to read a block the event does not carry. */
+  partial?: { content?: unknown[] }
+}
+
+/**
+ * The tool call a streaming event belongs to.
+ *
+ * `toolcall_start` carries only `contentIndex` and the partial message — not the
+ * id or the name — so taking them from the event itself left every streamed call
+ * anonymous and id-less. An id-less call is never matched against the running
+ * card, which is why a call could be drawn twice or sit there as raw JSON.
+ */
+function toolCallAt(update: AssistantUpdate): { id?: string; name?: string } | null {
+  const content = update.partial?.content
+  if (!Array.isArray(content)) return null
+  const block = content[update.contentIndex ?? 0] as
+    { type?: string; id?: string; name?: string } | undefined
+  if (!block || block.type !== 'toolCall') return null
+  return { id: block.id, name: block.name }
 }
 
 /**
@@ -406,7 +427,8 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
                   thinkingLive: false
                 }
               }
-            case 'toolcall_start':
+            case 'toolcall_start': {
+              const call = toolCallAt(update)
               return {
                 streaming: {
                   ...stream,
@@ -414,10 +436,11 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
                   thinkingLive: false,
                   tools: [
                     ...stream.tools,
-                    { id: update.id ?? '', name: update.toolName ?? 'tool', argsText: '' }
+                    { id: call?.id ?? '', name: call?.name ?? 'tool', argsText: '' }
                   ]
                 }
               }
+            }
             case 'toolcall_delta': {
               const tools = stream.tools.map((tool, index) =>
                 index === stream.tools.length - 1

@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent
+} from 'react'
 import type { CommandDto, ThinkingLevelDto } from '@shared/ipc'
 import { usePiUi } from '../store'
 import {
@@ -13,6 +21,16 @@ import {
 import { Select, type SelectOption } from './Select'
 import { ChangesBar } from './ChangesBar'
 
+/**
+ * The half-typed prompt, kept outside the component.
+ *
+ * Showing the editor or the Changes tab unmounts the composer, so component
+ * state would throw away whatever the user was in the middle of writing — for a
+ * long prompt, that is the whole message. Drafts are not worth persisting to
+ * disk; they only have to outlive a tab switch.
+ */
+const draft = { text: '' }
+
 /** A row in the slash menu. */
 interface Command extends CommandDto {
   /** Omitted for discovered commands, which are sent as prompts. */
@@ -21,7 +39,12 @@ interface Command extends CommandDto {
 
 /** Prompt input with a slash-command menu, model picker, and send/stop. */
 export function Composer() {
-  const [text, setText] = useState('')
+  const [text, setTextState] = useState(draft.text)
+  /** Every write goes through here, so the module copy cannot drift. */
+  const setText = useCallback((next: string) => {
+    draft.text = next
+    setTextState(next)
+  }, [])
   const [cursor, setCursor] = useState(0)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [attachError, setAttachError] = useState<string | null>(null)
@@ -61,7 +84,7 @@ export function Composer() {
       input.focus()
       input.setSelectionRange(input.value.length, input.value.length)
     })
-  }, [editing])
+  }, [editing, setText])
 
   /**
    * Grow the textarea to fit its content, so a multi-line prompt is fully
@@ -258,7 +281,7 @@ export function Composer() {
         <div className="editing">
           <span className="editing__label">Editing a sent message</span>
           <span className="editing__note">Sending replaces it and everything after it.</span>
-          <button className="act" onClick={() => cancelEdit()}>
+          <button className="mact" onClick={() => cancelEdit()}>
             Cancel
           </button>
         </div>

@@ -119,6 +119,25 @@ export function editorTheme(
         },
         '.cm-gutterElement': { padding: '0 8px 0 12px' },
         '.cm-lineNumbers .cm-gutterElement': { minWidth: '34px' },
+        // The change gutter is narrow and has no text, so it opts out of the
+        // padding every other gutter uses. Gutters are ordered by class name and
+        // `cm-changeGutter` sorts before `cm-foldGutter` and `cm-lineNumbers`,
+        // which is what puts the bar to the left of the line numbers, as in an
+        // editor's diff view.
+        '.cm-changeGutter': { width: '3px' },
+        '.cm-changeGutter .cm-gutterElement': { padding: '0', width: '3px' },
+        '.cm-chg-bar': { width: '3px', height: '100%' },
+        '.cm-chg-bar.add': { backgroundColor: 'var(--add)' },
+        '.cm-chg-bar.mod': { backgroundColor: 'var(--lilac-strong)' },
+        // A removed line has nowhere of its own to go, so it is a wedge pointing
+        // at the line it was taken out above.
+        '.cm-chg-bar.del': {
+          backgroundColor: 'var(--del)',
+          clipPath: 'polygon(0 0, 100% 0, 0 100%)'
+        },
+        // Translucent, so the selection and the active-line tint still show.
+        '.cm-chg-add': { backgroundColor: 'color-mix(in srgb, var(--add) 12%, transparent)' },
+        '.cm-chg-mod': { backgroundColor: 'color-mix(in srgb, var(--lilac) 12%, transparent)' },
         '.cm-activeLineGutter': {
           backgroundColor: 'transparent',
           color: 'var(--text)'

@@ -14,6 +14,10 @@ published without an entry here.
 
 ### Added
 
+- **The editor marks the lines the agent changed**, the way an editor shows an unstaged diff: a
+  coloured bar beside the line, a faint tint on the line itself, and a red wedge where lines were
+  removed. The marks are computed against the file as it was before the agent touched it, and stay
+  until the change is kept or undone.
 - **A pending-changes bar above the prompt.** Every file the agent has written is summarised where
   the next instruction gets typed, with **Keep** and **Undo** for the whole list, and a collapsible
   per-file list behind them. The agent writes without asking, so the review belongs in the place you
@@ -45,6 +49,20 @@ published without an entry here.
 
 ### Fixed
 
+- **The welcome screen's Start list was squashed to one line per row**, so each label overlapped its
+  neighbour and its description. The buttons under each message introduced a `.act` style that already
+  belonged to the welcome screen's two-line tiles, which pinned them to 25px tall.
+- **The prompt box no longer empties when you switch tabs.** The composer is unmounted while the
+  editor or the Changes tab is shown, so a half-written prompt lived and died with it. The draft now
+  lives outside the component and comes back when you do.
+- **A streaming `write` or `edit` no longer shows raw JSON.** Two things were wrong. The
+  `toolcall_start` event carries no id and no tool name — those are on the partial message it also
+  carries — so every streamed call was anonymous, and an anonymous call could never be matched against
+  its own live card. And the card printed the arguments verbatim, which while they are still being
+  written is a fragment like `{"edits":`. It now names the file as soon as the path arrives and
+  previews the content being produced.
+- **The Editor tab is always clickable.** It was disabled until a file was open, which made the only
+  way in look broken rather than merely empty.
 - **The Changes tab stayed empty.** The agent addresses files the way a person does — `hello.py`,
   not an absolute path — and those paths were read relative to the wrong directory, so the tracker
   never found the file it was supposed to be watching. Tool paths now resolve against the workspace.
