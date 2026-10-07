@@ -1,0 +1,94 @@
+name: Bug report
+description: Something in PiUI does not work the way it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. A report that names the exact versions and the
+        model server is far easier to act on than one that does not.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Open the Terminal tab with the shell set to ...
+        2. Send the prompt ...
+        3. PiUI shows ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - macOS (Apple silicon)
+        - macOS (Intel)
+        - Linux
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os-version
+    attributes:
+      label: OS version
+      description: The exact version, if you know it.
+      placeholder: Windows 11 24H2 (26100.2314)
+    validations:
+      required: false
+
+  - type: dropdown
+    id: build
+    attributes:
+      label: Which build are you running?
+      options:
+        - Windows installer (setup .exe)
+        - Windows portable .exe
+        - Windows zip
+        - Linux AppImage
+        - Linux deb
+        - From source (npm run dev)
+    validations:
+      required: true
+
+  - type: input
+    id: piui-version
+    attributes:
+      label: PiUI version
+      description: Shown in the footer next to "PiUI", and on the releases page.
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: pi-version
+    attributes:
+      label: pi version
+      description: From `pi --version`. The footer shows the SDK version PiUI loaded next to "Pi".
+      placeholder: 1.0.4
+    validations:
+      required: true
+
+  - type: input
+    id: model-server
+    attributes:
+      label: Model server
+      description: Where the model runs, and with what command. Say so if it is a hosted API.
+      placeholder: llama-server -m qwen3.gguf --port 8080 --metrics
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, errors, or screenshots
+      description: Any error text, or the output of the tool call that failed.
+      render: shell
+    validations:
+      required: false

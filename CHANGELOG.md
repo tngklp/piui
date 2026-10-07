@@ -10,6 +10,20 @@ published without an entry here.
 
 ## [Unreleased]
 
+### Added
+
+- **Live tool output.** A running tool's card fills in as the command prints, instead of appearing
+  only once it has finished.
+- **More file types in the editor.** Images and PDFs render in place of the text editor, and
+  markdown opens in a rendered view with a toggle back to its source.
+- **The prompt box grows with the text**, up to a cap, and files can be dropped onto it — from your
+  file manager or from PiUI's own file panel — to reference them.
+- **A jump-to-the-end button** appears in the chat once you scroll away from the bottom, and
+  switching between Chat and Editor keeps each one at the position it was left.
+- README: a banner, screenshots, status badges, a troubleshooting section, and a known issues and
+  roadmap section.
+- Issue templates for bug reports and feature requests.
+
 ## [0.1.0] - 2026-10-07
 
 The first release. PiUI runs the Pi coding agent in a desktop window and shares the same agent

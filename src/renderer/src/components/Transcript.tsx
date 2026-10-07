@@ -1,10 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatBlockDto, ChatItemDto, UiRequestDto } from '@shared/ipc'
 import { formatDuration, summarizeToolArguments } from '../lib/format'
-import { usePiUi } from '../store'
+import { usePiUi, type RunningTool } from '../store'
 import { Collapsible } from './Collapsible'
 import { DiffView } from './DiffView'
 import { Markdown } from './Markdown'
+
+/**
+ * Scroll position of the transcript, kept outside React so it survives the tab
+ * switch that unmounts this component.
+ *
+ * `atBottom` is stored rather than inferred on the way back, so a conversation
+ * that grew while the chat was hidden still lands at the end.
+ */
+const scrollMemory = { top: 0, atBottom: true }
+
+/** Distance from the bottom, in pixels, that still counts as "at the bottom". */
+const BOTTOM_SLACK = 64
 
 /** Reasoning block with an animated open/close. */
 function Thinking({ text, live }: { text: string; live?: boolean }) {
@@ -73,6 +85,35 @@ function ToolCard({ item }: { item: Extract<ChatItemDto, { kind: 'tool' }> }) {
       {item.diff ? <DiffView diff={item.diff} /> : null}
       {!item.diff && item.text ? <pre className="out">{item.text}</pre> : null}
       {!item.diff && !item.text && item.running ? <pre className="out">running…</pre> : null}
+    </div>
+  )
+}
+
+/**
+ * A tool that is still running. Output streams in through `tool_execution_update`,
+ * so the same card grows while the command runs instead of appearing only once
+ * the tool has finished.
+ */
+function RunningToolCard({ tool }: { tool: RunningTool }) {
+  const args = (tool.args ?? {}) as Record<string, unknown>
+  const command = typeof args.command === 'string' ? args.command : null
+  const path = typeof args.path === 'string' ? args.path : null
+  const summary = command ?? path ?? summarizeToolArguments(tool.args)
+
+  return (
+    <div className="card">
+      <div className="hd">
+        <span className="tag">{tool.name}</span>
+        {summary ? (
+          <span className="cmd__text" title={summary}>
+            {summary}
+          </span>
+        ) : null}
+        <span className="hd__end">
+          <span className="spinner" />
+        </span>
+      </div>
+      <pre className="out">{tool.text ? tool.text : 'running…'}</pre>
     </div>
   )
 }
@@ -177,16 +218,28 @@ export function Transcript() {
   const endRef = useRef<HTMLDivElement | null>(null)
   const colRef = useRef<HTMLDivElement | null>(null)
   /** Whether the transcript was pinned to the bottom before the last update. */
-  const pinned = useRef(true)
+  const pinned = useRef(scrollMemory.atBottom)
+  /** Drives the jump-to-end button, which only shows once the user scrolls away. */
+  const [atBottom, setAtBottom] = useState(scrollMemory.atBottom)
 
   // Track the scroll position of the surrounding `.scroll` container so new
-  // output only follows the bottom when the user is already there.
+  // output only follows the bottom when the user is already there. The position
+  // is remembered across the unmount that happens when another tab is shown.
   useEffect(() => {
     const scroller = colRef.current?.closest('.scroll')
     if (!scroller) return
 
+    // Coming back to a transcript that was at the bottom should end at the
+    // bottom again, even if the conversation grew while the chat was hidden.
+    scroller.scrollTop = scrollMemory.atBottom ? scroller.scrollHeight : scrollMemory.top
+    pinned.current = scrollMemory.atBottom
+
     const onScroll = (): void => {
-      pinned.current = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 64
+      const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+      pinned.current = distance < BOTTOM_SLACK
+      scrollMemory.top = scroller.scrollTop
+      scrollMemory.atBottom = pinned.current
+      setAtBottom(pinned.current)
     }
 
     onScroll()
@@ -215,11 +268,7 @@ export function Transcript() {
       ))}
 
       {runningTools.map((tool) => (
-        <div className="activity" key={tool.id}>
-          <span className="spinner" />
-          <span className="mono">{tool.name}</span>
-          <span>running…</span>
-        </div>
+        <RunningToolCard tool={tool} key={tool.id} />
       ))}
 
       {streaming ? (
@@ -246,6 +295,25 @@ export function Transcript() {
       {dialog && dialog.method === 'approval' ? <ApprovalCard request={dialog} /> : null}
 
       <div ref={endRef} />
+
+      {atBottom ? null : (
+        <button
+          className="jump"
+          title="Jump to the latest"
+          aria-label="Jump to the latest"
+          onClick={() => {
+            const scroller = colRef.current?.closest('.scroll')
+            if (scroller) scroller.scrollTop = scroller.scrollHeight
+            pinned.current = true
+            scrollMemory.atBottom = true
+            setAtBottom(true)
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+            <path d="M8 3v10M3.5 8.5 8 13l4.5-4.5" strokeWidth="1.8" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
     </div>
   )
 }

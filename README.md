@@ -1,5 +1,11 @@
 # PiUI
 
+![PiUI](assets/banner2x.png)
+
+[![CI](https://github.com/tngklp/piui/actions/workflows/ci.yml/badge.svg)](https://github.com/tngklp/piui/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/tngklp/piui?sort=semver)](https://github.com/tngklp/piui/releases/latest)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 A desktop GUI for the [Pi](https://pi.dev) coding agent - run your Pi agent in
 a purpose-built app instead of a terminal.
 
@@ -17,11 +23,14 @@ in the CLI and vice versa.
 ## Contents
 
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Requirements](#requirements)
 - [Install](#install)
 - [Getting started](#getting-started)
 - [How it works](#how-it-works)
 - [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Known issues and roadmap](#known-issues-and-roadmap)
 
 ## Features
 
@@ -64,6 +73,12 @@ in the CLI and vice versa.
 **Updates**
 
 - Installed builds check the GitHub releases feed on launch and offer a download-and-restart prompt.
+
+## Screenshots
+
+![PiUI on first launch, offering your recent workspaces](assets/welcome.png)
+
+![Choosing a theme and icon pack in settings](assets/customization.png)
 
 ## Requirements
 
@@ -162,3 +177,50 @@ A few decisions worth knowing:
 
 The terminal shell is a whole command, not just a path, so it can start something other than a
 local shell - `docker exec -it pi bash`, `wsl.exe -d Ubuntu`, `ssh devbox`.
+
+## Troubleshooting
+
+**PiUI cannot find `pi`.** PiUI loads the agent SDK from your installed `pi` release, so `pi` has to
+be on `PATH` for the shells PiUI spawns. Install it with the command in
+[Requirements](#requirements) and restart PiUI. If `pi` is installed somewhere unusual, point PiUI
+straight at the agent directory with `PI_CODING_AGENT_DIR`.
+
+**The Monitor tab says the endpoint publishes no telemetry.** It reads a local llama.cpp server, and
+that server only reports metrics when it is started with `--metrics`:
+
+```sh
+llama-server -m model.gguf --port 8080 --metrics
+```
+
+Hosted APIs never report inference telemetry, so the tab stays empty for them by design.
+
+**Windows says "Windows protected your PC".** SmartScreen warns about any freshly downloaded,
+unsigned installer. Choose **More info**, then **Run anyway**. See the note under
+[Install](#install) for why that is expected and what removes it.
+
+**A tool call looks stuck.** Long commands stream their output as it arrives, so a card that stays
+empty for a while is usually a command with nothing to print yet. Press **Esc** or use the stop
+button to cancel the turn.
+
+## Known issues and roadmap
+
+### Known issues
+
+- **The Windows builds are unsigned**, so SmartScreen warns on the first launch. A certificate is
+  the only fix.
+- **The portable build unpacks the whole application on every launch** (several hundred megabytes),
+  so it takes a few seconds to start. The installer and the zip build do not.
+- **PDFs and other binary files cannot be attached to a prompt.** The agent's prompt API accepts
+  text and images only, so the attach button refuses them, and a binary file dropped on the composer
+  is rejected with an explanation. They can still be opened in the editor.
+- **Only images, PDFs, and markdown get a viewer.** Any other binary file (a `.zip`, an executable)
+  opens in the text editor and shows garbled characters.
+- **In-app update support depends on the build.** The Windows installer and the Linux AppImage can
+  update themselves; the portable build and the `.deb` report that they cannot.
+
+### Roadmap
+
+- MCP server support, so PiUI can drive external tool servers.
+- Exporting and importing sessions, for moving a conversation between machines.
+- Authoring skills and prompt templates from inside the app rather than only installing them.
+- Showing release notes in the in-app update prompt.

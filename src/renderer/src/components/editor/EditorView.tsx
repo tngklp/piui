@@ -37,7 +37,9 @@ import { gotoLine, highlightSelectionMatches, search, searchKeymap } from '@code
 import { usePiUi } from '../../store'
 import { DEFAULT_EDITOR_FONT, EDITOR_FONT_MAX, EDITOR_FONT_MIN } from '../../lib/ui-prefs'
 import { fileIconUrl } from '../../lib/icon-packs'
-import { baseName, extensionOf, languageFor } from './languages'
+import { fileUrl } from '../../lib/file-url'
+import { Markdown } from '../Markdown'
+import { baseName, extensionOf, languageFor, viewKind } from './languages'
 import { indentGuides } from './indentGuides'
 import { editorHighlight, editorTheme } from './theme'
 
@@ -48,6 +50,10 @@ import { editorHighlight, editorTheme } from './theme'
 const contents = new Map<string, string>()
 const states = new Map<string, EditorState>()
 const dirtyFiles = new Set<string>()
+/** Scroll offset per file, for the same reason: the tab switch unmounts the view. */
+const scrollTops = new Map<string, number>()
+/** Markdown files remember whether they were shown rendered or as source. */
+const previewByFile = new Map<string, boolean>()
 
 const CONTENT_ATTRIBUTES = CodeMirror.contentAttributes.of({
   spellcheck: 'false',
@@ -90,6 +96,18 @@ export function EditorView() {
     Object.fromEntries([...dirtyFiles].map((path) => [path, true]))
   )
   const [cursor, setCursor] = useState<CursorInfo>(EMPTY_CURSOR)
+  /** Markdown only: show the rendered view rather than the source. */
+  const [preview, setPreview] = useState(true)
+
+  // What this file should be shown as, and whether the source editor is
+  // mounted at all: images and PDFs have no text to edit.
+  const kind = activeFile ? viewKind(activeFile) : 'text'
+  const showSource = kind === 'text' || (kind === 'markdown' && !preview)
+
+  const setPreviewFor = (next: boolean): void => {
+    if (activeFile) previewByFile.set(activeFile, next)
+    setPreview(next)
+  }
 
   // Editor typography lives in the store so the settings dialog can drive it.
   const editorWrap = usePiUi((state) => state.prefs.editorWrap)
@@ -115,6 +133,18 @@ export function EditorView() {
   // A buffer already in memory (including unsaved edits) is used as-is.
   useEffect(() => {
     if (!activeFile) return
+
+    setPreview(previewByFile.get(activeFile) ?? true)
+
+    // Images and PDFs are streamed through the file protocol, so reading them
+    // as text would only produce garbage in the buffer.
+    const fileKind = viewKind(activeFile)
+    if (fileKind === 'image' || fileKind === 'pdf') {
+      setError(null)
+      setLoadedFor(activeFile)
+      return
+    }
+
     if (contents.has(activeFile)) {
       setLoadedFor(activeFile)
       return
@@ -295,12 +325,21 @@ export function EditorView() {
     viewRef.current = view
     view.focus()
 
+    // Put the view back where it was left, once CodeMirror has measured.
+    const savedTop = scrollTops.get(activeFile)
+    if (savedTop) {
+      requestAnimationFrame(() => {
+        if (viewRef.current === view) view.scrollDOM.scrollTop = savedTop
+      })
+    }
+
     return () => {
       states.set(activeFile, view.state)
+      scrollTops.set(activeFile, view.scrollDOM.scrollTop)
       view.destroy()
       viewRef.current = null
     }
-  }, [activeFile, loadedFor, buildExtensions])
+  }, [activeFile, loadedFor, showSource, buildExtensions])
 
   // Reconfigure the live editor when the theme or typography changes, rather
   // than rebuilding it and losing the cursor.
@@ -351,6 +390,14 @@ export function EditorView() {
 
   const crumbs = (activeFile ?? '').split(/[\\/]/).filter(Boolean)
   const language = activeFile ? languageFor(activeFile) : null
+  const kindLabel =
+    kind === 'image'
+      ? 'Image'
+      : kind === 'pdf'
+        ? 'PDF'
+        : kind === 'markdown'
+          ? 'Markdown'
+          : (language?.label ?? 'Plain Text')
 
   return (
     <div className="editor">
@@ -395,6 +442,20 @@ export function EditorView() {
             <path d="M9.5 11l1.5 2-1.5 2" />
           </svg>
         </button>
+
+        {kind === 'markdown' ? (
+          <button
+            className={`ibtn${preview ? ' on' : ''}`}
+            onClick={() => setPreviewFor(!preview)}
+            title={preview ? 'Show the markdown source' : 'Show the rendered markdown'}
+            aria-pressed={preview}
+          >
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+              <path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4Z" />
+              <circle cx="8" cy="8" r="1.8" />
+            </svg>
+          </button>
+        ) : null}
       </div>
 
       {error ? <div className="banner bad">{error}</div> : null}
@@ -410,7 +471,24 @@ export function EditorView() {
         </div>
       ) : null}
 
-      <div className="editor__host" ref={hostRef} onWheel={onWheel} />
+      {kind === 'image' && activeFile ? (
+        <div className="editor__media">
+          <img src={fileUrl(activeFile)} alt={baseName(activeFile)} />
+        </div>
+      ) : kind === 'pdf' && activeFile ? (
+        <div className="editor__media">
+          <embed className="editor__pdf" type="application/pdf" src={fileUrl(activeFile)} />
+        </div>
+      ) : kind === 'markdown' && preview && activeFile ? (
+        <div className="editor__preview">
+          {/* The live buffer, so a rendered view reflects unsaved edits. */}
+          <Markdown
+            text={states.get(activeFile)?.doc.toString() ?? contents.get(activeFile) ?? ''}
+          />
+        </div>
+      ) : (
+        <div className="editor__host" ref={hostRef} onWheel={onWheel} />
+      )}
 
       {!activeFile ? (
         <div className="editor__watermark">
@@ -424,14 +502,18 @@ export function EditorView() {
           <>
             <span className="mono">{crumbs[crumbs.length - 1]}</span>
             <span className="sp" />
-            <span>
-              Ln {cursor.line}, Col {cursor.column}
-              {cursor.selected > 0 ? ` (${cursor.selected} selected)` : ''}
-            </span>
-            <span>Spaces: {language?.indent ?? 4}</span>
-            <span>UTF-8</span>
-            <span>LF</span>
-            <span>{language?.label ?? 'Plain Text'}</span>
+            {showSource ? (
+              <>
+                <span>
+                  Ln {cursor.line}, Col {cursor.column}
+                  {cursor.selected > 0 ? ` (${cursor.selected} selected)` : ''}
+                </span>
+                <span>Spaces: {language?.indent ?? 4}</span>
+                <span>UTF-8</span>
+                <span>LF</span>
+              </>
+            ) : null}
+            <span>{kindLabel}</span>
             <span className="mono">{extensionOf(activeFile) || 'text'}</span>
           </>
         ) : null}

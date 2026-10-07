@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest an idea or an improvement for PiUI
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a rough sense of what is already planned, see the roadmap in the
+        [README](https://github.com/tngklp/piui#known-issues-and-roadmap).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: |
+        Describe the situation you keep running into. The problem is more useful than a proposed
+        solution, because there is often a better way to solve it.
+      placeholder: Every time I ... I have to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like PiUI to do?
+      description: If you have something specific in mind, describe it. Mockups are welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Including what you do today instead, such as the `pi` CLI or another editor.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Would you like to help build it?
+      options:
+        - label: I would be willing to open a pull request for this
+          required: false

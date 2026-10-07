@@ -63,10 +63,14 @@ export interface StreamingState {
   tools: { id: string; name: string; argsText: string }[]
 }
 
-/** A tool currently executing, shown as an activity row. */
+/** A tool currently executing, with whatever output has streamed in so far. */
 export interface RunningTool {
   id: string
   name: string
+  /** Arguments from the call, so the card can show the command while it runs. */
+  args?: unknown
+  /** Output received from `tool_execution_update` so far. */
+  text?: string
 }
 
 /** Event payload shapes PiUI reads out of the opaque agent event stream. */
@@ -78,6 +82,28 @@ interface AssistantUpdate {
   toolName?: string
   toolCall?: { id?: string; name?: string; arguments?: unknown }
   reason?: string
+}
+
+/**
+ * Text out of a partial tool result.
+ *
+ * The SDK's bash tool streams `{ content: [{ type: 'text', text }] }`, the same
+ * shape the finished result uses, so this mirrors how the main process maps a
+ * result into a chat item. `args` is read defensively because the field is
+ * typed `any` on the SDK side.
+ */
+function partialToolText(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+
+  const content = (value as { content?: unknown }).content
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+
+  return content
+    .filter((block) => (block as { type?: string }).type === 'text')
+    .map((block) => (block as { text?: string }).text ?? '')
+    .join('')
 }
 
 interface PiUiState {
@@ -401,7 +427,24 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
         const id = String(event.toolCallId ?? '')
         const name = String(event.toolName ?? 'tool')
         set((state) => ({
-          runningTools: [...state.runningTools.filter((tool) => tool.id !== id), { id, name }]
+          runningTools: [
+            ...state.runningTools.filter((tool) => tool.id !== id),
+            { id, name, args: event.args, text: '' }
+          ]
+        }))
+        break
+      }
+
+      case 'tool_execution_update': {
+        const id = String(event.toolCallId ?? '')
+        const name = String(event.toolName ?? 'tool')
+        const text = partialToolText(event.partialResult)
+        // A tool that streams nothing still gets a card, so it is added when
+        // the first update arrives rather than assumed to exist already.
+        set((state) => ({
+          runningTools: state.runningTools.some((tool) => tool.id === id)
+            ? state.runningTools.map((tool) => (tool.id === id ? { ...tool, text } : tool))
+            : [...state.runningTools, { id, name, args: event.args, text }]
         }))
         break
       }

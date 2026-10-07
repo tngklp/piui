@@ -192,6 +192,42 @@ export async function readAttachments(
   return { added, errors }
 }
 
+/**
+ * Build an attachment for a path rather than a `File`.
+ *
+ * A drop from another application arrives as a `File`, but a drag from PiUI's
+ * own file panel carries only a path, so the contents have to come back through
+ * the file IPC. That channel is text-only, so an image dropped this way is
+ * refused the same way the picker refuses any other binary file.
+ */
+export async function attachmentFromPath(path: string): Promise<Attachment> {
+  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+  const file = await window.piui.readFile(path)
+  if (file.error) throw new Error(`${name}: ${file.error}`)
+
+  const text = file.content ?? ''
+  if (text.length > MAX_TEXT_BYTES) {
+    throw new Error(
+      `${name} is ${humanSize(text.length)}; the limit for text files is ${humanSize(MAX_TEXT_BYTES)}.`
+    )
+  }
+  if (looksBinary(text)) {
+    throw new Error(
+      `${name} is not a text file, and this way of adding a file can only read text. ` +
+        'Use the attach button instead.'
+    )
+  }
+
+  return {
+    id: nextId(),
+    kind: 'text',
+    name,
+    mimeType: 'text/plain',
+    text,
+    bytes: text.length
+  }
+}
+
 /** The image blocks the agent expects. */
 export function toPromptImages(
   attachments: Attachment[]

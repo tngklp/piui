@@ -85,6 +85,13 @@ export function FilesPanel() {
             style={{ paddingLeft: 6 + depth * 12 + (entry.kind === 'file' ? 17 : 0) }}
             title={entry.path}
             onClick={() => activate(entry)}
+            // Files can be dragged onto the composer to reference them. The path
+            // travels as plain text, since an in-app drag has no real File.
+            draggable={entry.kind === 'file'}
+            onDragStart={(event) => {
+              event.dataTransfer.setData('text/plain', entry.path)
+              event.dataTransfer.effectAllowed = 'copy'
+            }}
           >
             {guides}
             {entry.kind === 'directory' ? (

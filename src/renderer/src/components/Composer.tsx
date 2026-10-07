@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from 'react'
 import type { CommandDto, ThinkingLevelDto } from '@shared/ipc'
 import { usePiUi } from '../store'
 import {
   TEXT_ACCEPT,
+  attachmentFromPath,
   humanSize,
   inlineTextAttachments,
   readAttachments,
@@ -23,7 +24,10 @@ export function Composer() {
   const [cursor, setCursor] = useState(0)
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [attachError, setAttachError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  /** Depth counter, because dragleave fires again for every child element. */
+  const dragDepth = useRef(0)
 
   const status = usePiUi((state) => state.status)
   const models = usePiUi((state) => state.models)
@@ -39,6 +43,18 @@ export function Composer() {
   const sendOnEnter = usePiUi((state) => state.prefs.sendOnEnter)
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  /**
+   * Grow the textarea to fit its content, so a multi-line prompt is fully
+   * visible. The cap lives in CSS (`max-height`), which is what stops it from
+   * taking over the window; past that the textarea scrolls.
+   */
+  useEffect(() => {
+    const input = inputRef.current
+    if (!input) return
+    input.style.height = 'auto'
+    input.style.height = `${input.scrollHeight}px`
+  }, [text])
 
   const streaming = status?.isStreaming ?? false
 
@@ -108,6 +124,33 @@ export function Composer() {
 
   const removeAttachment = (id: string): void =>
     setAttachments((current) => current.filter((attachment) => attachment.id !== id))
+
+  /**
+   * Files dropped on the composer become references, the way they do in an
+   * editor's chat panel. A drop from outside the app carries real files; a drag
+   * from PiUI's own file panel carries a path, which is read back over IPC.
+   */
+  const onDrop = async (event: DragEvent<HTMLDivElement>): Promise<void> => {
+    event.preventDefault()
+    dragDepth.current = 0
+    setDragging(false)
+
+    if (event.dataTransfer.files.length > 0) {
+      await pickFiles(event.dataTransfer.files)
+      return
+    }
+
+    const path = event.dataTransfer.getData('text/plain').trim()
+    if (path.length === 0) return
+
+    try {
+      const attachment = await attachmentFromPath(path)
+      setAttachError(null)
+      setAttachments((current) => [...current, attachment])
+    } catch (cause) {
+      setAttachError(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
 
   const runCommand = (command: Command): void => {
     if (command.run) {
@@ -208,7 +251,21 @@ export function Composer() {
         </div>
       ) : null}
 
-      <div className="box">
+      <div
+        className={`box${dragging ? ' drop' : ''}`}
+        onDragEnter={() => {
+          dragDepth.current += 1
+          setDragging(true)
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={() => {
+          dragDepth.current -= 1
+          if (dragDepth.current > 0) return
+          dragDepth.current = 0
+          setDragging(false)
+        }}
+        onDrop={(event) => void onDrop(event)}
+      >
         <textarea
           ref={inputRef}
           value={text}

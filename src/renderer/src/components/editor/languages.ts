@@ -30,6 +30,32 @@ export function baseName(path: string): string {
   return path.split(/[\\/]/).pop() ?? path
 }
 
+/**
+ * How the editor should present a path.
+ *
+ * Anything but `text` is a file CodeMirror has no business showing: an image or
+ * a PDF is binary, and markdown gets a rendered view alongside its source.
+ */
+export type ViewKind = 'text' | 'markdown' | 'image' | 'pdf'
+
+/** Extensions rendered as an image rather than edited as text. */
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'ico']
+
+/** Extensions rendered by the PDF viewer. */
+const PDF_EXTENSIONS = ['pdf']
+
+/** Extensions that get a rendered preview alongside the source. */
+const MARKDOWN_EXTENSIONS = ['md', 'markdown', 'mdx']
+
+/** Decide how to present a path. Unknown extensions are editable text. */
+export function viewKind(path: string): ViewKind {
+  const extension = extensionOf(path)
+  if (IMAGE_EXTENSIONS.includes(extension)) return 'image'
+  if (PDF_EXTENSIONS.includes(extension)) return 'pdf'
+  if (MARKDOWN_EXTENSIONS.includes(extension)) return 'markdown'
+  return 'text'
+}
+
 /** Resolve the language for a path. Unknown extensions fall back to plain text. */
 export function languageFor(path: string): LanguageInfo {
   const extension = extensionOf(path)
