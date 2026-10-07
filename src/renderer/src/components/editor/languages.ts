@@ -33,12 +33,13 @@ export function baseName(path: string): string {
 /**
  * How the editor should present a path.
  *
- * Anything but `text` is a file CodeMirror has no business showing: an image or
- * a PDF is binary, and markdown gets a rendered view alongside its source.
+ * Anything but `text` is a file CodeMirror has no business showing by default: an
+ * image or a PDF is binary, while markdown and SVG get a rendered view alongside
+ * their source.
  */
-export type ViewKind = 'text' | 'markdown' | 'image' | 'pdf'
+export type ViewKind = 'text' | 'markdown' | 'svg' | 'image' | 'pdf'
 
-/** Extensions rendered as an image rather than edited as text. */
+/** Extensions rendered as an image and never edited as text. */
 const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'avif', 'ico']
 
 /** Extensions rendered by the PDF viewer. */
@@ -47,12 +48,16 @@ const PDF_EXTENSIONS = ['pdf']
 /** Extensions that get a rendered preview alongside the source. */
 const MARKDOWN_EXTENSIONS = ['md', 'markdown', 'mdx']
 
+/** SVG is text, so it can be shown rendered or as its source. */
+const SVG_EXTENSIONS = ['svg']
+
 /** Decide how to present a path. Unknown extensions are editable text. */
 export function viewKind(path: string): ViewKind {
   const extension = extensionOf(path)
   if (IMAGE_EXTENSIONS.includes(extension)) return 'image'
   if (PDF_EXTENSIONS.includes(extension)) return 'pdf'
   if (MARKDOWN_EXTENSIONS.includes(extension)) return 'markdown'
+  if (SVG_EXTENSIONS.includes(extension)) return 'svg'
   return 'text'
 }
 

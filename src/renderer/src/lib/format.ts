@@ -54,3 +54,34 @@ export function summarizeToolArguments(args: unknown): string {
     return ''
   }
 }
+
+/**
+ * One-line description of a tool call, the way an editor labels an action in a
+ * list: "Read src/app.ts", "Ran bash: npm test". Used by the collapsed card, so
+ * the transcript stays readable without expanding anything.
+ */
+export function toolDescription(name: string, args: unknown): string {
+  const record = (args ?? {}) as Record<string, unknown>
+  const path =
+    typeof record.path === 'string'
+      ? record.path
+      : typeof record.file_path === 'string'
+        ? record.file_path
+        : null
+  const command = typeof record.command === 'string' ? record.command : null
+
+  switch (name) {
+    case 'read':
+      return path ? `Read ${path}` : 'Read a file'
+    case 'write':
+      return path ? `Wrote ${path}` : 'Wrote a file'
+    case 'edit':
+      return path ? `Edited ${path}` : 'Edited a file'
+    case 'bash':
+      return command ? `Ran bash: ${command}` : 'Ran a command'
+    case 'powershell':
+      return command ? `Ran PowerShell: ${command}` : 'Ran a command'
+    default:
+      return summarizeToolArguments(args) || name
+  }
+}

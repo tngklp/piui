@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatBlockDto, ChatItemDto, UiRequestDto } from '@shared/ipc'
-import { formatDuration, summarizeToolArguments } from '../lib/format'
+import { formatDuration, summarizeToolArguments, toolDescription } from '../lib/format'
 import { usePiUi, type RunningTool } from '../store'
 import { Collapsible } from './Collapsible'
 import { DiffView } from './DiffView'
@@ -40,29 +40,27 @@ function Thinking({ text, live }: { text: string; live?: boolean }) {
   )
 }
 
-/** Tool call and its result in a single card. */
+/**
+ * Tool call and its result in one line, expanded on click. A finished call is
+ * collapsed, so a long run reads as a list of what happened rather than a wall
+ * of output.
+ */
 function ToolCard({ item }: { item: Extract<ChatItemDto, { kind: 'tool' }> }) {
   const expandToolOutput = usePiUi((state) => state.prefs.expandToolOutput)
-  const [showCommand, setShowCommand] = useState(expandToolOutput)
+  const [open, setOpen] = useState(expandToolOutput)
 
   const args = (item.arguments ?? {}) as Record<string, unknown>
   const command = typeof args.command === 'string' ? args.command : null
-  const summary = command ?? item.filePath ?? summarizeToolArguments(item.arguments)
+  const description = toolDescription(item.name, item.arguments)
 
   return (
     <div className="card">
-      <div className="hd">
-        <span className={`tag${item.isError ? ' bad' : ''}`}>{item.name}</span>
-
-        {summary ? (
-          <button
-            className="cmd"
-            title={command ? `${summary}\n\nClick to expand` : summary}
-            onClick={() => setShowCommand((was) => !was)}
-          >
-            <span className="cmd__text">{summary}</span>
-          </button>
-        ) : null}
+      <button className="hd" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
+        <span className={`chev${open ? ' o' : ''}`}>›</span>
+        <span className="tool__desc" title={command ?? description}>
+          {description}
+        </span>
+        <span className="tag">{item.name}</span>
 
         <span className="hd__end">
           {item.addedLines ? <span className="ok">+{item.addedLines}</span> : null}
@@ -78,42 +76,46 @@ function ToolCard({ item }: { item: Extract<ChatItemDto, { kind: 'tool' }> }) {
             </>
           )}
         </span>
-      </div>
+      </button>
 
-      {showCommand && command ? <pre className="cmd__full">{command}</pre> : null}
-
-      {item.diff ? <DiffView diff={item.diff} /> : null}
-      {!item.diff && item.text ? <pre className="out">{item.text}</pre> : null}
-      {!item.diff && !item.text && item.running ? <pre className="out">running…</pre> : null}
+      <Collapsible open={open}>
+        {command ? <pre className="cmd__full">{command}</pre> : null}
+        {item.diff ? <DiffView diff={item.diff} /> : null}
+        {!item.diff && item.text ? <pre className="out">{item.text}</pre> : null}
+        {!item.diff && !item.text && item.running ? <pre className="out">running…</pre> : null}
+      </Collapsible>
     </div>
   )
 }
 
 /**
  * A tool that is still running. Output streams in through `tool_execution_update`,
- * so the same card grows while the command runs instead of appearing only once
- * the tool has finished.
+ * so the card is expanded while the command runs and collapses once it lands in
+ * the transcript as a finished card.
  */
 function RunningToolCard({ tool }: { tool: RunningTool }) {
+  const [open, setOpen] = useState(true)
   const args = (tool.args ?? {}) as Record<string, unknown>
   const command = typeof args.command === 'string' ? args.command : null
-  const path = typeof args.path === 'string' ? args.path : null
-  const summary = command ?? path ?? summarizeToolArguments(tool.args)
+  const description = toolDescription(tool.name, tool.args)
 
   return (
     <div className="card">
-      <div className="hd">
+      <button className="hd" aria-expanded={open} onClick={() => setOpen((was) => !was)}>
+        <span className={`chev${open ? ' o' : ''}`}>›</span>
+        <span className="tool__desc" title={command ?? description}>
+          {description}
+        </span>
         <span className="tag">{tool.name}</span>
-        {summary ? (
-          <span className="cmd__text" title={summary}>
-            {summary}
-          </span>
-        ) : null}
         <span className="hd__end">
           <span className="spinner" />
         </span>
-      </div>
-      <pre className="out">{tool.text ? tool.text : 'running…'}</pre>
+      </button>
+
+      <Collapsible open={open}>
+        {command ? <pre className="cmd__full">{command}</pre> : null}
+        <pre className="out">{tool.text ? tool.text : 'running…'}</pre>
+      </Collapsible>
     </div>
   )
 }
@@ -254,6 +256,22 @@ export function Transcript() {
 
   const isEmpty = items.length === 0 && !streaming && runningTools.length === 0
 
+  /**
+   * A tool call that already has a card of its own — running, or finished and
+   * therefore in `items` — must not also be drawn from `streaming.tools`. That
+   * overlap is what showed the same call twice: once while the model was emitting
+   * it and again once it was executing. A call with no id yet has neither, so it
+   * is still shown as pending.
+   */
+  const ownedToolCalls = new Set([
+    ...runningTools.map((tool) => tool.id),
+    ...items
+      .filter((item): item is Extract<ChatItemDto, { kind: 'tool' }> => item.kind === 'tool')
+      .map((item) => item.toolCallId)
+  ])
+  const pendingTools =
+    streaming?.tools.filter((tool) => tool.id.length === 0 || !ownedToolCalls.has(tool.id)) ?? []
+
   return (
     <div className="col" ref={colRef}>
       {isEmpty ? (
@@ -277,11 +295,11 @@ export function Transcript() {
             <Thinking text={streaming.thinking} live={streaming.thinkingLive} />
           ) : null}
           {streaming.text ? <Markdown text={streaming.text} /> : null}
-          {streaming.tools.map((tool) => (
+          {pendingTools.map((tool) => (
             <div className="card" key={tool.id || tool.name}>
               <div className="hd">
                 <span className="tag">{tool.name}</span>
-                <span className="cmd__text mono">{summarizeToolArguments(tool.argsText)}</span>
+                <span className="tool__desc">{summarizeToolArguments(tool.argsText)}</span>
                 <span className="hd__end">
                   <span className="spinner" />
                 </span>

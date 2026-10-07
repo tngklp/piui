@@ -96,17 +96,28 @@ export function EditorView() {
     Object.fromEntries([...dirtyFiles].map((path) => [path, true]))
   )
   const [cursor, setCursor] = useState<CursorInfo>(EMPTY_CURSOR)
-  /** Markdown only: show the rendered view rather than the source. */
-  const [preview, setPreview] = useState(true)
+  /**
+   * The rendered/source choice for the file on screen. The map remembers it per
+   * file; the override holds a click that has not been re-read from the map yet,
+   * so the value is already right on the first render after a switch.
+   */
+  const [previewChoice, setPreviewChoice] = useState<{ path: string; value: boolean } | null>(null)
 
-  // What this file should be shown as, and whether the source editor is
-  // mounted at all: images and PDFs have no text to edit.
+  // What this file should be shown as, and whether the source editor is mounted
+  // at all: images and PDFs have no text to edit.
   const kind = activeFile ? viewKind(activeFile) : 'text'
-  const showSource = kind === 'text' || (kind === 'markdown' && !preview)
+  const canPreview = kind === 'markdown' || kind === 'svg'
+  /** SVG opens as a picture; markdown opens as source, ready to edit. */
+  const preview = activeFile
+    ? previewChoice?.path === activeFile
+      ? previewChoice.value
+      : (previewByFile.get(activeFile) ?? kind === 'svg')
+    : false
+  const showSource = kind === 'text' || (canPreview && !preview)
 
   const setPreviewFor = (next: boolean): void => {
     if (activeFile) previewByFile.set(activeFile, next)
-    setPreview(next)
+    setPreviewChoice(activeFile ? { path: activeFile, value: next } : null)
   }
 
   // Editor typography lives in the store so the settings dialog can drive it.
@@ -134,10 +145,9 @@ export function EditorView() {
   useEffect(() => {
     if (!activeFile) return
 
-    setPreview(previewByFile.get(activeFile) ?? true)
-
     // Images and PDFs are streamed through the file protocol, so reading them
-    // as text would only produce garbage in the buffer.
+    // as text would only produce garbage in the buffer. SVG is text, and needs
+    // a buffer for its source view.
     const fileKind = viewKind(activeFile)
     if (fileKind === 'image' || fileKind === 'pdf') {
       setError(null)
@@ -397,7 +407,9 @@ export function EditorView() {
         ? 'PDF'
         : kind === 'markdown'
           ? 'Markdown'
-          : (language?.label ?? 'Plain Text')
+          : kind === 'svg'
+            ? 'SVG'
+            : (language?.label ?? 'Plain Text')
 
   return (
     <div className="editor">
@@ -443,11 +455,15 @@ export function EditorView() {
           </svg>
         </button>
 
-        {kind === 'markdown' ? (
+        {canPreview ? (
           <button
             className={`ibtn${preview ? ' on' : ''}`}
             onClick={() => setPreviewFor(!preview)}
-            title={preview ? 'Show the markdown source' : 'Show the rendered markdown'}
+            title={
+              preview
+                ? `Show the ${kind === 'svg' ? 'SVG source' : 'markdown source'}`
+                : 'Show the rendered view'
+            }
             aria-pressed={preview}
           >
             <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor">
@@ -471,7 +487,7 @@ export function EditorView() {
         </div>
       ) : null}
 
-      {kind === 'image' && activeFile ? (
+      {(kind === 'image' || (kind === 'svg' && preview)) && activeFile ? (
         <div className="editor__media">
           <img src={fileUrl(activeFile)} alt={baseName(activeFile)} />
         </div>

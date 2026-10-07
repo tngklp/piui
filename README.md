@@ -23,7 +23,6 @@ in the CLI and vice versa.
 ## Contents
 
 - [Features](#features)
-- [Screenshots](#screenshots)
 - [Requirements](#requirements)
 - [Install](#install)
 - [Getting started](#getting-started)
@@ -44,10 +43,14 @@ in the CLI and vice versa.
 - Attach images (sent as image blocks) or text files (inlined into the prompt).
 - Steer a running turn, or queue a follow-up, without waiting for it to finish.
 
+![Chatting with Pi in PiUI](assets/chat.gif)
+
 **Approvals**
 
 - Per-tool policy - allow, ask, or deny - so anything that runs a command or writes a file can
   pause for review. Approvals appear inline in the transcript rather than as a modal.
+
+![An approval prompt in the transcript](assets/approval.png)
 
 **Sessions**
 
@@ -70,15 +73,7 @@ in the CLI and vice versa.
   and light variant.
 - Settings for the agent, terminal, editor, models, icon packs, packages, and approval policy.
 
-**Updates**
-
-- Installed builds check the GitHub releases feed on launch and offer a download-and-restart prompt.
-
-## Screenshots
-
-![PiUI on first launch, offering your recent workspaces](assets/welcome.png)
-
-![Choosing a theme and icon pack in settings](assets/customization.png)
+![Choosing a theme and an icon pack](assets/customization.png)
 
 ## Requirements
 

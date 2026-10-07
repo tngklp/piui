@@ -553,6 +553,31 @@ details.g[open] > :not(summary) {
   font-size: 13px;
 }
 
+/* A tool card's header is the toggle, so the collapsed row is one clickable
+   line rather than a card the reader has to scroll past. */
+button.hd {
+  width: 100%;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.hd:hover {
+  background: var(--lilac-soft);
+}
+
+.tool__desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+
 .card .hd .path {
   font-family: var(--mono);
   font-size: 12px;
@@ -2411,7 +2436,17 @@ select.pick {
   overflow: auto;
   padding: 20px 26px;
   background: var(--bg);
-  max-width: 900px;
+}
+
+/* The transcript caps markdown lines at a readable measure; a preview pane is
+   expected to use all the width it was given. */
+.editor__preview .md p,
+.editor__preview .md ul,
+.editor__preview .md ol,
+.editor__preview .md blockquote,
+.editor__preview .md table,
+.editor__preview .md pre {
+  max-width: none;
 }
 
 .editor__watermark {
