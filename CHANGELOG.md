@@ -10,16 +10,22 @@ published without an entry here.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-07
+
 ### Added
 
+- **PiUI offers to install `pi` on first run.** When nothing on the machine looks like the CLI,
+  the chat says so and installs it with the same command the documentation gives a human, then asks
+  for a restart. Detection now also looks on `PATH`, so an install from npm or a package manager is
+  not mistaken for a missing one.
 - **Live tool output.** A running tool's card fills in as the command prints, instead of appearing
   only once it has finished. Finished calls collapse to a single line — chevron, description, and
   outcome — and expand on click.
 - **A context menu in the file explorer**: Open, Cut, Copy, Paste, Rename, Delete, New File, New
   Folder, Copy Path, Copy Relative Path, Show in File Explorer, and Refresh. Renaming and creating
   happen in an inline input rather than a dialog.
-- **More file types in the editor.** Images and PDFs render in place of the text editor, and
-  markdown opens in a rendered view with a toggle back to its source.
+- **More file types in the editor.** Images and PDFs render in place of the text editor, SVG opens
+  as a picture, and markdown opens in a rendered view with a toggle back to its source.
 - **The prompt box grows with the text**, up to a cap, and files can be dropped onto it — from your
   file manager or from PiUI's own file panel — to reference them.
 - **A jump-to-the-end button** appears in the chat once you scroll away from the bottom, and
@@ -27,6 +33,16 @@ published without an entry here.
 - README: a banner, screenshots, status badges, a troubleshooting section, and a known issues and
   roadmap section.
 - Issue templates for bug reports and feature requests.
+
+### Fixed
+
+- A running tool call is no longer drawn twice, once in the transcript and once as the live card.
+- The jump-to-the-end button no longer hovers over an empty session, and the chat no longer
+  restores a scroll position that belonged to a session that is gone.
+- Renaming or deleting a file closes any editor tab pointing at it, so a later save cannot quietly
+  recreate the file at its old path.
+- The markdown preview uses the full width of the pane; the transcript's line-length cap was
+  leaking into it.
 
 ## [0.1.0] - 2026-10-07
 
@@ -105,5 +121,6 @@ to both. Anything you change in one shows up in the other.
 - Windows: an installer that supports in-app updates, a portable executable, and a no-install zip.
 - Linux: an AppImage that supports in-app updates, and a `.deb`.
 
-[Unreleased]: https://github.com/tngklp/piui/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tngklp/piui/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tngklp/piui/releases/tag/v0.2.0
 [0.1.0]: https://github.com/tngklp/piui/releases/tag/v0.1.0

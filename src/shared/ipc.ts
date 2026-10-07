@@ -50,6 +50,10 @@ export const IpcChannel = {
   FsCreate: 'piui:fs:create',
   /** Reveal a path in the operating system's file manager. */
   FsReveal: 'piui:fs:reveal',
+  /** Run the official installer for the `pi` CLI, which PiUI depends on. */
+  PiInstall: 'piui:pi:install',
+  /** Relaunch the app, for changes that only take effect on a fresh start. */
+  AppRelaunch: 'piui:app:relaunch',
   /** Format a buffer with Prettier before it is written. */
   FsFormat: 'piui:fs:format',
   /** Recursive workspace file index for quick open. */
@@ -266,6 +270,8 @@ export interface RuntimeInfoDto {
   sdkVersion: string
   cliVersion: string | null
   cliPath: string | null
+  /** False when nothing that looks like the `pi` CLI exists on this machine. */
+  cliInstalled: boolean
   versionMatch: boolean
   agentDir: string
   node: string
@@ -479,6 +485,14 @@ export interface FsResultDto {
   error: string | null
 }
 
+/** Outcome of running the pi installer. */
+export interface PiInstallResultDto {
+  ok: boolean
+  /** The tail of the installer's output, shown when something went wrong. */
+  output: string
+  error: string | null
+}
+
 /** One GPU as reported by nvidia-smi. */
 export interface MonitorGpuDto {
   name: string
@@ -656,6 +670,10 @@ export interface PiUiApi {
   createEntry(path: string, kind: 'file' | 'directory'): Promise<FsResultDto>
   /** Show a path in the operating system's file manager. */
   revealPath(path: string): Promise<void>
+  /** Install the `pi` CLI by running its official installer. */
+  installPi(): Promise<PiInstallResultDto>
+  /** Restart PiUI. */
+  relaunchApp(): Promise<void>
   /** Delete a saved session file. */
   deleteSession(path: string): Promise<void>
   /** Read the current monitor snapshot. */

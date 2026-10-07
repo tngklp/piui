@@ -1669,6 +1669,41 @@ select.pick {
   color: var(--del);
 }
 
+/* The install offer carries a button, so it is a call to action rather than a
+   line of prose. */
+.banner.install {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.install__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.banner.install .b {
+  flex: none;
+}
+
+.install__out {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--term);
+  font-size: 11.5px;
+  line-height: 1.5;
+  max-height: 160px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.install__err {
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
 .notices {
   display: flex;
   flex-direction: column;

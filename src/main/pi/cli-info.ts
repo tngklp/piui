@@ -1,13 +1,23 @@
 import { existsSync } from 'node:fs'
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { findExecutable } from '../terminal'
 
 export interface CliInfo {
   /** Version of the globally installed `pi` CLI, or null when it cannot be detected. */
   version: string | null
   /** Path to the CLI launcher when found. */
   path: string | null
+  /**
+   * False only when nothing that looks like `pi` exists at all. Version and path
+   * can both be unknown while the CLI is still installed, which is the difference
+   * between "we cannot read its version" and "it is not there".
+   */
+  installed: boolean
 }
+
+/** Launcher names the pi.dev installer uses, and the bare name on PATH. */
+const LAUNCHER_NAMES = ['pi.cmd', 'pi.exe', 'pi']
 
 /** Compare two dotted version strings, numerically where possible. */
 function compareVersions(a: string, b: string): number {
@@ -32,8 +42,8 @@ function compareVersions(a: string, b: string): number {
  */
 export async function detectCli(agentDir: string): Promise<CliInfo> {
   const binDir = join(agentDir, 'bin')
-  const launchers = ['pi.cmd', 'pi.exe', 'pi'].map((name) => join(binDir, name))
-  const launcher = launchers.find((path) => existsSync(path)) ?? null
+  const launcher =
+    LAUNCHER_NAMES.map((name) => join(binDir, name)).find((path) => existsSync(path)) ?? null
 
   try {
     const releasesDir = join(agentDir, 'install', 'releases')
@@ -44,15 +54,25 @@ export async function detectCli(agentDir: string): Promise<CliInfo> {
       .sort(compareVersions)
 
     const latest = versions[versions.length - 1]
-    if (latest) return { version: latest, path: launcher }
+    if (latest) {
+      return { version: latest, path: launcher, installed: true }
+    }
 
     // No managed release directory: fall back to a launcher next to a bin dir.
     if (existsSync(join(binDir, 'pi.ps1'))) {
-      return { version: null, path: join(binDir, 'pi.ps1') }
+      return { version: null, path: join(binDir, 'pi.ps1'), installed: true }
     }
   } catch {
-    // The CLI may be installed by another package manager; report unknown.
+    // The CLI may be installed by another package manager; check PATH below.
   }
 
-  return { version: null, path: launcher }
+  // An installation outside the managed layout still counts. Otherwise PiUI would
+  // offer to install `pi` to someone who already has it from npm or a package
+  // manager and simply keeps it somewhere it does not recognise.
+  const onPath = findExecutable(LAUNCHER_NAMES)
+  return {
+    version: null,
+    path: launcher ?? onPath,
+    installed: launcher !== null || onPath !== null
+  }
 }

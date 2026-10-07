@@ -77,6 +77,8 @@ const api: PiUiApi = {
   createEntry: (path: string, kind: 'file' | 'directory') =>
     ipcRenderer.invoke(IpcChannel.FsCreate, path, kind),
   revealPath: (path: string) => ipcRenderer.invoke(IpcChannel.FsReveal, path),
+  installPi: () => ipcRenderer.invoke(IpcChannel.PiInstall),
+  relaunchApp: () => ipcRenderer.invoke(IpcChannel.AppRelaunch),
   deleteSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsDelete, path),
   getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet),
   getModelsConfig: () => ipcRenderer.invoke(IpcChannel.ModelsGet),

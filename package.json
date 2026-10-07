@@ -1,7 +1,7 @@
 {
   "name": "piui",
   "productName": "PiUI",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "PiUI — a desktop GUI for the Pi coding agent",
   "license": "MIT",
   "author": {

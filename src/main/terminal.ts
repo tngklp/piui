@@ -28,7 +28,7 @@ interface Session {
 }
 
 /** Find the first executable on PATH, so the user's preferred shell wins. */
-function findExecutable(candidates: string[]): string | null {
+export function findExecutable(candidates: string[]): string | null {
   const directories = (process.env.PATH ?? '').split(process.platform === 'win32' ? ';' : ':')
   for (const candidate of candidates) {
     if (candidate.includes('/') || candidate.includes('\\')) {

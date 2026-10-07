@@ -20,6 +20,7 @@ export async function getRuntimeInfo(): Promise<RuntimeInfoDto> {
     sdkVersion: VERSION,
     cliVersion: cli.version,
     cliPath: cli.path,
+    cliInstalled: cli.installed,
     versionMatch: cli.version === null || cli.version === VERSION,
     agentDir,
     node: process.versions.node ?? '',

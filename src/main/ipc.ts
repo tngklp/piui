@@ -20,6 +20,7 @@ import { ApprovalManager } from './pi/approval'
 import { readModelsConfig, writeModelsConfig } from './pi/models-store'
 import { installPackage, listInstalledPackages, removePackage, searchCatalog } from './pi/packages'
 import { sdk } from './pi/sdk'
+import { installPi } from './pi/install'
 import { getRuntimeInfo } from './pi/runtime-info'
 import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
@@ -250,6 +251,15 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IpcChannel.FsReveal, (_event, target: string) => {
     shell.showItemInFolder(resolve(target))
+  })
+
+  ipcMain.handle(IpcChannel.PiInstall, async () => installPi())
+
+  // Relaunching is how an install of `pi` takes effect: the SDK is resolved once
+  // at startup and the agent session is already bound to the old module.
+  ipcMain.handle(IpcChannel.AppRelaunch, () => {
+    app.relaunch()
+    app.exit(0)
   })
 
   ipcMain.handle(IpcChannel.FsIndex, async () => {
