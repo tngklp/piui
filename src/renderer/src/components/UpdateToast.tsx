@@ -1,13 +1,6 @@
 import { useState } from 'react'
 import { usePiUi } from '../store'
-
-/** Version note shown under the heading, trimmed to something readable. */
-function shortNotes(notes: string | null): string | null {
-  if (!notes) return null
-  const text = notes.replace(/[#*_`]/g, '').trim()
-  if (text.length === 0) return null
-  return text.length > 260 ? `${text.slice(0, 260).trimEnd()}…` : text
-}
+import { ChangelogDialog } from './ChangelogDialog'
 
 /**
  * Update prompt.
@@ -15,6 +8,10 @@ function shortNotes(notes: string | null): string | null {
  * Sits in the corner once the release feed reports a newer version, and carries
  * the whole flow: download, then restart to install. Portable and development
  * builds can never get past the "unsupported" state, so they show nothing.
+ *
+ * The release notes are not shown here. They are markdown, and there is nowhere
+ * in a 360px toast to render them properly, so a button opens them in a panel the
+ * size of the settings dialog instead.
  */
 export function UpdateToast() {
   const update = usePiUi((state) => state.update)
@@ -22,13 +19,12 @@ export function UpdateToast() {
   const install = usePiUi((state) => state.installUpdate)
 
   const [hidden, setHidden] = useState(false)
+  const [showNotes, setShowNotes] = useState(false)
 
   if (!update || hidden) return null
   if (update.phase !== 'available' && update.phase !== 'downloading' && update.phase !== 'ready') {
     return null
   }
-
-  const notes = update.phase === 'ready' ? null : shortNotes(update.notes)
 
   return (
     <aside className="upd" role="status" aria-live="polite">
@@ -51,11 +47,9 @@ export function UpdateToast() {
         {update.phase === 'downloading'
           ? `Downloading… ${update.percent ?? 0}%`
           : update.phase === 'ready'
-            ? 'PiUI will close, install the new version, and reopen.'
-            : `You are on v${update.currentVersion}.`}
+            ? 'Restarting installs it silently and reopens PiUI. No setup steps.'
+            : `You are on v${update.currentVersion}. It downloads on its own once offered.`}
       </p>
-
-      {notes ? <p className="upd__notes">{notes}</p> : null}
 
       {update.phase === 'downloading' ? (
         <span className="upd__bar">
@@ -64,9 +58,14 @@ export function UpdateToast() {
       ) : null}
 
       <div className="upd__btns">
+        {update.notes ? (
+          <button className="b sm" onClick={() => setShowNotes(true)}>
+            Changelog
+          </button>
+        ) : null}
         {update.phase === 'available' ? (
           <button className="b pri sm" onClick={() => void download()}>
-            Download update
+            Download now
           </button>
         ) : null}
         {update.phase === 'downloading' ? (
@@ -76,10 +75,18 @@ export function UpdateToast() {
         ) : null}
         {update.phase === 'ready' ? (
           <button className="b pri sm" onClick={install}>
-            Restart and install
+            Restart and update
           </button>
         ) : null}
       </div>
+
+      {showNotes && update.notes ? (
+        <ChangelogDialog
+          version={update.version}
+          notes={update.notes}
+          onClose={() => setShowNotes(false)}
+        />
+      ) : null}
     </aside>
   )
 }

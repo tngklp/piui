@@ -10,6 +10,22 @@ published without an entry here.
 
 ## [Unreleased]
 
+### Changed
+
+- **Updates install themselves.** Restarting from the update prompt now runs the installer silently
+  and reopens PiUI, instead of putting the setup wizard in front of you. The download also starts on
+  its own as soon as an update is offered, so pressing the button is all that is left.
+- **Release notes open in a panel the size of the settings dialog**, rendered as markdown. They were
+  being squeezed into the corner toast, where there was no room to lay a changelog out properly.
+
+### Fixed
+
+- The update prompt no longer shows the changelog as raw markup. The notes arrived as HTML from the
+  GitHub releases feed, because the update feed carried none of its own; the release workflow now
+  writes them into it.
+- The welcome screen no longer lets a long session name widen the layout past the window. The text
+  truncates, and the buttons keep their size.
+
 ## [0.2.0] - 2026-10-07
 
 ### Added

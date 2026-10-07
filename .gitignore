@@ -36,6 +36,11 @@ Thumbs.db
 assets/icon.png
 build/icon.png
 
+# Changelog copy that electron-builder embeds in latest.yml, written by the
+# release workflow so the in-app updater shows the notes we wrote rather than the
+# GitHub feed's HTML.
+build/release-notes.md
+
 # Generated icon packs, copied out of material-icon-theme and
 # @iconify-json/catppuccin by scripts/sync-*-icons.mjs (`npm run assets`).
 src/renderer/public/material-icons/

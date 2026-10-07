@@ -33,13 +33,59 @@ function blockedReason(): string | null {
   return null
 }
 
+/** Whether a string looks like the HTML the GitHub feed hands over. */
+const HTML_TAG = /<(h[1-6]|ul|ol|li|p|br|strong|em|code|b|i)\b/i
+
+/**
+ * Turn HTML release notes into the markdown the changelog dialog renders.
+ *
+ * Notes normally arrive as markdown, because the release workflow writes
+ * `build/release-notes.md` and electron-builder embeds it in `latest.yml`. When
+ * the channel file carries none — an older release, or one published outside the
+ * workflow — electron-updater falls back to the GitHub releases feed, whose Atom
+ * `<content>` is rendered HTML. Feeding that to a markdown renderer would show
+ * the tags as literal text, which is what this repairs.
+ */
+function normaliseNotes(raw: string): string {
+  if (!HTML_TAG.test(raw)) return raw
+
+  return (
+    raw
+      // GitHub puts a `<br>` before the newline it came from, so consuming the
+      // newline too avoids turning one line break into a paragraph break.
+      .replace(/<br\s*\/?>[ \t]*\n?/gi, '\n')
+      .replace(/<\/(h[1-6]|p|ul|ol)>/gi, '\n\n')
+      .replace(/<h[1-6][^>]*>/gi, '### ')
+      // Consuming the whitespace before `<li>` keeps the items in one list; leaving
+      // the source newline in place would start a new list at every bullet.
+      .replace(/\s*<li[^>]*>/gi, '\n- ')
+      .replace(/<\/li>/gi, '')
+      .replace(/<(strong|b)[^>]*>/gi, '**')
+      .replace(/<\/(strong|b)>/gi, '**')
+      .replace(/<(em|i)[^>]*>/gi, '_')
+      .replace(/<\/(em|i)>/gi, '_')
+      .replace(/<code[^>]*>/gi, '`')
+      .replace(/<\/code>/gi, '`')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
+}
+
 /** Release notes arrive as a string, a list of notes, or not at all. */
 function notesOf(info: UpdateInfo): string | null {
   const notes = info.releaseNotes
-  if (typeof notes === 'string') return notes.trim() || null
+  if (typeof notes === 'string') return normaliseNotes(notes).trim() || null
   if (Array.isArray(notes)) {
     const joined = notes
-      .map((entry) => entry.note ?? '')
+      .map((entry) => normaliseNotes(entry.note ?? ''))
       .join('\n\n')
       .trim()
     return joined || null
@@ -68,7 +114,7 @@ export class UpdateService {
 
     if (!this.state.canInstall) return
 
-    autoUpdater.autoDownload = false
+    autoUpdater.autoDownload = true
     // A downloaded update still lands if the user quits before pressing the button.
     autoUpdater.autoInstallOnAppQuit = true
     autoUpdater.allowPrerelease = false
@@ -126,8 +172,12 @@ export class UpdateService {
   /** Quit, apply the downloaded update, and start the new version. */
   install(): void {
     if (!this.state.canInstall || this.state.phase !== 'ready') return
+    // Silent, and relaunch afterwards. The NSIS wizard has nothing to ask that the
+    // user has not already answered, and clicking through it is the difference
+    // between an update and a chore. Passing `isSilent` runs the installer with
+    // `/S`, which electron-builder resolves against the existing install location.
     // Let the IPC reply reach the renderer before the process goes away.
-    setImmediate(() => autoUpdater.quitAndInstall())
+    setImmediate(() => autoUpdater.quitAndInstall(true, true))
   }
 
   /** Check once shortly after launch, so an available update announces itself. */

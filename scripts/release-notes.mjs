@@ -35,9 +35,10 @@ const ASSETS = [
   ['Linux', 'amd64.deb', 'Debian and derivatives. Reinstall to update.']
 ]
 
-/** Read `--out`, returning the path and the positional arguments that are not its value. */
+/** Read the flags, returning the output path, the positional args, and whether to add the table. */
 function parseArgs(argv) {
   let out = null
+  let includeDownloads = true
   const positional = []
   for (let index = 0; index < argv.length; index += 1) {
     if (argv[index] === '--out') {
@@ -46,12 +47,16 @@ function parseArgs(argv) {
       index += 1
       continue
     }
+    if (argv[index] === '--no-downloads') {
+      includeDownloads = false
+      continue
+    }
     positional.push(argv[index])
   }
-  return { out, positional }
+  return { out, positional, includeDownloads }
 }
 
-const { out, positional } = parseArgs(process.argv.slice(2))
+const { out, positional, includeDownloads } = parseArgs(process.argv.slice(2))
 const version =
   positional[0] ?? JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8')).version
 
@@ -84,7 +89,7 @@ const downloads = [
   'PiUI needs Node.js 22.19 or newer and the [`pi` CLI](https://pi.dev) on `PATH`.'
 ].join('\n')
 
-const body = `${notes}\n\n${downloads}\n`
+const body = `${notes}${includeDownloads ? `\n\n${downloads}` : ''}\n`
 
 if (out === null) {
   process.stdout.write(body)

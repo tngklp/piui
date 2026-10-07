@@ -59,6 +59,11 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      # electron-builder embeds this in latest.yml. Without it electron-updater
+      # falls back to the GitHub releases feed, whose HTML would arrive at a
+      # markdown renderer as literal tags.
+      - name: Notes for the update feed
+        run: node scripts/release-notes.mjs --out build/release-notes.md --no-downloads
       # Uploads the setup .exe, the portable .exe, the no-install zip, and the
       # latest.yml the updater reads.
       - name: Package and publish
@@ -89,6 +94,8 @@ jobs:
         run: test -f node_modules/node-pty/build/Release/pty.node
       - name: Build
         run: npm run build
+      - name: Notes for the update feed
+        run: node scripts/release-notes.mjs --out build/release-notes.md --no-downloads
       # node-pty has no Linux prebuild, so its module has to be compiled, which
       # is what `npm ci` did above.
       - name: Package and publish

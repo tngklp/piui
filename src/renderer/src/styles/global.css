@@ -2011,7 +2011,11 @@ select.pick {
 
 .wgrid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* `1fr` is `minmax(auto, 1fr)`, so an `auto` minimum lets a long session name
+     push the column wider than its share and run off the panel. Pinning the
+     minimum to 0 keeps the two columns at half the width, which lets the
+     ellipsis on `.act small` do its job instead. */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 40px;
 }
 
@@ -2888,16 +2892,6 @@ select.pick {
   font-size: 12.5px;
 }
 
-.upd__notes {
-  margin: 0;
-  max-height: 120px;
-  overflow: auto;
-  font-size: 11.5px;
-  line-height: 1.5;
-  color: var(--dim);
-  white-space: pre-wrap;
-}
-
 .upd__bar {
   display: block;
   height: 4px;
@@ -2947,6 +2941,35 @@ select.pick {
   overflow: hidden;
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
+}
+
+/* Release notes use the same footprint as settings, so an update's changelog gets
+   a readable panel instead of being pasted into the corner toast. */
+.changelog.modal__panel {
+  width: min(1040px, 100%);
+  height: min(660px, 88vh);
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.changelog__hd {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.changelog__hd .modal__title {
+  flex: 1;
+  min-width: 0;
+}
+
+.changelog__body {
+  overflow: auto;
+  padding: 18px 22px;
 }
 
 .settings__nav {
