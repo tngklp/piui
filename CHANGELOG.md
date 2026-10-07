@@ -25,11 +25,12 @@ published without an entry here.
   the next instruction gets typed, with **Keep** and **Undo** for the whole list, and a collapsible
   per-file list behind them. The agent writes without asking, so the review belongs in the place you
   are already looking rather than only behind a tab.
-- **Copy, Edit, and Try again under each message.** Copy puts the message on the clipboard as
-  markdown. Edit hands a sent message back to the prompt, and sending replaces it and everything that
-  followed it. Try again runs the turn behind a reply a second time. Both work by moving the session's
-  leaf back to where the turn started, so the abandoned version stays in the session file instead of
-  being appended to.
+- **Copy, Edit, and Try again.** Copy puts a message on the clipboard as markdown. Edit hands a sent
+  message back to the prompt, and sending replaces it and everything that followed it. Try again runs
+  the turn behind a reply a second time. Both work by moving the session's leaf back to where the turn
+  started, so the abandoned version stays in the session file instead of being appended to. Edit sits
+  under every message you sent; Copy and Try again only under the reply the agent finished last, since
+  older replies have been answered over and a column of identical buttons helps nobody.
 - **A Changes tab**, next to the editor, listing every file the agent has written. Each file shows
   what changed and carries **Keep** and **Undo**; the bar carries them for the whole list. Undo
   returns a file to how it was before the agent first touched it, so it still does the right thing

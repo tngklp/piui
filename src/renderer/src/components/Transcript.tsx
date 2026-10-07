@@ -273,7 +273,21 @@ function useFollowOutput(dependency: string): RefObject<HTMLPreElement | null> {
   return ref
 }
 
-function AssistantItem({ item }: { item: Extract<ChatItemDto, { kind: 'assistant' }> }) {
+/**
+ * Copy and Try again belong to the message the agent finished last.
+ *
+ * On every reply they turn a long conversation into a column of identical
+ * buttons, and "try again" only ever means the most recent turn — the older ones
+ * have been answered over. The user's own messages are different: editing an
+ * older one is a real thing to want, so those keep their actions.
+ */
+function AssistantItem({
+  item,
+  showActions
+}: {
+  item: Extract<ChatItemDto, { kind: 'assistant' }>
+  showActions: boolean
+}) {
   const retryMessage = usePiUi((state) => state.retryMessage)
   const busy = usePiUi((state) => state.busy)
   const entryId = item.entryId
@@ -292,11 +306,13 @@ function AssistantItem({ item }: { item: Extract<ChatItemDto, { kind: 'assistant
       {item.stopped ? <p className="note">Stopped by user</p> : null}
       {item.error ? <p className="note bad">{item.error}</p> : null}
 
-      <MessageActions
-        markdown={answerMarkdown(item.blocks)}
-        disabled={busy}
-        {...(entryId ? { onRetry: () => void retryMessage(entryId) } : {})}
-      />
+      {showActions ? (
+        <MessageActions
+          markdown={answerMarkdown(item.blocks)}
+          disabled={busy}
+          {...(entryId ? { onRetry: () => void retryMessage(entryId) } : {})}
+        />
+      ) : null}
     </div>
   )
 }
@@ -326,13 +342,13 @@ function UserItem({ item }: { item: Extract<ChatItemDto, { kind: 'user' }> }) {
   )
 }
 
-function TranscriptItem({ item }: { item: ChatItemDto }) {
+function TranscriptItem({ item, showActions }: { item: ChatItemDto; showActions: boolean }) {
   switch (item.kind) {
     case 'user':
       return <UserItem item={item} />
 
     case 'assistant':
-      return <AssistantItem item={item} />
+      return <AssistantItem item={item} showActions={showActions} />
 
     case 'tool':
       return <ToolCard item={item} />
@@ -496,6 +512,17 @@ export function Transcript() {
     (item) => !(item.kind === 'tool' && item.running && liveToolIds.has(item.toolCallId))
   )
 
+  /**
+   * The reply that carries Copy and Try again.
+   *
+   * Nothing carries them while one is being written: the last thing on screen is
+   * then the live bubble, so buttons on the message above it would not be on the
+   * last message, which is the whole point.
+   */
+  const lastAssistantId = streaming
+    ? null
+    : ([...visibleItems].reverse().find((item) => item.kind === 'assistant')?.id ?? null)
+
   return (
     <div className="col" ref={colRef}>
       {isEmpty ? (
@@ -506,7 +533,7 @@ export function Transcript() {
       ) : null}
 
       {visibleItems.map((item) => (
-        <TranscriptItem item={item} key={item.id} />
+        <TranscriptItem item={item} key={item.id} showActions={item.id === lastAssistantId} />
       ))}
 
       {runningTools.map((tool) => (
