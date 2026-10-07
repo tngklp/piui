@@ -27,6 +27,12 @@ export interface UiPreferences {
   expandThinking: boolean
   /** Show what a tool ran with, instead of keeping it collapsed. */
   expandToolOutput: boolean
+  /**
+   * Record the agent's edits without offering them for review. On by default:
+   * the review step is opt-in, and with it off the Changes tab, the pending bar
+   * and the editor's change marks are all absent rather than merely empty.
+   */
+  autoKeepEdits: boolean
   /** Enter sends the prompt; Ctrl+Enter (or Shift+Enter) is a newline. */
   sendOnEnter: boolean
   /** Icon pack id used by the file explorer and editor tabs. */
@@ -65,6 +71,7 @@ export const DEFAULT_UI_PREFERENCES: UiPreferences = {
   editorAutoSaveDelayMs: 1200,
   expandThinking: false,
   expandToolOutput: false,
+  autoKeepEdits: true,
   sendOnEnter: true,
   iconPack: DEFAULT_ICON_PACK,
   terminalShell: '',
@@ -113,6 +120,7 @@ function normalize(value: unknown): UiPreferences {
     editorAutoSaveDelayMs: clampAutoSaveDelay(raw.editorAutoSaveDelayMs),
     expandThinking: bool('expandThinking', false),
     expandToolOutput: bool('expandToolOutput', false),
+    autoKeepEdits: bool('autoKeepEdits', true),
     sendOnEnter: bool('sendOnEnter', true),
     iconPack: findIconPack(typeof raw.iconPack === 'string' ? raw.iconPack : '').id,
     terminalShell: typeof raw.terminalShell === 'string' ? raw.terminalShell : '',

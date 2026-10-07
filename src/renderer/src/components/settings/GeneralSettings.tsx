@@ -39,6 +39,17 @@ export function GeneralSettings() {
         </Row>
 
         <Row
+          title="Auto-keep all edits"
+          hint="Accept every file the agent writes, without reviewing it first. Turn this off to get the Changes tab, the pending-changes bar above the prompt, and change marks in the editor's gutter."
+        >
+          <Switch
+            label="Auto-keep all edits"
+            checked={prefs.autoKeepEdits}
+            onChange={(autoKeepEdits) => setPrefs({ autoKeepEdits })}
+          />
+        </Row>
+
+        <Row
           title="Send with Enter"
           hint={
             prefs.sendOnEnter

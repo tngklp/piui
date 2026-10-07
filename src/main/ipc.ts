@@ -274,6 +274,29 @@ export function registerIpcHandlers(context: IpcContext): void {
     return result
   })
 
+  /**
+   * Where to write a buffer that has no path yet.
+   *
+   * The editor's untitled buffer is real content with nowhere to go, so the first
+   * save has to ask. The dialog opens in the agent's working directory, since that
+   * is the project the user is looking at.
+   */
+  ipcMain.handle(
+    IpcChannel.FsPickSavePath,
+    async (_event, defaultName?: string): Promise<string | null> => {
+      const cwd = (await host()).getWorkspace().cwd
+      const options = {
+        defaultPath: defaultName ? join(cwd, defaultName) : cwd,
+        properties: ['createDirectory' as const, 'showOverwriteConfirmation' as const]
+      }
+      const window = context.getWindow()
+      const result = window
+        ? await dialog.showSaveDialog(window, options)
+        : await dialog.showSaveDialog(options)
+      return result.canceled || !result.filePath ? null : result.filePath
+    }
+  )
+
   ipcMain.handle(IpcChannel.ChangesGet, () => ({
     changes: changes.list(),
     revision: changes.getRevision()
@@ -288,6 +311,10 @@ export function registerIpcHandlers(context: IpcContext): void {
     const result = await changes.undo(path)
     if (result.ok) invalidateGitStatus()
     return result
+  })
+
+  ipcMain.handle(IpcChannel.ChangesSetAutoKeep, (_event, enabled: boolean) => {
+    changes.setAutoKeep(Boolean(enabled))
   })
 
   ipcMain.handle(IpcChannel.PiInstall, async () => installPi())

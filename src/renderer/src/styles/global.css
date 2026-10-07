@@ -2836,19 +2836,10 @@ select.pick {
   max-width: none;
 }
 
-.editor__watermark {
-  flex: 1;
-  display: grid;
-  place-content: center;
-  text-align: center;
-  gap: 6px;
+/* Sits beside the "Untitled" label, so the only way to give a nameless buffer a
+   name is stated rather than guessed. */
+.editor__status-hint {
   color: var(--dim);
-  font-size: 13px;
-}
-
-.editor__watermark .hint {
-  font-size: 12px;
-  opacity: 0.75;
 }
 
 .editor__status {

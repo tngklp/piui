@@ -56,6 +56,15 @@ const scrollTops = new Map<string, number>()
 /** Markdown files remember whether they were shown rendered or as source. */
 const previewByFile = new Map<string, boolean>()
 
+/**
+ * Key for the buffer shown when no file is open.
+ *
+ * It is only ever a key into the maps above, never a path: nothing is read from
+ * it or written to it, and the first save asks for a real name. No real path can
+ * collide with it, because every path PiUI handles is absolute.
+ */
+const UNTITLED = 'untitled:'
+
 const CONTENT_ATTRIBUTES = CodeMirror.contentAttributes.of({
   spellcheck: 'false',
   autocapitalize: 'off',
@@ -117,6 +126,11 @@ export function EditorView() {
   // What this file should be shown as, and whether the source editor is mounted
   // at all: images and PDFs have no text to edit.
   const kind = activeFile ? viewKind(activeFile) : 'text'
+  /**
+   * What the editor is bound to. With no file open it is the untitled buffer,
+   * so the pane is somewhere to type rather than a watermark over nothing.
+   */
+  const editorKey = activeFile ?? UNTITLED
   const canPreview = kind === 'markdown' || kind === 'svg'
   /** SVG opens as a picture; markdown opens as source, ready to edit. */
   const preview = activeFile
@@ -160,7 +174,14 @@ export function EditorView() {
 
   // A buffer already in memory (including unsaved edits) is used as-is.
   useEffect(() => {
-    if (!activeFile) return
+    if (!activeFile) {
+      // There is nothing to read, so the untitled buffer starts empty and stays
+      // however the user leaves it.
+      if (!contents.has(UNTITLED)) contents.set(UNTITLED, '')
+      setError(null)
+      setLoadedFor(UNTITLED)
+      return
+    }
 
     // Images and PDFs are streamed through the file protocol, so reading them
     // as text would only produce garbage in the buffer. SVG is text, and needs
@@ -180,16 +201,23 @@ export function EditorView() {
   }, [activeFile, load])
 
   const save = useCallback(async () => {
-    const path = usePiUi.getState().activeFile
-    if (!path) return
     const view = viewRef.current
-    const cached = contents.get(path) ?? ''
-    const text = view?.state.doc.toString() ?? cached
+    const store = usePiUi.getState()
+    const text = view?.state.doc.toString() ?? contents.get(store.activeFile ?? UNTITLED) ?? ''
+
+    // A buffer with no name has nowhere to go, so the first save has to ask for
+    // one before anything is written.
+    let path = store.activeFile
+    if (!path) {
+      if (text.trim().length === 0) return
+      path = await window.piui.pickSavePath()
+      if (!path) return
+    }
 
     // Format on save runs in the main process: Prettier is a runtime
     // dependency there, not something the renderer can import.
     let outgoing = text
-    if (usePiUi.getState().prefs.editorFormatOnSave) {
+    if (store.prefs.editorFormatOnSave) {
       const result = await window.piui.formatFile(path, text)
       if (result.error) setError(`${path}: ${result.error}`)
       if (result.text !== null) outgoing = result.text
@@ -216,8 +244,19 @@ export function EditorView() {
       setError(`${path}: ${message}`)
       return
     }
+
     dirtyFiles.delete(path)
     setDirty((current) => ({ ...current, [path]: false }))
+
+    // The buffer just became a file. Adopting the name moves it into the tab
+    // strip, and the scratch entry goes with it — the editor rebuilds itself
+    // from the contents now filed under the real path.
+    if (store.activeFile !== path) {
+      contents.delete(UNTITLED)
+      states.delete(UNTITLED)
+      dirtyFiles.delete(UNTITLED)
+      store.openFile(path)
+    }
   }, [])
 
   saveRef.current = () => void save()
@@ -229,6 +268,9 @@ export function EditorView() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scheduleAutoSave = (): void => {
     if (!usePiUi.getState().prefs.editorAutoSave) return
+    // A buffer with no name has nowhere to go, and saving it would open a dialog
+    // the user did not ask for.
+    if (!usePiUi.getState().activeFile) return
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current)
     autoSaveTimer.current = setTimeout(() => {
       autoSaveTimer.current = null
@@ -316,8 +358,10 @@ export function EditorView() {
           indentWithTab
         ]),
         CodeMirror.updateListener.of((update) => {
-          const path = usePiUi.getState().activeFile
-          if (path && update.docChanged) {
+          // The untitled buffer has no path, but it is still the buffer on screen
+          // and its text has to be remembered the same way.
+          const path = usePiUi.getState().activeFile ?? UNTITLED
+          if (update.docChanged) {
             contents.set(path, update.state.doc.toString())
             if (!dirtyFiles.has(path)) {
               dirtyFiles.add(path)
@@ -352,15 +396,15 @@ export function EditorView() {
   // Build the editor, reusing the cached state so undo history survives.
   useEffect(() => {
     const host = hostRef.current
-    if (!host || !activeFile || loadedFor !== activeFile) return
+    if (!host || loadedFor !== editorKey) return
 
-    let state = states.get(activeFile)
+    let state = states.get(editorKey)
     if (!state) {
       state = EditorState.create({
-        doc: contents.get(activeFile) ?? '',
-        extensions: buildExtensions(activeFile)
+        doc: contents.get(editorKey) ?? '',
+        extensions: buildExtensions(editorKey)
       })
-      states.set(activeFile, state)
+      states.set(editorKey, state)
     }
 
     const view = new CodeMirror({ state, parent: host })
@@ -368,7 +412,7 @@ export function EditorView() {
     view.focus()
 
     // Put the view back where it was left, once CodeMirror has measured.
-    const savedTop = scrollTops.get(activeFile)
+    const savedTop = scrollTops.get(editorKey)
     if (savedTop) {
       requestAnimationFrame(() => {
         if (viewRef.current === view) view.scrollDOM.scrollTop = savedTop
@@ -376,20 +420,20 @@ export function EditorView() {
     }
 
     return () => {
-      states.set(activeFile, view.state)
-      scrollTops.set(activeFile, view.scrollDOM.scrollTop)
+      states.set(editorKey, view.state)
+      scrollTops.set(editorKey, view.scrollDOM.scrollTop)
       view.destroy()
       viewRef.current = null
     }
-  }, [activeFile, loadedFor, showSource, buildExtensions])
+  }, [editorKey, loadedFor, showSource, buildExtensions])
 
   // Reconfigure the live editor when the theme or typography changes, rather
   // than rebuilding it and losing the cursor.
   useEffect(() => {
     const view = viewRef.current
-    if (!view || !activeFile) return
+    if (!view) return
 
-    const indent = languageFor(activeFile).indent
+    const indent = languageFor(editorKey).indent
     const tabSize = editorTabSize > 0 ? editorTabSize : indent
     const fontFamily = editorFontFamily.trim() || DEFAULT_EDITOR_FONT
     view.dispatch({
@@ -406,7 +450,7 @@ export function EditorView() {
         ])
       ]
     })
-    states.set(activeFile, view.state)
+    states.set(editorKey, view.state)
   }, [
     themeId,
     editorWrap,
@@ -414,7 +458,7 @@ export function EditorView() {
     editorFontFamily,
     editorTabSize,
     editorIndentGuides,
-    activeFile,
+    editorKey,
     themeCompartment,
     layoutCompartment
   ])
@@ -450,7 +494,8 @@ export function EditorView() {
 
     const current = usePiUi.getState().activeFile
     for (const path of [...contents.keys()]) {
-      if (path === current || dirtyFiles.has(path)) continue
+      // The untitled buffer is nobody's file on disk, so it is never refreshed.
+      if (path === UNTITLED || path === current || dirtyFiles.has(path)) continue
       contents.delete(path)
       states.delete(path)
     }
@@ -493,9 +538,10 @@ export function EditorView() {
   }
 
   const crumbs = (activeFile ?? '').split(/[\\/]/).filter(Boolean)
-  const language = activeFile ? languageFor(activeFile) : null
-  const kindLabel =
-    kind === 'image'
+  const language = languageFor(editorKey)
+  const kindLabel = !activeFile
+    ? 'Untitled'
+    : kind === 'image'
       ? 'Image'
       : kind === 'pdf'
         ? 'PDF'
@@ -600,33 +646,27 @@ export function EditorView() {
         <div className="editor__host" ref={hostRef} onWheel={onWheel} />
       )}
 
-      {!activeFile ? (
-        <div className="editor__watermark">
-          <p>Open a file from the Files panel to start editing.</p>
-          <p className="hint">Ctrl+F searches inside the open file · Alt+Z toggles wrapping</p>
-        </div>
-      ) : null}
-
       <div className="editor__status">
-        {activeFile ? (
+        {/* The hint that used to sit in the middle of an empty pane now lives
+            here, where it does not take the editor's place. */}
+        <span className="mono">{activeFile ? crumbs[crumbs.length - 1] : 'Untitled'}</span>
+        {activeFile ? null : (
+          <span className="editor__status-hint">Ctrl+S saves this buffer as a file</span>
+        )}
+        <span className="sp" />
+        {showSource ? (
           <>
-            <span className="mono">{crumbs[crumbs.length - 1]}</span>
-            <span className="sp" />
-            {showSource ? (
-              <>
-                <span>
-                  Ln {cursor.line}, Col {cursor.column}
-                  {cursor.selected > 0 ? ` (${cursor.selected} selected)` : ''}
-                </span>
-                <span>Spaces: {language?.indent ?? 4}</span>
-                <span>UTF-8</span>
-                <span>LF</span>
-              </>
-            ) : null}
-            <span>{kindLabel}</span>
-            <span className="mono">{extensionOf(activeFile) || 'text'}</span>
+            <span>
+              Ln {cursor.line}, Col {cursor.column}
+              {cursor.selected > 0 ? ` (${cursor.selected} selected)` : ''}
+            </span>
+            <span>Spaces: {language?.indent ?? 4}</span>
+            <span>UTF-8</span>
+            <span>LF</span>
           </>
         ) : null}
+        <span>{kindLabel}</span>
+        <span className="mono">{activeFile ? extensionOf(activeFile) || 'text' : 'text'}</span>
       </div>
     </div>
   )

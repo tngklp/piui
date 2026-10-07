@@ -14,6 +14,9 @@ published without an entry here.
 
 ### Added
 
+- **An empty editor you can type in.** Opening the Editor tab with nothing open gives an untitled
+  buffer instead of a pane telling you to open a file. Ctrl+S asks where to save it, and from then on
+  it is an ordinary file with a tab of its own.
 - **The editor marks the lines the agent changed**, the way an editor shows an unstaged diff: a
   coloured bar beside the line, a faint tint on the line itself, and a red wedge where lines were
   removed. The marks are computed against the file as it was before the agent touched it, and stay
@@ -39,6 +42,11 @@ published without an entry here.
 
 ### Changed
 
+- **Edits are auto-kept by default.** The agent's writes are accepted as they land, so there is no
+  pending-changes bar, no Changes tab, and no change marks in the editor's gutter. Turning **Auto-keep
+  all edits** off in Settings brings all three back, along with the diffing and the per-file baseline
+  they need. It is a preference rather than a hidden default because the review step is worth having
+  when an agent is working somewhere you care about, and worth not having when it is not.
 - The explorer's context menu no longer offers Refresh. New File and New Folder moved to the menu
   that opens on empty space — creating a file is something you do to a folder, not to a file.
 - **Updates install themselves.** Restarting from the update prompt now runs the installer silently
@@ -49,6 +57,8 @@ published without an entry here.
 
 ### Fixed
 
+- **Streaming tool output now follows its own scrollbar.** A long `write`, or a command that keeps
+  talking, filled the card's output box from the top and looked frozen while it was working.
 - **The welcome screen's Start list was squashed to one line per row**, so each label overlapped its
   neighbour and its description. The buttons under each message introduced a `.act` style that already
   belonged to the welcome screen's two-line tiles, which pinned them to 25px tall.

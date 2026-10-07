@@ -83,9 +83,12 @@ const api: PiUiApi = {
   installPi: () => ipcRenderer.invoke(IpcChannel.PiInstall),
   relaunchApp: () => ipcRenderer.invoke(IpcChannel.AppRelaunch),
   undoFileOperation: () => ipcRenderer.invoke(IpcChannel.FsUndo),
+  pickSavePath: (defaultName?: string) =>
+    ipcRenderer.invoke(IpcChannel.FsPickSavePath, defaultName),
   getChanges: () => ipcRenderer.invoke(IpcChannel.ChangesGet),
   keepChanges: (path: string | null) => ipcRenderer.invoke(IpcChannel.ChangesKeep, path),
   undoChanges: (path: string | null) => ipcRenderer.invoke(IpcChannel.ChangesUndo, path),
+  setAutoKeep: (enabled: boolean) => ipcRenderer.invoke(IpcChannel.ChangesSetAutoKeep, enabled),
   deleteSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsDelete, path),
   getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet),
   getModelsConfig: () => ipcRenderer.invoke(IpcChannel.ModelsGet),

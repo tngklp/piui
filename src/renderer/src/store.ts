@@ -328,6 +328,9 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   initialize: async () => {
     if (get().initialized) return
     window.piui.onAgentEvent((event) => get().ingest(event))
+    // On by default, so this is what keeps the main process in step with the
+    // stored preference — the tracker starts recording unless it is told not to.
+    void window.piui.setAutoKeep(get().prefs.autoKeepEdits)
     window.piui.onNotice((notice) => {
       noticeId += 1
       set((state) => ({ notices: [...state.notices, { ...notice, id: noticeId }].slice(-4) }))
@@ -696,6 +699,17 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     const prefs = { ...get().prefs, ...patch }
     saveUiPreferences(prefs)
     set({ prefs })
+
+    if (patch.autoKeepEdits !== undefined) {
+      // The tracker lives in the main process, and it is the thing that has to
+      // stop recording — hiding the tab alone would leave every diff, baseline
+      // copy and gutter mark being computed for a list nobody can see.
+      void window.piui.setAutoKeep(patch.autoKeepEdits).then(async () => {
+        await get().loadChanges()
+        // The tab it was on no longer exists.
+        if (patch.autoKeepEdits && get().mainTab === 'changes') set({ mainTab: 'chat' })
+      })
+    }
   },
 
   setRightTab: (tab) => set({ rightTab: tab, rightOpen: true }),

@@ -214,6 +214,9 @@ export class ChangeTracker {
    */
   private root = ''
 
+  /** See {@link setAutoKeep}. */
+  private autoKeep = false
+
   /** Bumped whenever the reviewed set changes, so the editor can re-read files. */
   private revision = 0
 
@@ -228,6 +231,27 @@ export class ChangeTracker {
 
   setWorkspaceRoot(root: string): void {
     this.root = root
+  }
+
+  /**
+   * Accept whatever the agent writes, and stop offering it for review.
+   *
+   * Nothing is recorded at all, rather than recorded and immediately kept: the
+   * point of the setting is that the review step is not wanted, and a list that
+   * is always empty still costs a diff, a baseline copy of every file, and a
+   * revision bump per write. Anything already pending is dropped.
+   */
+  setAutoKeep(enabled: boolean): void {
+    if (this.autoKeep === enabled) return
+    this.autoKeep = enabled
+    if (enabled && this.changes.size > 0) {
+      this.changes.clear()
+      this.revision += 1
+    }
+  }
+
+  getAutoKeep(): boolean {
+    return this.autoKeep
   }
 
   /** Absolute form of a path the agent supplied. */
@@ -249,6 +273,10 @@ export class ChangeTracker {
 
   /** Remember a file's contents before the agent rewrites it. */
   async capture(path: string): Promise<void> {
+    // Auto-keep means there is nothing to compare against, so the file is never
+    // even read.
+    if (this.autoKeep) return
+
     const target = this.absolute(path)
     // The first capture wins: that is the baseline an undo returns to.
     if (this.changes.has(target)) return
@@ -265,6 +293,8 @@ export class ChangeTracker {
 
   /** Re-read the file once the tool has finished, and drop changes that are not one. */
   async settle(path: string): Promise<void> {
+    if (this.autoKeep) return
+
     const change = this.changes.get(this.absolute(path))
     if (!change) return
 

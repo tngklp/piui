@@ -45,6 +45,7 @@ function Icon({ path }: { path: string }) {
  */
 export function ChangesBar() {
   const changes = usePiUi((state) => state.changes)
+  const autoKeep = usePiUi((state) => state.prefs.autoKeepEdits)
   const keepChanges = usePiUi((state) => state.keepChanges)
   const undoChanges = usePiUi((state) => state.undoChanges)
   const openFile = usePiUi((state) => state.openFile)
@@ -52,8 +53,9 @@ export function ChangesBar() {
   const iconPack = usePiUi((state) => state.prefs.iconPack)
   const [open, setOpen] = useState(false)
 
-  // Nothing pending is the normal state, and the bar should not imply otherwise.
-  if (changes.length === 0) return null
+  // With auto-keep on the list is always empty, and the bar is not what the user
+  // asked for, so it is not rendered at all rather than rendered empty.
+  if (autoKeep || changes.length === 0) return null
 
   const added = changes.reduce((total, change) => total + change.added, 0)
   const removed = changes.reduce((total, change) => total + change.removed, 0)

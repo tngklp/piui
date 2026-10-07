@@ -56,10 +56,14 @@ export const IpcChannel = {
   FsReveal: 'piui:fs:reveal',
   /** Take back the last file operation the explorer performed. */
   FsUndo: 'piui:fs:undo',
+  /** Ask where to write a buffer that has no path yet. */
+  FsPickSavePath: 'piui:fs:pick-save-path',
   /** Files the agent has changed, for review. */
   ChangesGet: 'piui:changes:get',
   ChangesKeep: 'piui:changes:keep',
   ChangesUndo: 'piui:changes:undo',
+  /** Accept the agent's edits without review, so nothing is listed or marked. */
+  ChangesSetAutoKeep: 'piui:changes:set-auto-keep',
   /** Run the official installer for the `pi` CLI, which PiUI depends on. */
   PiInstall: 'piui:pi:install',
   /** Relaunch the app, for changes that only take effect on a fresh start. */
@@ -750,6 +754,10 @@ export interface PiUiApi {
   keepChanges(path: string | null): Promise<ChangesStateDto>
   /** Revert one change, or every change when the path is null. */
   undoChanges(path: string | null): Promise<FsResultDto>
+  /** Record the agent's edits without offering them for review. */
+  setAutoKeep(enabled: boolean): Promise<void>
+  /** Ask where to write a buffer that has no path yet; null when cancelled. */
+  pickSavePath(defaultName?: string): Promise<string | null>
   /** Delete a saved session file. */
   deleteSession(path: string): Promise<void>
   /** Read the current monitor snapshot. */

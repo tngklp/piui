@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { ChatBlockDto, ChatItemDto, UiRequestDto } from '@shared/ipc'
 import { answerMarkdown, copyText } from '../lib/clipboard'
 import { formatDuration, toolDescription } from '../lib/format'
@@ -104,6 +104,7 @@ function StreamingToolCard({ tool }: { tool: { id: string; name: string; argsTex
   const [open, setOpen] = useState(true)
   const description = streamedToolDescription(tool.name, tool.argsText)
   const preview = streamedPreview(tool.name, tool.argsText)
+  const outputRef = useFollowOutput(preview)
 
   return (
     <div className="card">
@@ -118,7 +119,13 @@ function StreamingToolCard({ tool }: { tool: { id: string; name: string; argsTex
         </span>
       </button>
 
-      <Collapsible open={open}>{preview ? <pre className="out">{preview}</pre> : null}</Collapsible>
+      <Collapsible open={open}>
+        {preview ? (
+          <pre className="out" ref={outputRef}>
+            {preview}
+          </pre>
+        ) : null}
+      </Collapsible>
     </div>
   )
 }
@@ -133,6 +140,7 @@ function RunningToolCard({ tool }: { tool: RunningTool }) {
   const args = (tool.args ?? {}) as Record<string, unknown>
   const command = typeof args.command === 'string' ? args.command : null
   const description = toolDescription(tool.name, tool.args)
+  const outputRef = useFollowOutput(tool.text ?? '')
 
   return (
     <div className="card">
@@ -149,7 +157,9 @@ function RunningToolCard({ tool }: { tool: RunningTool }) {
 
       <Collapsible open={open}>
         {command ? <pre className="cmd__full">{command}</pre> : null}
-        <pre className="out">{tool.text ? tool.text : 'running…'}</pre>
+        <pre className="out" ref={outputRef}>
+          {tool.text ? tool.text : 'running…'}
+        </pre>
       </Collapsible>
     </div>
   )
@@ -243,6 +253,24 @@ function MessageActions({
       ) : null}
     </div>
   )
+}
+
+/**
+ * Keep a scrolling output box pinned to the bottom as text arrives.
+ *
+ * The box has its own scrollbar (a `write` of a long file would otherwise push
+ * the rest of the transcript off screen), so without this the newest lines are
+ * below the fold and the card appears frozen while it is actually working.
+ */
+function useFollowOutput(dependency: string): RefObject<HTMLPreElement | null> {
+  const ref = useRef<HTMLPreElement | null>(null)
+
+  useEffect(() => {
+    const node = ref.current
+    if (node) node.scrollTop = node.scrollHeight
+  }, [dependency])
+
+  return ref
 }
 
 function AssistantItem({ item }: { item: Extract<ChatItemDto, { kind: 'assistant' }> }) {
