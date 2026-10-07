@@ -222,7 +222,27 @@ export function Transcript() {
   /** Whether the transcript was pinned to the bottom before the last update. */
   const pinned = useRef(scrollMemory.atBottom)
   /** Drives the jump-to-end button, which only shows once the user scrolls away. */
-  const [atBottom, setAtBottom] = useState(scrollMemory.atBottom)
+  const [showJump, setShowJump] = useState(false)
+  const sessionId = usePiUi((state) => state.status?.sessionId)
+  /** The session the scroll memory belongs to, so a switch can reset it once. */
+  const rememberedSession = useRef(sessionId)
+
+  /**
+   * Recompute the bottom state and whether there is anywhere to jump to. A
+   * transcript that already fits on screen has no bottom, so the button hides
+   * itself on an empty session instead of hovering over nothing.
+   */
+  const syncScroll = (): void => {
+    const scroller = colRef.current?.closest('.scroll')
+    if (!scroller) return
+
+    const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+    const scrollable = scroller.scrollHeight - scroller.clientHeight > BOTTOM_SLACK
+    pinned.current = distance < BOTTOM_SLACK
+    scrollMemory.top = scroller.scrollTop
+    scrollMemory.atBottom = pinned.current
+    setShowJump(scrollable && !pinned.current)
+  }
 
   // Track the scroll position of the surrounding `.scroll` container so new
   // output only follows the bottom when the user is already there. The position
@@ -235,23 +255,33 @@ export function Transcript() {
     // bottom again, even if the conversation grew while the chat was hidden.
     scroller.scrollTop = scrollMemory.atBottom ? scroller.scrollHeight : scrollMemory.top
     pinned.current = scrollMemory.atBottom
+    syncScroll()
 
-    const onScroll = (): void => {
-      const distance = scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
-      pinned.current = distance < BOTTOM_SLACK
-      scrollMemory.top = scroller.scrollTop
-      scrollMemory.atBottom = pinned.current
-      setAtBottom(pinned.current)
-    }
-
-    onScroll()
-    scroller.addEventListener('scroll', onScroll, { passive: true })
-    return () => scroller.removeEventListener('scroll', onScroll)
+    scroller.addEventListener('scroll', syncScroll, { passive: true })
+    return () => scroller.removeEventListener('scroll', syncScroll)
+    // The listener only reads refs and setters, so it is safe to bind once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // A different session starts at the top: a saved offset belongs to a
+  // conversation that is no longer on screen. Skipped on mount, so switching
+  // tabs still restores where the reader was.
+  useEffect(() => {
+    if (rememberedSession.current === sessionId) return
+    rememberedSession.current = sessionId
+    scrollMemory.top = 0
+    scrollMemory.atBottom = true
+    pinned.current = true
+    const scroller = colRef.current?.closest('.scroll')
+    if (scroller) scroller.scrollTop = 0
+    setShowJump(false)
+  }, [sessionId])
 
   useEffect(() => {
     if (!pinned.current) return
     endRef.current?.scrollIntoView({ block: 'end' })
+    syncScroll()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, streaming, runningTools, dialog])
 
   const isEmpty = items.length === 0 && !streaming && runningTools.length === 0
@@ -272,6 +302,16 @@ export function Transcript() {
   const pendingTools =
     streaming?.tools.filter((tool) => tool.id.length === 0 || !ownedToolCalls.has(tool.id)) ?? []
 
+  /**
+   * A tool that is executing has a live card at the end of the transcript, so the
+   * placeholder the message carries for the same call is hidden while it runs.
+   * Otherwise the call is drawn twice: once in message order, once live.
+   */
+  const liveToolIds = new Set(runningTools.map((tool) => tool.id))
+  const visibleItems = items.filter(
+    (item) => !(item.kind === 'tool' && item.running && liveToolIds.has(item.toolCallId))
+  )
+
   return (
     <div className="col" ref={colRef}>
       {isEmpty ? (
@@ -281,7 +321,7 @@ export function Transcript() {
         </div>
       ) : null}
 
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <TranscriptItem item={item} key={item.id} />
       ))}
 
@@ -314,7 +354,7 @@ export function Transcript() {
 
       <div ref={endRef} />
 
-      {atBottom ? null : (
+      {showJump ? (
         <button
           className="jump"
           title="Jump to the latest"
@@ -324,14 +364,14 @@ export function Transcript() {
             if (scroller) scroller.scrollTop = scroller.scrollHeight
             pinned.current = true
             scrollMemory.atBottom = true
-            setAtBottom(true)
+            setShowJump(false)
           }}
         >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor">
             <path d="M8 3v10M3.5 8.5 8 13l4.5-4.5" strokeWidth="1.8" strokeLinecap="round" />
           </svg>
         </button>
-      )}
+      ) : null}
     </div>
   )
 }

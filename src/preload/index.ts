@@ -70,6 +70,13 @@ const api: PiUiApi = {
   formatFile: (path: string, content: string) =>
     ipcRenderer.invoke(IpcChannel.FsFormat, path, content),
   listWorkspaceFiles: () => ipcRenderer.invoke(IpcChannel.FsIndex),
+  renamePath: (from: string, to: string) => ipcRenderer.invoke(IpcChannel.FsRename, from, to),
+  deletePath: (path: string) => ipcRenderer.invoke(IpcChannel.FsDelete, path),
+  transferPaths: (paths: string[], targetDir: string, mode: 'copy' | 'move') =>
+    ipcRenderer.invoke(IpcChannel.FsTransfer, paths, targetDir, mode),
+  createEntry: (path: string, kind: 'file' | 'directory') =>
+    ipcRenderer.invoke(IpcChannel.FsCreate, path, kind),
+  revealPath: (path: string) => ipcRenderer.invoke(IpcChannel.FsReveal, path),
   deleteSession: (path: string) => ipcRenderer.invoke(IpcChannel.SessionsDelete, path),
   getMonitor: () => ipcRenderer.invoke(IpcChannel.MonitorGet),
   getModelsConfig: () => ipcRenderer.invoke(IpcChannel.ModelsGet),

@@ -43,6 +43,13 @@ export const IpcChannel = {
   FsList: 'piui:fs:list',
   FsRead: 'piui:fs:read',
   FsWrite: 'piui:fs:write',
+  /** File operations the explorer's context menu performs. */
+  FsRename: 'piui:fs:rename',
+  FsDelete: 'piui:fs:delete',
+  FsTransfer: 'piui:fs:transfer',
+  FsCreate: 'piui:fs:create',
+  /** Reveal a path in the operating system's file manager. */
+  FsReveal: 'piui:fs:reveal',
   /** Format a buffer with Prettier before it is written. */
   FsFormat: 'piui:fs:format',
   /** Recursive workspace file index for quick open. */
@@ -466,6 +473,12 @@ export interface FsFileDto {
   error: string | null
 }
 
+/** Outcome of a file operation, so the explorer can say why one was refused. */
+export interface FsResultDto {
+  ok: boolean
+  error: string | null
+}
+
 /** One GPU as reported by nvidia-smi. */
 export interface MonitorGpuDto {
   name: string
@@ -633,6 +646,16 @@ export interface PiUiApi {
   formatFile(path: string, content: string): Promise<FormatResultDto>
   /** Workspace-relative paths of every indexable file, sorted. */
   listWorkspaceFiles(): Promise<string[]>
+  /** Rename or move a path. Refuses to overwrite an existing one. */
+  renamePath(from: string, to: string): Promise<FsResultDto>
+  /** Delete a file, or a directory and everything under it. */
+  deletePath(path: string): Promise<FsResultDto>
+  /** Copy or move paths into a directory. */
+  transferPaths(paths: string[], targetDir: string, mode: 'copy' | 'move'): Promise<FsResultDto>
+  /** Create an empty file, or a directory. */
+  createEntry(path: string, kind: 'file' | 'directory'): Promise<FsResultDto>
+  /** Show a path in the operating system's file manager. */
+  revealPath(path: string): Promise<void>
   /** Delete a saved session file. */
   deleteSession(path: string): Promise<void>
   /** Read the current monitor snapshot. */

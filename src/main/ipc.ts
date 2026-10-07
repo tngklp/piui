@@ -1,6 +1,6 @@
 import { homedir } from 'node:os'
-import { join } from 'node:path'
-import { app, dialog, ipcMain, type BrowserWindow } from 'electron'
+import { join, resolve } from 'node:path'
+import { app, dialog, ipcMain, shell, type BrowserWindow } from 'electron'
 import {
   IpcChannel,
   IpcEvent,
@@ -24,7 +24,8 @@ import { getRuntimeInfo } from './pi/runtime-info'
 import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
 import { WorkspaceStore } from './pi/workspace-store'
-import { listDirectory, readFileText, writeFileText } from './fs-list'
+import { listDirectory, invalidateGitStatus, readFileText, writeFileText } from './fs-list'
+import { createEntry, deleteEntry, renameEntry, transferEntries } from './fs-ops'
 import { formatDocument } from './format'
 import { invalidateWorkspaceFiles, listWorkspaceFiles } from './fs-index'
 import { readMonitor } from './monitor'
@@ -213,6 +214,43 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.FsFormat, async (_event, target: string, content: string) =>
     formatDocument(target, content)
   )
+
+  // The explorer's context menu. Each one drops the git-status cache, because
+  // every one of them changes the working tree.
+  ipcMain.handle(IpcChannel.FsRename, async (_event, from: string, to: string) => {
+    const result = await renameEntry(from, to)
+    if (result.ok) invalidateGitStatus()
+    return result
+  })
+
+  ipcMain.handle(IpcChannel.FsDelete, async (_event, target: string) => {
+    const workspace = (await host()).getWorkspace().cwd
+    const result = await deleteEntry(target, workspace)
+    if (result.ok) invalidateGitStatus()
+    return result
+  })
+
+  ipcMain.handle(
+    IpcChannel.FsTransfer,
+    async (_event, paths: string[], targetDir: string, mode: 'copy' | 'move') => {
+      const result = await transferEntries(paths, targetDir, mode)
+      if (result.ok) invalidateGitStatus()
+      return result
+    }
+  )
+
+  ipcMain.handle(
+    IpcChannel.FsCreate,
+    async (_event, target: string, kind: 'file' | 'directory') => {
+      const result = await createEntry(target, kind)
+      if (result.ok) invalidateGitStatus()
+      return result
+    }
+  )
+
+  ipcMain.handle(IpcChannel.FsReveal, (_event, target: string) => {
+    shell.showItemInFolder(resolve(target))
+  })
 
   ipcMain.handle(IpcChannel.FsIndex, async () => {
     const root = (await host()).getWorkspace().cwd

@@ -13,7 +13,11 @@ published without an entry here.
 ### Added
 
 - **Live tool output.** A running tool's card fills in as the command prints, instead of appearing
-  only once it has finished.
+  only once it has finished. Finished calls collapse to a single line — chevron, description, and
+  outcome — and expand on click.
+- **A context menu in the file explorer**: Open, Cut, Copy, Paste, Rename, Delete, New File, New
+  Folder, Copy Path, Copy Relative Path, Show in File Explorer, and Refresh. Renaming and creating
+  happen in an inline input rather than a dialog.
 - **More file types in the editor.** Images and PDFs render in place of the text editor, and
   markdown opens in a rendered view with a toggle back to its source.
 - **The prompt box grows with the text**, up to a cap, and files can be dropped onto it — from your

@@ -93,5 +93,10 @@ export async function readFileText(target: string): Promise<FsFileDto> {
 /** Write UTF-8 text to a file and drop the cached git status. */
 export async function writeFileText(target: string, content: string): Promise<void> {
   await writeFile(resolve(target), content, 'utf8')
+  invalidateGitStatus()
+}
+
+/** Drop the cached git status. Any write to the tree makes it stale. */
+export function invalidateGitStatus(): void {
   gitCache = null
 }
