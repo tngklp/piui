@@ -165,6 +165,12 @@ export function registerIpcHandlers(context: IpcContext): void {
   ipcMain.handle(IpcChannel.AgentCompact, async (_event, instructions?: string) => {
     await (await host()).compact(instructions)
   })
+  ipcMain.handle(IpcChannel.AgentEditMessage, async (_event, entryId: string, text: string) => {
+    await (await host()).editMessage(entryId, text)
+  })
+  ipcMain.handle(IpcChannel.AgentRetryMessage, async (_event, entryId: string) => {
+    await (await host()).retryMessage(entryId)
+  })
   ipcMain.handle(IpcChannel.AgentSetModel, async (_event, provider: string, id: string) => {
     await (await host()).setModel(provider, id)
   })

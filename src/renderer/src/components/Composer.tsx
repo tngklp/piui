@@ -11,6 +11,7 @@ import {
   type Attachment
 } from '../lib/attachments'
 import { Select, type SelectOption } from './Select'
+import { ChangesBar } from './ChangesBar'
 
 /** A row in the slash menu. */
 interface Command extends CommandDto {
@@ -41,8 +42,26 @@ export function Composer() {
   const selectModel = usePiUi((state) => state.selectModel)
   const selectThinking = usePiUi((state) => state.selectThinking)
   const sendOnEnter = usePiUi((state) => state.prefs.sendOnEnter)
+  const editing = usePiUi((state) => state.editing)
+  const cancelEdit = usePiUi((state) => state.cancelEdit)
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null)
+
+  /**
+   * A message being rewritten arrives as text, so it lands in the box the user
+   * would have typed it into. Keyed on the message rather than on the text, so
+   * two messages that happen to say the same thing still reseed the box.
+   */
+  useEffect(() => {
+    if (!editing) return
+    setText(editing.text)
+    requestAnimationFrame(() => {
+      const input = inputRef.current
+      if (!input) return
+      input.focus()
+      input.setSelectionRange(input.value.length, input.value.length)
+    })
+  }, [editing])
 
   /**
    * Grow the textarea to fit its content, so a multi-line prompt is fully
@@ -202,6 +221,12 @@ export function Composer() {
     }
 
     if (event.key === 'Escape') {
+      if (editing) {
+        event.preventDefault()
+        cancelEdit()
+        setText('')
+        return
+      }
       if (streaming) {
         event.preventDefault()
         void abort()
@@ -227,6 +252,18 @@ export function Composer() {
 
   return (
     <div className="comp">
+      <ChangesBar />
+
+      {editing ? (
+        <div className="editing">
+          <span className="editing__label">Editing a sent message</span>
+          <span className="editing__note">Sending replaces it and everything after it.</span>
+          <button className="act" onClick={() => cancelEdit()}>
+            Cancel
+          </button>
+        </div>
+      ) : null}
+
       {slashOpen ? (
         <div className="slash">
           {matches.length === 0 ? (
@@ -272,9 +309,11 @@ export function Composer() {
           rows={2}
           spellCheck={false}
           placeholder={
-            streaming
-              ? `Steer Pi — ${sendOnEnter ? 'Enter steers' : 'Ctrl+Enter steers'}, Ctrl+Enter queues a follow-up`
-              : 'Message Pi. Type / for commands'
+            editing
+              ? 'Rewrite this message and send it again'
+              : streaming
+                ? `Steer Pi — ${sendOnEnter ? 'Enter steers' : 'Ctrl+Enter steers'}, Ctrl+Enter queues a follow-up`
+                : 'Message Pi. Type / for commands'
           }
           onChange={(event) => {
             setText(event.target.value)

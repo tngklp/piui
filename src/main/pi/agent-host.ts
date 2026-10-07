@@ -141,7 +141,14 @@ function countDiffLines(diff: string): { added: number; removed: number } {
 }
 
 /** Convert persisted agent messages into renderer-friendly items. */
-export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
+export function toChatItems(
+  messages: readonly unknown[],
+  /**
+   * Session entry behind a message, when one can be found. Editing and retrying
+   * need it; without it those buttons simply do not appear.
+   */
+  entryOf?: (message: unknown) => string | undefined
+): ChatItemDto[] {
   const items: ChatItemDto[] = []
   /** Tool items by call id, so a later result merges into its own call. */
   const toolIndex = new Map<string, Extract<ChatItemDto, { kind: 'tool' }>>()
@@ -151,6 +158,7 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
   messages.forEach((raw, index) => {
     const message = raw as SdkMessage
     const id = `m${index}`
+    const entryId = entryOf?.(raw)
 
     switch (message.role) {
       case 'user':
@@ -158,7 +166,8 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
           kind: 'user',
           id,
           text: textFromContent(message.content),
-          imageCount: countImages(message.content)
+          imageCount: countImages(message.content),
+          ...(entryId ? { entryId } : {})
         })
         break
 
@@ -171,7 +180,8 @@ export function toChatItems(messages: readonly unknown[]): ChatItemDto[] {
           const item: Extract<ChatItemDto, { kind: 'assistant' }> = {
             kind: 'assistant',
             id,
-            blocks
+            blocks,
+            ...(entryId ? { entryId } : {})
           }
           if (message.stopReason === 'aborted') item.stopped = true
           if (message.stopReason === 'error' || message.errorMessage) {
@@ -410,7 +420,25 @@ export class AgentHost {
   }
 
   getMessages(): ChatItemDto[] {
-    return toChatItems(this.session.messages)
+    /**
+     * Which session entry each message was projected from.
+     *
+     * The SDK keeps this mapping privately, so it is rebuilt here from the same
+     * projection the agent's own message list comes from — which is what makes the
+     * message objects identical rather than merely equal. One entry can contribute
+     * several messages, and a context edit can omit one entirely, so a message
+     * without an entry simply gets no id and no buttons.
+     */
+    const entryOf = new Map<object, string>()
+    for (const entry of this.session.sessionManager.buildSessionProjection().entries) {
+      for (const message of entry.messages) {
+        entryOf.set(message as object, entry.sourceEntry.id)
+      }
+    }
+
+    return toChatItems(this.session.messages, (message) =>
+      message && typeof message === 'object' ? entryOf.get(message) : undefined
+    )
   }
 
   /**
@@ -554,6 +582,56 @@ export class AgentHost {
 
   async compact(customInstructions?: string): Promise<void> {
     await this.session.compact(customInstructions)
+  }
+
+  /**
+   * Replace a message the user already sent, and run the turn again from there.
+   *
+   * A session is a tree, so "editing" a message means moving the leaf back to the
+   * point before it. `navigateTree` does exactly that and hands back the text it
+   * removed, which is what makes an edit and a retry the same operation with a
+   * different second half: one sends new text, the other sends the old text back.
+   *
+   * Everything the old message produced — the assistant reply, the tool calls, the
+   * file writes — is left on the abandoned branch, still in the session file but
+   * no longer in context.
+   */
+  async editMessage(entryId: string, text: string): Promise<void> {
+    const { cancelled } = await this.rewindTo(entryId)
+    if (cancelled) throw new Error('An extension cancelled the rewrite.')
+    await this.session.prompt(text)
+  }
+
+  /** Run the turn behind an assistant message again, with the same prompt. */
+  async retryMessage(entryId: string): Promise<void> {
+    // A retry targets the reply, but the rewind has to start at the message that
+    // asked for it: navigating to an assistant message would keep it in context
+    // and append a second answer instead of replacing the first.
+    const target = this.userEntryBefore(entryId) ?? entryId
+    const { editorText, cancelled } = await this.rewindTo(target)
+    if (cancelled) throw new Error('An extension cancelled the retry.')
+    if (!editorText) throw new Error('That turn has no prompt to run again.')
+    await this.session.prompt(editorText)
+  }
+
+  /** Move the session leaf to just before an entry, discarding what followed. */
+  private async rewindTo(entryId: string): Promise<{ editorText?: string; cancelled: boolean }> {
+    const entry = this.session.sessionManager.getEntry(entryId)
+    if (!entry) throw new Error('That message is no longer in this session.')
+
+    return this.session.navigateTree(entryId)
+  }
+
+  /** The nearest user message at or before an entry, for a retry. */
+  private userEntryBefore(entryId: string): string | undefined {
+    // `getBranch` walks from the entry back to the root, so the last user message
+    // in it is the one the assistant reply below it was answering.
+    const branch = this.session.sessionManager.getBranch(entryId)
+    for (let index = branch.length - 1; index >= 0; index -= 1) {
+      const entry = branch[index]
+      if (entry.type === 'message' && entry.message.role === 'user') return entry.id
+    }
+    return undefined
   }
 
   /** Replace the current session with a brand new one. */

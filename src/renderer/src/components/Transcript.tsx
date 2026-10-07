@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ChatBlockDto, ChatItemDto, UiRequestDto } from '@shared/ipc'
+import { answerMarkdown, copyText } from '../lib/clipboard'
 import { formatDuration, summarizeToolArguments, toolDescription } from '../lib/format'
 import { usePiUi, type RunningTool } from '../store'
 import { Collapsible } from './Collapsible'
@@ -120,7 +121,101 @@ function RunningToolCard({ tool }: { tool: RunningTool }) {
   )
 }
 
+/** Icons for the actions under a message. Sized to sit beside 12px labels. */
+const ICONS = {
+  copy: 'M6 2.6h5.2L13.4 4.8V11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.6a1 1 0 0 1 1-1ZM3 6v7a1 1 0 0 0 1 1h5',
+  edit: 'M10.5 3.2 12.8 5.5 6.4 11.9l-3 .6.6-3 6.5-6.3Z',
+  retry: 'M13 8a5 5 0 1 1-1.6-3.7M13 2.8V6h-3.2'
+} as const
+
+function ActionIcon({ path }: { path: string }) {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={path} />
+    </svg>
+  )
+}
+
+/**
+ * Copy / Edit / Try again, sitting under the message they belong to.
+ *
+ * Copy is what people reach for most, so it is the one that confirms itself
+ * rather than opening something.
+ */
+function MessageActions({
+  markdown,
+  disabled,
+  onEdit,
+  onRetry
+}: {
+  markdown: string
+  /** A turn is in flight, so editing or retrying would race it. */
+  disabled?: boolean
+  onEdit?: () => void
+  onRetry?: () => void
+}) {
+  const [copied, setCopied] = useState(false)
+
+  const copy = async (): Promise<void> => {
+    if (!(await copyText(markdown))) return
+    setCopied(true)
+  }
+
+  // The confirmation is the button's own label, so it has to revert on its own.
+  useEffect(() => {
+    if (!copied) return
+    const timer = setTimeout(() => setCopied(false), 1600)
+    return () => clearTimeout(timer)
+  }, [copied])
+
+  return (
+    <div className="acts">
+      <button
+        className={`act${copied ? ' done' : ''}`}
+        onClick={() => void copy()}
+        title="Copy as markdown"
+      >
+        <ActionIcon path={ICONS.copy} />
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+
+      {onEdit ? (
+        <button
+          className="act"
+          disabled={disabled}
+          onClick={onEdit}
+          title="Edit and resend this message"
+        >
+          <ActionIcon path={ICONS.edit} />
+          Edit
+        </button>
+      ) : null}
+
+      {onRetry ? (
+        <button className="act" disabled={disabled} onClick={onRetry} title="Run this turn again">
+          <ActionIcon path={ICONS.retry} />
+          Try again
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 function AssistantItem({ item }: { item: Extract<ChatItemDto, { kind: 'assistant' }> }) {
+  const retryMessage = usePiUi((state) => state.retryMessage)
+  const busy = usePiUi((state) => state.busy)
+  const entryId = item.entryId
+
   return (
     <div className="asst">
       {item.blocks.map((block: ChatBlockDto, index) => {
@@ -134,6 +229,37 @@ function AssistantItem({ item }: { item: Extract<ChatItemDto, { kind: 'assistant
       })}
       {item.stopped ? <p className="note">Stopped by user</p> : null}
       {item.error ? <p className="note bad">{item.error}</p> : null}
+
+      <MessageActions
+        markdown={answerMarkdown(item.blocks)}
+        disabled={busy}
+        {...(entryId ? { onRetry: () => void retryMessage(entryId) } : {})}
+      />
+    </div>
+  )
+}
+
+function UserItem({ item }: { item: Extract<ChatItemDto, { kind: 'user' }> }) {
+  const beginEdit = usePiUi((state) => state.beginEdit)
+  const busy = usePiUi((state) => state.busy)
+  const entryId = item.entryId
+
+  return (
+    <div className="turn">
+      <div className="user">
+        {item.text}
+        {item.imageCount > 0 ? (
+          <div className="user__meta">
+            {item.imageCount} image{item.imageCount === 1 ? '' : 's'}
+          </div>
+        ) : null}
+      </div>
+
+      <MessageActions
+        markdown={item.text}
+        disabled={busy}
+        {...(entryId ? { onEdit: () => beginEdit({ id: item.id, entryId, text: item.text }) } : {})}
+      />
     </div>
   )
 }
@@ -141,16 +267,7 @@ function AssistantItem({ item }: { item: Extract<ChatItemDto, { kind: 'assistant
 function TranscriptItem({ item }: { item: ChatItemDto }) {
   switch (item.kind) {
     case 'user':
-      return (
-        <div className="user">
-          {item.text}
-          {item.imageCount > 0 ? (
-            <div className="user__meta">
-              {item.imageCount} image{item.imageCount === 1 ? '' : 's'}
-            </div>
-          ) : null}
-        </div>
-      )
+      return <UserItem item={item} />
 
     case 'assistant':
       return <AssistantItem item={item} />

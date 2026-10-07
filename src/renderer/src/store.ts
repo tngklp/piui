@@ -125,6 +125,11 @@ interface PiUiState {
   /** The revision the change list was read at, to notice when it moves. */
   changesRevision: number
   /**
+   * A sent message the user is rewriting. The composer takes its text, and the
+   * next send replaces the message instead of appending a new turn.
+   */
+  editing: { id: string; entryId: string; text: string } | null
+  /**
    * Bumped when files are rewritten behind the editor's back, so an open buffer
    * can be re-read instead of quietly disagreeing with the disk.
    */
@@ -231,6 +236,12 @@ interface PiUiState {
     mode?: 'prompt' | 'steer' | 'followUp',
     images?: { type: 'image'; data: string; mimeType: string }[]
   ) => Promise<void>
+  /** Start rewriting a sent message; the composer takes its text. */
+  beginEdit: (item: { id: string; entryId: string; text: string }) => void
+  /** Abandon a rewrite and send normally again. */
+  cancelEdit: () => void
+  /** Run the turn behind an assistant message again. */
+  retryMessage: (entryId: string) => Promise<void>
   abort: () => Promise<void>
   newSession: () => Promise<void>
   compact: () => Promise<void>
@@ -262,6 +273,7 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   runningTools: [],
   changes: [],
   changesRevision: 0,
+  editing: null,
   filesVersion: 0,
   notices: [],
   busy: false,
@@ -789,13 +801,43 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
     if (trimmed.length === 0 && (images ?? []).length === 0) return
     set({ busy: true, error: null })
 
+    const editing = get().editing
+
     try {
-      if (mode === 'steer') await window.piui.steer(trimmed)
+      if (editing) {
+        // A rewrite replaces the turn rather than adding to it, so steering and
+        // follow-ups do not apply — there is nothing in flight to steer.
+        await window.piui.editMessage(editing.entryId, trimmed)
+        set({ editing: null })
+      } else if (mode === 'steer') await window.piui.steer(trimmed)
       else if (mode === 'followUp') await window.piui.followUp(trimmed)
       else await window.piui.prompt({ text: trimmed, images })
       await get().refresh()
     } catch (cause) {
-      set({ error: describeError(cause), busy: false })
+      // A failed rewrite must not swallow the text: the composer cleared it on
+      // the way out, so hand the message back with what the user actually typed.
+      // A new object, because the composer watches the message, not the text.
+      set({
+        error: describeError(cause),
+        busy: false,
+        ...(editing ? { editing: { ...editing, text: trimmed } } : {})
+      })
+    }
+  },
+
+  beginEdit: (item) => set({ editing: item, error: null }),
+
+  cancelEdit: () => set({ editing: null }),
+
+  retryMessage: async (entryId) => {
+    set({ busy: true, error: null })
+    try {
+      await window.piui.retryMessage(entryId)
+      await get().refresh()
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    } finally {
+      set({ busy: false })
     }
   },
 

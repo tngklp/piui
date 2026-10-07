@@ -43,6 +43,9 @@ const api: PiUiApi = {
   newSession: () => ipcRenderer.invoke(IpcChannel.AgentNewSession),
   compact: (customInstructions?: string) =>
     ipcRenderer.invoke(IpcChannel.AgentCompact, customInstructions),
+  editMessage: (entryId: string, text: string) =>
+    ipcRenderer.invoke(IpcChannel.AgentEditMessage, entryId, text),
+  retryMessage: (entryId: string) => ipcRenderer.invoke(IpcChannel.AgentRetryMessage, entryId),
   setModel: (provider: string, id: string) =>
     ipcRenderer.invoke(IpcChannel.AgentSetModel, provider, id),
   cycleModel: () => ipcRenderer.invoke(IpcChannel.AgentCycleModel),

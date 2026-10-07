@@ -22,6 +22,10 @@ export const IpcChannel = {
   AgentClearQueue: 'piui:agent:clear-queue',
   AgentNewSession: 'piui:agent:new-session',
   AgentCompact: 'piui:agent:compact',
+  /** Rewrite a message the user already sent, discarding what followed it. */
+  AgentEditMessage: 'piui:agent:edit-message',
+  /** Run the turn behind an assistant message again. */
+  AgentRetryMessage: 'piui:agent:retry-message',
   AgentSetModel: 'piui:agent:set-model',
   AgentCycleModel: 'piui:agent:cycle-model',
   AgentSetThinking: 'piui:agent:set-thinking',
@@ -293,13 +297,26 @@ export type ChatBlockDto =
 
 /** A renderable transcript entry. */
 export type ChatItemDto =
-  | { kind: 'user'; id: string; text: string; imageCount: number }
+  | {
+      kind: 'user'
+      id: string
+      text: string
+      imageCount: number
+      /**
+       * Session entry this message came from, when the host could identify it.
+       * Editing and retrying move the session's leaf back to this entry, so the
+       * turn is rebuilt rather than appended to.
+       */
+      entryId?: string
+    }
   | {
       kind: 'assistant'
       id: string
       blocks: ChatBlockDto[]
       error?: string
       stopped?: boolean
+      /** Session entry behind the response, for "try again". */
+      entryId?: string
     }
   | {
       kind: 'tool'
@@ -651,6 +668,10 @@ export interface PiUiApi {
   clearQueue(): Promise<{ steering: string[]; followUp: string[] }>
   newSession(): Promise<void>
   compact(customInstructions?: string): Promise<void>
+  /** Replace a sent message and re-run the turn from there. */
+  editMessage(entryId: string, text: string): Promise<void>
+  /** Re-run the turn that produced an assistant message. */
+  retryMessage(entryId: string): Promise<void>
   setModel(provider: string, id: string): Promise<void>
   cycleModel(): Promise<void>
   setThinkingLevel(level: ThinkingLevelDto): Promise<void>
