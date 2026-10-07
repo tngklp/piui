@@ -8,9 +8,9 @@
 A desktop GUI for the [Pi](https://pi.dev) coding agent - run your Pi agent in
 a purpose-built app instead of a terminal.
 
-[**Download for Windows**](https://github.com/tngklp/piui/releases/download/v0.2.0/PiUI-0.2.0-x64-setup.exe)
+[**Download for Windows**](https://github.com/tngklp/piui/releases/download/v0.3.0/PiUI-0.3.0-x64-setup.exe)
 &nbsp;·&nbsp;
-[**Download for Linux**](https://github.com/tngklp/piui/releases/download/v0.2.0/PiUI-0.2.0-x86_64.AppImage)
+[**Download for Linux**](https://github.com/tngklp/piui/releases/download/v0.3.0/PiUI-0.3.0-x86_64.AppImage)
 &nbsp;·&nbsp;
 [All releases](https://github.com/tngklp/piui/releases)
 

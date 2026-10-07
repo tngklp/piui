@@ -14,6 +14,9 @@ published without an entry here.
 
 ### Added
 
+The change-review features — the pending-changes bar, the Changes tab, and the editor's change marks
+— are **off by default**. See **Changed** below for why, and for the one switch that turns them on.
+
 - **An empty editor you can type in.** Opening the Editor tab with nothing open gives an untitled
   buffer instead of a pane telling you to open a file. Ctrl+S asks where to save it, and from then on
   it is an ordinary file with a tab of its own.
