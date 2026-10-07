@@ -69,6 +69,8 @@ export interface AgentHostOptions {
   transport: UiTransport
   /** Inline extension that enforces PiUI's approval rules. */
   approvalExtension: InlineExtension
+  /** Inline extension that records what the agent writes, for Keep and Undo. */
+  changesExtension: InlineExtension
 }
 
 function toModelDto(model: SdkModel | undefined): ModelDto | null {
@@ -312,7 +314,7 @@ export class AgentHost {
     const resourceLoader = new DefaultResourceLoader({
       cwd: this.cwd,
       agentDir,
-      extensionFactories: [this.options.approvalExtension]
+      extensionFactories: [this.options.approvalExtension, this.options.changesExtension]
     })
     await resourceLoader.reload()
     this.resourceLoader = resourceLoader

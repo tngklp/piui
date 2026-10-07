@@ -8,7 +8,8 @@
  * no and explains why.
  */
 import { cp, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, isAbsolute, relative, resolve } from 'node:path'
+import { tmpdir } from 'node:os'
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import type { FsResultDto } from '@shared/ipc'
 
 /** Whether `child` is `parent` itself or lives underneath it. */
@@ -30,6 +31,59 @@ async function exists(target: string): Promise<boolean> {
   }
 }
 
+/** Where deleted paths are parked, so a delete can be taken back. */
+const trashDir = join(tmpdir(), `piui-trash-${process.pid}`)
+
+/** One reversible operation, newest last. */
+interface UndoEntry {
+  /** Phrased to complete "Undid ...", for the explorer's notice line. */
+  label: string
+  restore: () => Promise<void>
+}
+
+const history: UndoEntry[] = []
+
+/** Deep enough for a session of tidying, shallow enough to forget old ghosts. */
+const HISTORY_LIMIT = 50
+
+function remember(entry: UndoEntry): void {
+  history.push(entry)
+  if (history.length > HISTORY_LIMIT) history.shift()
+}
+
+/**
+ * Move a path, falling back to a copy when the two ends are on different volumes.
+ * A rename across drives fails with EXDEV, and the system temporary directory is
+ * often on a different one from the workspace.
+ */
+async function movePath(from: string, to: string): Promise<void> {
+  try {
+    await rename(from, to)
+  } catch {
+    await cp(from, to, { recursive: true })
+    await rm(from, { recursive: true, force: true })
+  }
+}
+
+/** Reverse the most recent operation. */
+export async function undoLast(): Promise<FsResultDto> {
+  const entry = history.pop()
+  if (!entry) return { ok: false, error: 'Nothing to undo.' }
+
+  try {
+    await entry.restore()
+    return { ok: true, error: null, label: `Undid ${entry.label}` }
+  } catch (cause) {
+    return fail(cause)
+  }
+}
+
+/** Drop the parked copies. The history cannot survive the process that made it. */
+export async function disposeUndoHistory(): Promise<void> {
+  history.length = 0
+  await rm(trashDir, { recursive: true, force: true }).catch(() => undefined)
+}
+
 /** Rename or move a path. Refuses to overwrite. */
 export async function renameEntry(from: string, to: string): Promise<FsResultDto> {
   const source = resolve(from)
@@ -42,6 +96,13 @@ export async function renameEntry(from: string, to: string): Promise<FsResultDto
     }
     await mkdir(dirname(destination), { recursive: true })
     await rename(source, destination)
+    remember({
+      label: `renaming ${basename(source)}`,
+      restore: async () => {
+        if (await exists(source)) throw new Error(`${source} is in the way.`)
+        await rename(destination, source)
+      }
+    })
     return { ok: true, error: null }
   } catch (cause) {
     return fail(cause)
@@ -61,7 +122,20 @@ export async function deleteEntry(target: string, workspaceRoot: string): Promis
   }
 
   try {
-    await rm(path, { recursive: true, force: false, maxRetries: 2 })
+    // Parked rather than removed, so the delete can be taken back. The copy is
+    // thrown away when the app exits.
+    await mkdir(trashDir, { recursive: true })
+    const parked = join(trashDir, `${Date.now()}-${basename(path)}`)
+    await movePath(path, parked)
+
+    remember({
+      label: `delete of ${basename(path)}`,
+      restore: async () => {
+        await mkdir(dirname(path), { recursive: true })
+        await movePath(parked, path)
+      }
+    })
+
     return { ok: true, error: null }
   } catch (cause) {
     return fail(cause)
@@ -78,6 +152,7 @@ export async function transferEntries(
   if (sources.length === 0) return { ok: false, error: 'Nothing to paste.' }
 
   const directory = resolve(targetDir)
+  const made: { from: string; to: string }[] = []
 
   try {
     await mkdir(directory, { recursive: true })
@@ -97,7 +172,18 @@ export async function transferEntries(
       } else {
         await rename(source, destination)
       }
+      made.push({ from: source, to: destination })
     }
+
+    remember({
+      label: mode === 'copy' ? 'a paste' : 'a move',
+      restore: async () => {
+        for (const entry of made) {
+          if (mode === 'copy') await rm(entry.to, { recursive: true, force: true })
+          else await rename(entry.to, entry.from)
+        }
+      }
+    })
 
     return { ok: true, error: null }
   } catch (cause) {
@@ -123,6 +209,13 @@ export async function createEntry(
       await mkdir(dirname(path), { recursive: true })
       await writeFile(path, '', 'utf8')
     }
+
+    remember({
+      label: `creating ${basename(path)}`,
+      restore: async () => {
+        await rm(path, { recursive: true, force: true })
+      }
+    })
 
     return { ok: true, error: null }
   } catch (cause) {

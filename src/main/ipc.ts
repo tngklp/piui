@@ -26,7 +26,8 @@ import { workspaceName } from './pi/session-store'
 import type { UiTransport } from './pi/ui-context'
 import { WorkspaceStore } from './pi/workspace-store'
 import { listDirectory, invalidateGitStatus, readFileText, writeFileText } from './fs-list'
-import { createEntry, deleteEntry, renameEntry, transferEntries } from './fs-ops'
+import { createEntry, deleteEntry, renameEntry, transferEntries, undoLast } from './fs-ops'
+import { ChangeTracker } from './pi/changes'
 import { formatDocument } from './format'
 import { invalidateWorkspaceFiles, listWorkspaceFiles } from './fs-index'
 import { readMonitor } from './monitor'
@@ -83,6 +84,8 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   const updates = new UpdateService((state) => send(IpcEvent.Update, state))
 
+  const changes = new ChangeTracker()
+
   const approvals = new ApprovalManager(
     join(app.getPath('userData'), 'approval-rules.json'),
     (request) => transport.ask(request)
@@ -113,7 +116,8 @@ export function registerIpcHandlers(context: IpcContext): void {
         cwd,
         emitEvent: (event) => send(IpcEvent.AgentEvent, event),
         transport,
-        approvalExtension: approvals.extension()
+        approvalExtension: approvals.extension(),
+        changesExtension: changes.extension()
       })
     })()
     return hostPromise
@@ -251,6 +255,25 @@ export function registerIpcHandlers(context: IpcContext): void {
 
   ipcMain.handle(IpcChannel.FsReveal, (_event, target: string) => {
     shell.showItemInFolder(resolve(target))
+  })
+
+  ipcMain.handle(IpcChannel.FsUndo, async () => {
+    const result = await undoLast()
+    if (result.ok) invalidateGitStatus()
+    return result
+  })
+
+  ipcMain.handle(IpcChannel.ChangesGet, async () => changes.list((await host()).getWorkspace().cwd))
+
+  ipcMain.handle(IpcChannel.ChangesKeep, async (_event, path: string | null) => {
+    changes.keep(path)
+    return changes.list((await host()).getWorkspace().cwd)
+  })
+
+  ipcMain.handle(IpcChannel.ChangesUndo, async (_event, path: string | null) => {
+    const result = await changes.undo(path)
+    if (result.ok) invalidateGitStatus()
+    return result
   })
 
   ipcMain.handle(IpcChannel.PiInstall, async () => installPi())

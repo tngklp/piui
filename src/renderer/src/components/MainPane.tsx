@@ -1,4 +1,5 @@
 import { usePiUi } from '../store'
+import { ChangesView } from './ChangesView'
 import { ChatView } from './ChatView'
 import { EditorView } from './editor/EditorView'
 
@@ -8,6 +9,7 @@ export function MainPane() {
   const setMainTab = usePiUi((state) => state.setMainTab)
   const status = usePiUi((state) => state.status)
   const openFiles = usePiUi((state) => state.openFiles)
+  const changes = usePiUi((state) => state.changes)
   const rightOpen = usePiUi((state) => state.rightOpen)
   const toggleRight = usePiUi((state) => state.toggleRight)
 
@@ -35,6 +37,16 @@ export function MainPane() {
           >
             Editor
           </button>
+          <button
+            className={`t${mainTab === 'changes' ? ' on' : ''}`}
+            role="tab"
+            aria-selected={mainTab === 'changes'}
+            onClick={() => setMainTab('changes')}
+            title="Files the agent changed, waiting for review"
+          >
+            Changes
+            {changes.length > 0 ? <span className="t__count">{changes.length}</span> : null}
+          </button>
         </div>
 
         <span className="sp" />
@@ -54,7 +66,13 @@ export function MainPane() {
         )}
       </div>
 
-      {mainTab === 'editor' && openFiles.length > 0 ? <EditorView /> : <ChatView />}
+      {mainTab === 'editor' && openFiles.length > 0 ? (
+        <EditorView />
+      ) : mainTab === 'changes' ? (
+        <ChangesView />
+      ) : (
+        <ChatView />
+      )}
     </main>
   )
 }

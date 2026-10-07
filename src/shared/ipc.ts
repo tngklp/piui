@@ -50,6 +50,12 @@ export const IpcChannel = {
   FsCreate: 'piui:fs:create',
   /** Reveal a path in the operating system's file manager. */
   FsReveal: 'piui:fs:reveal',
+  /** Take back the last file operation the explorer performed. */
+  FsUndo: 'piui:fs:undo',
+  /** Files the agent has changed, for review. */
+  ChangesGet: 'piui:changes:get',
+  ChangesKeep: 'piui:changes:keep',
+  ChangesUndo: 'piui:changes:undo',
   /** Run the official installer for the `pi` CLI, which PiUI depends on. */
   PiInstall: 'piui:pi:install',
   /** Relaunch the app, for changes that only take effect on a fresh start. */
@@ -483,6 +489,8 @@ export interface FsFileDto {
 export interface FsResultDto {
   ok: boolean
   error: string | null
+  /** Set by an undo, describing what it reversed. */
+  label?: string
 }
 
 /** Outcome of running the pi installer. */
@@ -491,6 +499,19 @@ export interface PiInstallResultDto {
   /** The tail of the installer's output, shown when something went wrong. */
   output: string
   error: string | null
+}
+
+/** A file the agent changed, and what it would take to put it back. */
+export interface PendingChangeDto {
+  path: string
+  /** Workspace-relative path, for display. */
+  relative: string
+  /** True when the agent created the file rather than editing an existing one. */
+  created: boolean
+  /** Lines that differ, removed then added. */
+  diff: string
+  added: number
+  removed: number
 }
 
 /** One GPU as reported by nvidia-smi. */
@@ -674,6 +695,14 @@ export interface PiUiApi {
   installPi(): Promise<PiInstallResultDto>
   /** Restart PiUI. */
   relaunchApp(): Promise<void>
+  /** Take back the last file operation the explorer performed. */
+  undoFileOperation(): Promise<FsResultDto>
+  /** Files the agent has changed, still awaiting Keep or Undo. */
+  getChanges(): Promise<PendingChangeDto[]>
+  /** Accept one change, or every change when the path is null. */
+  keepChanges(path: string | null): Promise<PendingChangeDto[]>
+  /** Revert one change, or every change when the path is null. */
+  undoChanges(path: string | null): Promise<FsResultDto>
   /** Delete a saved session file. */
   deleteSession(path: string): Promise<void>
   /** Read the current monitor snapshot. */

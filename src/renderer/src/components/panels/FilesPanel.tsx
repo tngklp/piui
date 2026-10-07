@@ -1,4 +1,12 @@
-import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  Fragment,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode
+} from 'react'
 import type { FsEntryDto, FsListingDto, FsResultDto } from '@shared/ipc'
 import { fileIconUrl, folderIconUrl } from '../../lib/icon-packs'
 import { usePiUi } from '../../store'
@@ -186,6 +194,85 @@ export function FilesPanel() {
     setClipboardState(next)
   }
 
+  /** The entry the keyboard shortcuts act on, from the selected path. */
+  const selectedEntry = Object.values(listings)
+    .flatMap((listing) => listing.entries)
+    .find((entry) => entry.path === selectedFile)
+
+  /** The directory a drop or a paste should land in for the current selection. */
+  const targetDirectory = selectedEntry
+    ? selectedEntry.kind === 'directory'
+      ? selectedEntry.path
+      : parentOf(selectedEntry.path)
+    : root
+
+  const remember = (mode: 'copy' | 'cut', path: string, name: string): void => {
+    setClipboard({ mode, paths: [path] })
+    setNotice(`${mode === 'cut' ? 'Cut' : 'Copied'} ${name}`)
+  }
+
+  /** Take back the last file operation. */
+  const runUndo = async (): Promise<void> => {
+    const result = await window.piui.undoFileOperation()
+    setNotice(result.ok ? (result.label ?? 'Undone') : result.error)
+    if (result.ok) await refreshAll()
+  }
+
+  /**
+   * Explorer shortcuts, the ones an editor trains into you. Bound on the panel
+   * rather than the window, so Delete while typing a prompt is still Delete.
+   */
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>): void => {
+    // The inline rename box owns its own keys.
+    if (event.target instanceof HTMLInputElement) return
+    if (editing) return
+
+    const modified = event.ctrlKey || event.metaKey
+
+    if (modified && event.key.toLowerCase() === 'z') {
+      event.preventDefault()
+      void runUndo()
+      return
+    }
+
+    if (modified && event.key.toLowerCase() === 'c' && selectedEntry) {
+      event.preventDefault()
+      remember('copy', selectedEntry.path, selectedEntry.name)
+      return
+    }
+
+    if (modified && event.key.toLowerCase() === 'x' && selectedEntry) {
+      event.preventDefault()
+      remember('cut', selectedEntry.path, selectedEntry.name)
+      return
+    }
+
+    if (modified && event.key.toLowerCase() === 'v' && clipboard) {
+      event.preventDefault()
+      void pasteInto(targetDirectory)
+      return
+    }
+
+    if (!selectedEntry) return
+
+    if (event.key === 'Delete') {
+      event.preventDefault()
+      void beginDelete(selectedEntry)
+      return
+    }
+
+    if (event.key === 'F2') {
+      event.preventDefault()
+      setEditing({ mode: 'rename', path: selectedEntry.path, value: selectedEntry.name })
+      return
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      activate(selectedEntry)
+    }
+  }
+
   const commitEdit = async (current: Editing, value: string): Promise<void> => {
     const name = value.trim()
     setEditing(null)
@@ -227,92 +314,54 @@ export function FilesPanel() {
   /** The menu, which acts on the entry that was clicked or on the workspace root. */
   const menuItems = (state: MenuState): MenuItem[] => {
     const entry = state.entry
-    const directory = entry
-      ? entry.kind === 'directory'
-        ? entry.path
-        : parentOf(entry.path)
-      : root
 
-    const markClipboard = (mode: 'copy' | 'cut', path: string): void => {
-      setClipboard({ mode, paths: [path] })
+    // An entry's menu is about that entry. Creating files is a thing you do to a
+    // folder, so those items belong to the empty space and the directory rows.
+    if (entry) {
+      const directory = entry.kind === 'directory' ? entry.path : parentOf(entry.path)
+
+      return [
+        { label: 'Open', run: () => activate(entry) },
+        null,
+        { label: 'Cut', run: () => remember('cut', entry.path, entry.name) },
+        { label: 'Copy', run: () => remember('copy', entry.path, entry.name) },
+        {
+          label: 'Paste',
+          disabled: clipboardState === null,
+          run: () => void pasteInto(directory)
+        },
+        null,
+        {
+          label: 'Rename',
+          run: () => setEditing({ mode: 'rename', path: entry.path, value: entry.name })
+        },
+        { label: 'Delete', run: () => void beginDelete(entry) },
+        null,
+        { label: 'Copy Path', run: () => void copyText(entry.path) },
+        { label: 'Copy Relative Path', run: () => void copyText(relativeTo(entry.path)) },
+        null,
+        { label: 'Show in File Explorer', run: () => void window.piui.revealPath(entry.path) }
+      ]
     }
 
     return [
-      entry ? { label: 'Open', run: () => activate(entry) } : null,
-      null,
-      {
-        label: 'Cut',
-        disabled: !entry,
-        run: () => {
-          if (!entry) return
-          markClipboard('cut', entry.path)
-          setNotice(`Cut ${entry.name}`)
-        }
-      },
-      {
-        label: 'Copy',
-        disabled: !entry,
-        run: () => {
-          if (!entry) return
-          markClipboard('copy', entry.path)
-          setNotice(`Copied ${entry.name}`)
-        }
-      },
-      {
-        label: 'Paste',
-        disabled: clipboardState === null,
-        run: () => void pasteInto(directory)
-      },
-      null,
-      {
-        label: 'Rename',
-        disabled: !entry,
-        run: () => {
-          if (entry) setEditing({ mode: 'rename', path: entry.path, value: entry.name })
-        }
-      },
-      {
-        label: 'Delete',
-        disabled: !entry,
-        run: () => {
-          if (entry) void beginDelete(entry)
-        }
-      },
-      null,
       {
         label: 'New File',
         disabled: root.length === 0,
-        run: () => setEditing({ mode: 'create', parent: directory, kind: 'file', value: '' })
+        run: () => setEditing({ mode: 'create', parent: root, kind: 'file', value: '' })
       },
       {
         label: 'New Folder',
         disabled: root.length === 0,
-        run: () => setEditing({ mode: 'create', parent: directory, kind: 'directory', value: '' })
+        run: () => setEditing({ mode: 'create', parent: root, kind: 'directory', value: '' })
       },
       null,
       {
-        label: 'Copy Path',
-        disabled: !entry,
-        run: () => {
-          if (entry) void copyText(entry.path)
-        }
+        label: 'Paste',
+        disabled: clipboardState === null,
+        run: () => void pasteInto(root)
       },
-      {
-        label: 'Copy Relative Path',
-        disabled: !entry,
-        run: () => {
-          if (entry) void copyText(relativeTo(entry.path))
-        }
-      },
-      null,
-      {
-        label: 'Show in File Explorer',
-        disabled: !entry,
-        run: () => {
-          if (entry) void window.piui.revealPath(entry.path)
-        }
-      },
-      { label: 'Refresh', run: () => void refreshAll() }
+      { label: 'Undo', run: () => void runUndo() }
     ]
   }
 
@@ -404,9 +453,67 @@ export function FilesPanel() {
   }
 
   return (
-    <div>
+    <div className="fpane" tabIndex={0} onKeyDown={onKeyDown}>
       <div className="xh">
-        <span>{workspace?.name ?? 'No folder'}</span>
+        <span className="xh__name">{workspace?.name ?? 'No folder'}</span>
+
+        <span className="sp" />
+
+        <button
+          className="ibtn"
+          title="New file"
+          aria-label="New file"
+          disabled={root.length === 0}
+          onClick={() =>
+            setEditing({ mode: 'create', parent: targetDirectory, kind: 'file', value: '' })
+          }
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+            <path d="M9 1.5H4.5A1.5 1.5 0 003 3v10a1.5 1.5 0 001.5 1.5h7A1.5 1.5 0 0013 13V5.5L9 1.5Z" />
+            <path d="M8 12V7.5M5.75 9.75h4.5" strokeLinecap="round" />
+          </svg>
+        </button>
+
+        <button
+          className="ibtn"
+          title="New folder"
+          aria-label="New folder"
+          disabled={root.length === 0}
+          onClick={() =>
+            setEditing({ mode: 'create', parent: targetDirectory, kind: 'directory', value: '' })
+          }
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+            <path d="M1.5 12.5v-9A1.5 1.5 0 013 2h3l1.5 2h5A1.5 1.5 0 0114 5.5v7a1.5 1.5 0 01-1.5 1.5h-9.5A1.5 1.5 0 011.5 12.5Z" />
+            <path d="M8 11V7M5.75 9h4.5" strokeLinecap="round" />
+          </svg>
+        </button>
+
+        <button
+          className="ibtn"
+          title="Refresh the tree"
+          aria-label="Refresh"
+          onClick={() => void refreshAll()}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+            <path
+              d="M13 8a5 5 0 11-1.7-3.75M13 2v3h-3"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+
+        <button
+          className="ibtn"
+          title="Collapse all folders"
+          aria-label="Collapse all"
+          onClick={() => setExpanded(new Set())}
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor">
+            <path d="M4 6.5 8 2.5l4 4M4 9.5l4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       </div>
 
       <div

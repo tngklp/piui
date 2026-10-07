@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, net, protocol, shell } from 'electron'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import icon from '../../assets/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
+import { disposeUndoHistory } from './fs-ops'
 import { initSdk } from './pi/sdk'
 
 const preloadPath = fileURLToPath(new URL('../preload/index.mjs', import.meta.url))
@@ -132,4 +133,10 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+// Deleted files are parked so they can be restored; the parked copies only mean
+// anything while this process is alive to restore them.
+app.on('will-quit', () => {
+  void disposeUndoHistory()
 })

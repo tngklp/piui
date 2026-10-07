@@ -132,6 +132,12 @@ export function EditorView() {
   const load = useCallback(async (path: string) => {
     const file = await window.piui.readFile(path)
     if (file.error) {
+      // A file that is gone should take its tab with it, rather than sit there
+      // showing an error there is nothing to do about.
+      if (file.error.includes('ENOENT')) {
+        void usePiUi.getState().closeFile(path)
+        return
+      }
       setError(file.error)
       contents.set(path, '')
     } else {
@@ -186,7 +192,19 @@ export function EditorView() {
     }
 
     contents.set(path, outgoing)
-    await window.piui.writeFile(path, outgoing)
+    try {
+      await window.piui.writeFile(path, outgoing)
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : String(cause)
+      // The folder it lived in is gone, so no amount of retrying will help. The
+      // buffer stays dirty, and the tab closes with the file.
+      if (message.includes('ENOENT')) {
+        void usePiUi.getState().closeFile(path)
+        return
+      }
+      setError(`${path}: ${message}`)
+      return
+    }
     dirtyFiles.delete(path)
     setDirty((current) => ({ ...current, [path]: false }))
   }, [])
@@ -386,6 +404,31 @@ export function EditorView() {
     themeCompartment,
     layoutCompartment
   ])
+
+  /** Bumped when files are rewritten behind the editor's back, such as by an undo. */
+  const filesVersion = usePiUi((state) => state.filesVersion)
+
+  // An undo rewrites files on disk. Put the new contents into the live buffer, so
+  // the editor stops disagreeing with the disk — unless the buffer has unsaved
+  // edits, which are the user's and not ours to discard.
+  useEffect(() => {
+    if (filesVersion === 0) return
+    const view = viewRef.current
+    const path = usePiUi.getState().activeFile
+    if (!view || !path || dirtyFiles.has(path)) return
+
+    void (async () => {
+      const file = await window.piui.readFile(path)
+      if (file.error || viewRef.current !== view) return
+      if (view.state.doc.toString() === file.content) return
+
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: file.content } })
+      contents.set(path, file.content)
+      // The dispatch above marks the buffer dirty; it is not an edit of theirs.
+      dirtyFiles.delete(path)
+      setDirty((current) => ({ ...current, [path]: false }))
+    })()
+  }, [filesVersion])
 
   /** Ctrl+scroll zooms the editor, matching VS Code. */
   const onWheel = (event: WheelEvent<HTMLDivElement>): void => {

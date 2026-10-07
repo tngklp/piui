@@ -9,6 +9,7 @@ import type {
   ModelsConfigDto,
   MonitorSnapshotDto,
   NoticeDto,
+  PendingChangeDto,
   RuntimeInfoDto,
   SessionStatusDto,
   SessionSummaryDto,
@@ -25,7 +26,7 @@ import { loadUiPreferences, saveUiPreferences, type UiPreferences } from './lib/
 /** Right-hand panel views. */
 export type RightTab = 'files' | 'term' | 'mon'
 /** Main column views. */
-export type MainTab = 'chat' | 'editor'
+export type MainTab = 'chat' | 'editor' | 'changes'
 /** Settings sections. */
 export type SettingsTab = 'general' | 'customization' | 'models' | 'packages' | 'tools' | 'editor'
 /** Sidebar session filters. */
@@ -119,6 +120,13 @@ interface PiUiState {
   items: ChatItemDto[]
   streaming: StreamingState | null
   runningTools: RunningTool[]
+  /** Files the agent changed and nobody has reviewed yet. */
+  changes: PendingChangeDto[]
+  /**
+   * Bumped when files are rewritten behind the editor's back, so an open buffer
+   * can be re-read instead of quietly disagreeing with the disk.
+   */
+  filesVersion: number
   notices: (NoticeDto & { id: number })[]
   busy: boolean
   /** A dialog the agent or an extension is waiting on, if any. */
@@ -206,6 +214,12 @@ interface PiUiState {
   selectFile: (path: string | null) => void
   setMonitor: (snapshot: MonitorSnapshotDto | null) => void
   setMainTab: (tab: MainTab) => void
+  /** Re-read the list of files the agent changed. */
+  loadChanges: () => Promise<void>
+  /** Accept one change, or every change when the path is null. */
+  keepChanges: (path: string | null) => Promise<void>
+  /** Revert one change, or every change when the path is null. */
+  undoChanges: (path: string | null) => Promise<void>
   openFile: (path: string) => void
   closeFile: (path: string) => void
   setActiveFile: (path: string) => void
@@ -244,6 +258,8 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   items: [],
   streaming: null,
   runningTools: [],
+  changes: [],
+  filesVersion: 0,
   notices: [],
   busy: false,
   dialog: null,
@@ -456,12 +472,15 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
           )
         }))
         void get().refresh()
+        // A tool that writes a file adds it to the Changes tab.
+        void get().loadChanges()
         break
 
       case 'agent_settled':
         set({ streaming: null, runningTools: [], busy: false })
         void get().refresh()
         void get().loadSessions()
+        void get().loadChanges()
         break
       case 'queue_update':
         set((state) => ({
@@ -680,6 +699,34 @@ export const usePiUi = create<PiUiState>()((set, get) => ({
   setMonitor: (snapshot) => set({ monitor: snapshot }),
 
   setMainTab: (tab) => set({ mainTab: tab }),
+
+  loadChanges: async () => {
+    try {
+      set({ changes: await window.piui.getChanges() })
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    }
+  },
+
+  keepChanges: async (path) => {
+    try {
+      set({ changes: await window.piui.keepChanges(path) })
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    }
+  },
+
+  undoChanges: async (path) => {
+    try {
+      const result = await window.piui.undoChanges(path)
+      if (result.error) set({ error: result.error })
+      // Files were rewritten on disk, so any buffer showing one is now stale.
+      set((state) => ({ changes: state.changes, filesVersion: state.filesVersion + 1 }))
+      set({ changes: await window.piui.getChanges() })
+    } catch (cause) {
+      set({ error: describeError(cause) })
+    }
+  },
 
   openFile: (path) =>
     set((state) => ({

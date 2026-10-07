@@ -10,8 +10,22 @@ published without an entry here.
 
 ## [Unreleased]
 
+### Added
+
+- **A Changes tab**, next to the editor, listing every file the agent has written. Each file shows
+  what changed and carries **Keep** and **Undo**; the bar carries them for the whole list. Undo
+  returns a file to how it was before the agent first touched it, so it still does the right thing
+  after several edits have landed.
+- **Explorer keyboard shortcuts**: `Delete` removes the selected file, `F2` renames it, `Enter`
+  opens it, and `Ctrl+C`, `Ctrl+X`, `Ctrl+V` and `Ctrl+Z` copy, cut, paste and undo.
+- **A toolbar** at the top of the file explorer with New File, New Folder, Refresh and Collapse All.
+- **`Ctrl+Z` in the explorer** takes back the last file operation, including a delete: removed files
+  are parked until the app exits rather than erased, so a delete can be undone.
+
 ### Changed
 
+- The explorer's context menu no longer offers Refresh. New File and New Folder moved to the menu
+  that opens on empty space — creating a file is something you do to a folder, not to a file.
 - **Updates install themselves.** Restarting from the update prompt now runs the installer silently
   and reopens PiUI, instead of putting the setup wizard in front of you. The download also starts on
   its own as soon as an update is offered, so pressing the button is all that is left.
@@ -20,6 +34,9 @@ published without an entry here.
 
 ### Fixed
 
+- Deleting a file that is open in the editor no longer leaves a tab complaining about
+  `ENOENT: no such file or directory`. The tab closes instead, which is also what happens when the
+  agent or another program removes the file.
 - The update prompt no longer shows the changelog as raw markup. The notes arrived as HTML from the
   GitHub releases feed, because the update feed carried none of its own; the release workflow now
   writes them into it.
